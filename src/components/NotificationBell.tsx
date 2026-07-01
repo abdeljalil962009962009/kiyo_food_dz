@@ -13,6 +13,7 @@ const TYPE_ICONS: Record<string, string> = {
   order_cancelled: '❌',
   order_failed_delivery: '⚠️',
   order_refunded: '💰',
+  support_reply: '💬',
   new_restaurant: '🏪',
   high_cancellation: '📊',
   failed_order: '🔴',

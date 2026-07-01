@@ -18,7 +18,10 @@ const restaurantIcon = L.divIcon({
   iconAnchor: [11, 11],
 });
 
-const CONSTANTINE: [number, number] = [36.365, 6.6147];
+// Default map center: approximate geographic center of Algeria
+// This is only used as a fallback when restaurant coordinates are not available
+// Restaurants should always have coordinates set during onboarding
+const ALGERIA_CENTER: [number, number] = [28.0, 2.0];
 
 /**
  * Haversine distance in km between two [lat,lng] points.
@@ -208,7 +211,7 @@ export default function DeliveryMap({
       {/* The map */}
       <div className="relative h-72 w-full overflow-hidden rounded-xl border border-ink-200 sm:h-80">
         <MapContainer
-          center={restaurantLat && restaurantLng ? [restaurantLat, restaurantLng] : CONSTANTINE}
+          center={restaurantLat && restaurantLng ? [restaurantLat, restaurantLng] : ALGERIA_CENTER}
           zoom={13}
           scrollWheelZoom={false}
           className="h-full w-full"
