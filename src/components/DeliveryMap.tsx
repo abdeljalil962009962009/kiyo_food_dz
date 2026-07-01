@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { MapPin, Locate, Search, AlertTriangle } from 'lucide-react';
@@ -22,6 +22,16 @@ const restaurantIcon = L.divIcon({
 // This is only used as a fallback when restaurant coordinates are not available
 // Restaurants should always have coordinates set during onboarding
 const ALGERIA_CENTER: [number, number] = [28.0, 2.0];
+
+// Debounce helper to avoid spamming Nominatim (ToS requires max 1 req/sec)
+function useDebounce<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debounced;
+}
 
 /**
  * Haversine distance in km between two [lat,lng] points.
@@ -69,6 +79,7 @@ export default function DeliveryMap({
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
   const mapRef = useRef<L.Map | null>(null);
+  const lastGeocodeRef = useRef<number>(0);
 
   const distanceKm = useMemo(() => {
     if (!pin || !restaurantLat || !restaurantLng) return null;
@@ -78,7 +89,15 @@ export default function DeliveryMap({
   const outOfZone = !!distanceKm && !!maxDeliveryKm && distanceKm > maxDeliveryKm;
 
   // Reverse-geocode a [lat,lng] to a readable address (free Nominatim).
-  const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
+  // Rate-limited to max 1 request per second (Nominatim ToS).
+  const reverseGeocode = useCallback(async (lat: number, lng: number): Promise<string> => {
+    const now = Date.now();
+    const elapsed = now - lastGeocodeRef.current;
+    if (elapsed < 1100) {
+      await new Promise((r) => setTimeout(r, 1100 - elapsed));
+    }
+    lastGeocodeRef.current = Date.now();
+
     try {
       const res = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
@@ -90,10 +109,18 @@ export default function DeliveryMap({
     } catch {
       return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
     }
-  };
+  }, []);
 
   // Forward-geocode a typed address to [lat,lng] (free Nominatim).
-  const forwardGeocode = async (query: string): Promise<[number, number] | null> => {
+  // Rate-limited to max 1 request per second (Nominatim ToS).
+  const forwardGeocode = useCallback(async (query: string): Promise<[number, number] | null> => {
+    const now = Date.now();
+    const elapsed = now - lastGeocodeRef.current;
+    if (elapsed < 1100) {
+      await new Promise((r) => setTimeout(r, 1100 - elapsed));
+    }
+    lastGeocodeRef.current = Date.now();
+
     try {
       const res = await fetch(
         `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(query)}&limit=1`,
@@ -106,7 +133,7 @@ export default function DeliveryMap({
     } catch {
       return null;
     }
-  };
+  }, []);
 
   // Locate user via GPS. Gracefully handles permission denial or unsupported devices.
   const useGps = () => {

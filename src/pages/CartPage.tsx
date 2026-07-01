@@ -61,9 +61,9 @@ export default function CartPage() {
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
-                <PriceTag value={line.item.price} />
+                <PriceTag value={line.unitPriceSnapshot} />
                 {line.notes && (
-                  <p className="mt-1 text-xs italic text-ink-400">“{line.notes}”</p>
+                  <p className="mt-1 text-xs italic text-ink-400">"{line.notes}"</p>
                 )}
               </div>
               <div className="flex items-center gap-1 rounded-lg border border-ink-200 bg-white p-0.5">
@@ -71,7 +71,7 @@ export default function CartPage() {
                   onClick={() => setQuantity(line.item.id, line.quantity - 1)}
                   className="flex h-7 w-7 items-center justify-center rounded-md text-ink-700 hover:bg-ink-100"
                   aria-label="decrease"
-                >–</button>
+                >-</button>
                 <span className="min-w-6 text-center text-sm font-semibold text-ink-900">
                   {line.quantity}
                 </span>
@@ -82,7 +82,7 @@ export default function CartPage() {
                 >+</button>
               </div>
               <div className="w-20 text-right">
-                <PriceTag value={Number(line.item.price) * line.quantity} />
+                <PriceTag value={line.unitPriceSnapshot * line.quantity} />
               </div>
             </div>
           ))}

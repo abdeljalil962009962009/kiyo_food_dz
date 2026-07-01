@@ -214,7 +214,13 @@ export type TranslationKey =
   | 'admin.approve'
   | 'admin.reject'
   | 'admin.pendingApproval'
-  | 'admin.noPending';
+  | 'admin.noPending'
+  // wilaya
+  | 'wilaya.select'
+  | 'wilaya.searchPlaceholder'
+  | 'wilaya.detectLocation'
+  | 'wilaya.detecting'
+  | 'wilaya.noResults';
 
 type Dict = Record<TranslationKey, string>;
 
@@ -424,6 +430,11 @@ const en: Dict = {
   'admin.reject': 'Reject',
   'admin.pendingApproval': 'Pending approval',
   'admin.noPending': 'No restaurants awaiting approval.',
+  'wilaya.select': 'Select wilaya',
+  'wilaya.searchPlaceholder': 'Search wilayas…',
+  'wilaya.detectLocation': 'Detect my location',
+  'wilaya.detecting': 'Detecting…',
+  'wilaya.noResults': 'No wilayas found.',
 };
 
 const fr: Dict = {
@@ -632,6 +643,11 @@ const fr: Dict = {
   'admin.reject': 'Rejeter',
   'admin.pendingApproval': 'En attente',
   'admin.noPending': 'Aucune demande en attente.',
+  'wilaya.select': 'Sélectionner wilaya',
+  'wilaya.searchPlaceholder': 'Rechercher une wilaya…',
+  'wilaya.detectLocation': 'Détecter ma position',
+  'wilaya.detecting': 'Détection…',
+  'wilaya.noResults': 'Aucune wilaya trouvée.',
 };
 
 const ar: Dict = {
@@ -840,6 +856,11 @@ const ar: Dict = {
   'admin.reject': 'رفض',
   'admin.pendingApproval': 'بانتظار الموافقة',
   'admin.noPending': 'لا توجد مطاعم بانتظار الموافقة.',
+  'wilaya.select': 'اختر الولاية',
+  'wilaya.searchPlaceholder': 'ابحث عن ولاية…',
+  'wilaya.detectLocation': 'تحديد موقعي',
+  'wilaya.detecting': 'جاري التحديد…',
+  'wilaya.noResults': 'لم تُوجد ولاية.',
 };
 
 const dicts: Record<Locale, Dict> = { en, fr, ar };

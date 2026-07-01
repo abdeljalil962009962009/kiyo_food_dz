@@ -8,6 +8,7 @@ export type CartLine = {
   item: MenuItem;
   quantity: number;
   notes?: string;
+  unitPriceSnapshot: number;
 };
 
 type CartState = {
@@ -17,7 +18,7 @@ type CartState = {
 };
 
 type CartAction =
-  | { type: 'ADD'; item: MenuItem; quantity?: number; notes?: string }
+  | { type: 'ADD'; item: MenuItem; quantity?: number; notes?: string; unitPriceSnapshot: number }
   | { type: 'REMOVE'; itemId: string }
   | { type: 'SET_QTY'; itemId: string; quantity: number }
   | { type: 'SET_NOTES'; itemId: string; notes: string }
@@ -42,7 +43,7 @@ function reducer(state: CartState, action: CartAction): CartState {
           restaurantId: action.item.restaurant_id,
           restaurantName: null,
           lines: [
-            { item: action.item, quantity: action.quantity ?? 1, notes: action.notes },
+            { item: action.item, quantity: action.quantity ?? 1, notes: action.notes, unitPriceSnapshot: action.unitPriceSnapshot },
           ],
         };
       }
@@ -62,7 +63,7 @@ function reducer(state: CartState, action: CartAction): CartState {
         restaurantId: action.item.restaurant_id,
         lines: [
           ...state.lines,
-          { item: action.item, quantity: action.quantity ?? 1, notes: action.notes },
+          { item: action.item, quantity: action.quantity ?? 1, notes: action.notes, unitPriceSnapshot: action.unitPriceSnapshot },
         ],
       };
     }
@@ -143,7 +144,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [state]);
 
   const addItem = useCallback((item: MenuItem, quantity?: number, notes?: string) => {
-    dispatch({ type: 'ADD', item, quantity, notes });
+    dispatch({ type: 'ADD', item, quantity, notes, unitPriceSnapshot: Number(item.price) });
   }, []);
   const removeItem = useCallback((itemId: string) => dispatch({ type: 'REMOVE', itemId }), []);
   const setQuantity = useCallback((itemId: string, quantity: number) =>
@@ -156,7 +157,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const totalItems = state.lines.reduce((sum, l) => sum + l.quantity, 0);
   const subtotal = state.lines.reduce(
-    (sum, l) => sum + Number(l.item.price) * l.quantity,
+    (sum, l) => sum + l.unitPriceSnapshot * l.quantity,
     0,
   );
 

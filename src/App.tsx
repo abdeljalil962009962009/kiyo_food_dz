@@ -6,6 +6,7 @@ import {
 } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
+import { WilayaProvider } from './context/WilayaContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { FullScreenLoader } from './components/feedback';
 import { SettingsProvider } from './context/SettingsContext';
@@ -104,12 +105,23 @@ export default function App() {
     <ErrorBoundary variant="page">
       <AuthProvider>
         <SettingsProvider>
-          <CartProvider>
-            <RouterProvider router={router} />
-            <CookieConsentBanner />
-          </CartProvider>
+          <WilayaProviderBridge>
+            <CartProvider>
+              <RouterProvider router={router} />
+              <CookieConsentBanner />
+            </CartProvider>
+          </WilayaProviderBridge>
         </SettingsProvider>
       </AuthProvider>
     </ErrorBoundary>
+  );
+}
+
+function WilayaProviderBridge({ children }: { children: React.ReactNode }) {
+  const { locale } = useAuth();
+  return (
+    <WilayaProvider locale={locale}>
+      {children}
+    </WilayaProvider>
   );
 }

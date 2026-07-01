@@ -3,13 +3,16 @@ import { Link } from 'react-router-dom';
 import { Search, Star, Clock, MapPin } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
 import { supabase, type Restaurant } from '../lib/supabase';
+import { useWilaya, getWilayaName } from '../context/WilayaContext';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { ErrorState } from '../components/feedback';
 import { RestaurantImage } from '../components/ui';
+import { WilayaSelector } from '../components/WilayaSelector';
 
 export default function RestaurantsPage() {
   const { t } = useT();
+  const { selectedWilaya, loading: wilayaLoading, locale } = useWilaya();
   const [items, setItems] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -20,12 +23,16 @@ export default function RestaurantsPage() {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: e } = await supabase
+      let q = supabase
         .from('restaurants')
         .select('*')
-        .eq('status', 'published')
-        .order('rating', { ascending: false })
-        .limit(50);
+        .eq('status', 'published');
+
+      if (selectedWilaya) {
+        q = q.eq('wilaya_id', selectedWilaya.id);
+      }
+
+      const { data, error: e } = await q.order('rating', { ascending: false }).limit(50);
       if (e) throw e;
       setItems((data as Restaurant[]) ?? []);
     } catch {
@@ -35,7 +42,12 @@ export default function RestaurantsPage() {
     }
   };
 
-  useEffect(() => { void load(); /* eslint-disable-next-line */ }, []);
+  useEffect(() => {
+    if (!wilayaLoading) {
+      void load();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedWilaya?.id, wilayaLoading]);
 
   const filtered = useMemo(() => {
     let list = items;
@@ -54,11 +66,16 @@ export default function RestaurantsPage() {
 
   return (
     <AppShell>
-      <div className="mb-5">
-        <h1 className="font-display text-2xl font-extrabold tracking-tight text-ink-900 sm:text-3xl">
-          {t('market.browse')}
-        </h1>
-        <p className="mt-1 text-sm text-ink-500">{t('brand.areaServed')}</p>
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="font-display text-2xl font-extrabold tracking-tight text-ink-900 sm:text-3xl">
+            {t('market.browse')}
+          </h1>
+          <p className="mt-1 text-sm text-ink-500">
+            {selectedWilaya ? getWilayaName(selectedWilaya, locale) : t('brand.areaServed')}
+          </p>
+        </div>
+        <WilayaSelector />
       </div>
 
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center">
