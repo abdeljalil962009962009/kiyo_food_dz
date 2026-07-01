@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Premium dark rounded tile -->
+  <rect width="64" height="64" rx="14" fill="#141412"/>
+  <rect x="0.5" y="0.5" width="63" height="63" rx="13.5" fill="none" stroke="#2a2a26" stroke-width="1"/>
+
+  <!-- Stylized orange "K":
+       vertical stroke  = knife blade (tapered, pointed tip)
+       diagonal strokes = broken fork tines (intentional gap reads as "broken") -->
+  <g fill="#ea580c">
+
+    <!-- Knife blade: vertical spine of the K, tapered -->
+    <path d="M20 11 L25 9 L25 43 L23 47 L20 45 L20 11 Z"/>
+
+    <!-- Knife handle: small grip below the blade base -->
+    <rect x="19" y="47" width="7" height="8" rx="1.5"/>
+    <!-- Handle rivet -->
+    <circle cx="22.5" cy="51" r="1.4" fill="#141412"/>
+
+    <!-- Broken fork — upper diagonal (tine), separated from lower by a 3px gap -->
+    <path d="M27 24 L43 12 L46 14 L30 27 Z"/>
+
+    <!-- Broken fork — lower diagonal (tine), with the "broken" gap -->
+    <path d="M30 34 L46 52 L43 54 L27 37 Z"/>
+
+  </g>
+
+  <!-- Subtle brand accent dot -->
+  <circle cx="47" cy="15" r="2.2" fill="#f97316"/>
+</svg>
