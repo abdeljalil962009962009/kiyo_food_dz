@@ -1,6 +1,26 @@
 import type { JSX } from 'react';
 import type { OrderStatus } from '../lib/supabase';
 
+// Currency configuration - centralized for multi-currency support
+// Default currency is DZD (Algerian Dinar), but architecture supports future expansion
+const CURRENCY_CONFIG = {
+  code: 'DZD',
+  symbol: 'DA',
+  name: 'Algerian Dinar',
+  decimals: 2,
+  format: (amount: number) => `${amount.toFixed(0)} DA`,
+};
+
+export function formatCurrency(amount: number | string, _currencyCode?: string): string {
+  const n = typeof amount === 'string' ? parseFloat(amount) : amount;
+  // For now, only DZD is supported. Future: lookup config by currencyCode
+  return CURRENCY_CONFIG.format(n);
+}
+
+export function getCurrencySymbol(): string {
+  return CURRENCY_CONFIG.symbol;
+}
+
 export function StatusBadge({ status }: { status: OrderStatus }) {
   const styles: Record<OrderStatus, string> = {
     pending: 'bg-warning-500/15 text-warning-600',
@@ -33,11 +53,11 @@ export function StatusBadge({ status }: { status: OrderStatus }) {
 }
 
 export function PriceTag({ value }: { value: number | string }) {
-  const n = typeof value === 'string' ? value : value.toFixed(0);
+  const n = typeof value === 'string' ? parseFloat(value) : value;
   return (
     <span className="font-display font-semibold text-ink-900">
-      {n}
-      <span className="ml-0.5 text-xs font-medium text-ink-400">DZD</span>
+      {n.toFixed(0)}
+      <span className="ml-0.5 text-xs font-medium text-ink-400">{getCurrencySymbol()}</span>
     </span>
   );
 }

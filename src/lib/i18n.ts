@@ -3,6 +3,22 @@ export type Locale = 'en' | 'fr' | 'ar';
 export type TranslationKey =
   | 'brand.name'
   | 'brand.tagline'
+  | 'brand.heroSubtitle'
+  | 'brand.heroFeature1Title'
+  | 'brand.heroFeature1Desc'
+  | 'brand.heroFeature2Title'
+  | 'brand.heroFeature2Desc'
+  | 'brand.heroFeature3Title'
+  | 'brand.heroFeature3Desc'
+  | 'brand.heroFeature4Title'
+  | 'brand.heroFeature4Desc'
+  | 'brand.heroFeature5Title'
+  | 'brand.heroFeature5Desc'
+  | 'brand.heroFeature6Title'
+  | 'brand.heroFeature6Desc'
+  | 'brand.whyKiyo'
+  | 'brand.seoDescription'
+  | 'brand.areaServed'
   // auth
   | 'auth.login'
   | 'auth.signup'
@@ -205,6 +221,22 @@ type Dict = Record<TranslationKey, string>;
 const en: Dict = {
   'brand.name': 'Kiyo Food',
   'brand.tagline': 'Local flavor, delivered.',
+  'brand.heroSubtitle': 'Order from the best restaurants across Algeria with Kiyo Food. Fast delivery, transparent prices, cash on delivery.',
+  'brand.heroFeature1Title': 'Fast delivery',
+  'brand.heroFeature1Desc': 'Your favorite dishes delivered hot and fresh, anywhere in your city.',
+  'brand.heroFeature2Title': 'Verified restaurants',
+  'brand.heroFeature2Desc': 'All our partners are selected and verified for quality.',
+  'brand.heroFeature3Title': 'Transparent prices',
+  'brand.heroFeature3Desc': 'No hidden fees. You see exactly what you pay.',
+  'brand.heroFeature4Title': 'Cash on delivery',
+  'brand.heroFeature4Desc': 'Pay in cash when you receive your order.',
+  'brand.heroFeature5Title': 'Local marketplace',
+  'brand.heroFeature5Desc': 'A platform designed for Algeria, by and for Algerians.',
+  'brand.heroFeature6Title': 'Easy ordering',
+  'brand.heroFeature6Desc': 'A few taps and your meal is on its way. Simple, fast, reliable.',
+  'brand.whyKiyo': 'Why choose Kiyo Food?',
+  'brand.seoDescription': 'Algerian food delivery marketplace. Fast delivery, transparent prices, cash on delivery.',
+  'brand.areaServed': 'Algeria',
   'auth.login': 'Sign in',
   'auth.signup': 'Create account',
   'auth.logout': 'Sign out',
@@ -397,6 +429,22 @@ const en: Dict = {
 const fr: Dict = {
   'brand.name': 'Kiyo Food',
   'brand.tagline': 'Saveurs locales, livrées.',
+  'brand.heroSubtitle': 'Commandez auprès des meilleurs restaurants d\'Algérie avec Kiyo Food. Livraison rapide, prix transparents, paiement à la livraison.',
+  'brand.heroFeature1Title': 'Livraison rapide',
+  'brand.heroFeature1Desc': 'Vos plats préférés livrés chauds, rapidement, partout dans votre ville.',
+  'brand.heroFeature2Title': 'Restaurants vérifiés',
+  'brand.heroFeature2Desc': 'Tous nos partenaires sont sélectionnés et vérifiés pour la qualité.',
+  'brand.heroFeature3Title': 'Prix transparents',
+  'brand.heroFeature3Desc': 'Pas de frais cachés. Vous voyez exactement ce que vous payez.',
+  'brand.heroFeature4Title': 'Paiement à la livraison',
+  'brand.heroFeature4Desc': 'Payez en espèces à la réception de votre commande.',
+  'brand.heroFeature5Title': 'Plateforme locale',
+  'brand.heroFeature5Desc': 'Une plateforme conçue pour l\'Algérie, par et pour les Algériens.',
+  'brand.heroFeature6Title': 'Commande facile',
+  'brand.heroFeature6Desc': 'Quelques taps et votre repas est en route. Simple, rapide, fiable.',
+  'brand.whyKiyo': 'Pourquoi choisir Kiyo Food ?',
+  'brand.seoDescription': 'Plateforme de livraison de repas en Algérie. Livraison rapide, prix transparents, paiement à la livraison.',
+  'brand.areaServed': 'Algérie',
   'auth.login': 'Se connecter',
   'auth.signup': 'Créer un compte',
   'auth.logout': 'Se déconnecter',
@@ -589,6 +637,22 @@ const fr: Dict = {
 const ar: Dict = {
   'brand.name': 'كيو',
   'brand.tagline': 'نكهات محلية، تُوصَل إليك.',
+  'brand.heroSubtitle': 'اطلب من أفضل المطاعم في الجزائر مع كيو. توصيل سريع، أسعار شفافة، الدفع عند الاستلام.',
+  'brand.heroFeature1Title': 'توصيل سريع',
+  'brand.heroFeature1Desc': 'أطباقك المفضلة تصل ساخنة، بسرعة، في أي مكان بمدينتك.',
+  'brand.heroFeature2Title': 'مطاعم موثوقة',
+  'brand.heroFeature2Desc': 'جميع شركائنا مختارون وموثوقون للجودة.',
+  'brand.heroFeature3Title': 'أسعار شفافة',
+  'brand.heroFeature3Desc': 'بدون رسوم خفية. ترى بالضبط ما تدفعه.',
+  'brand.heroFeature4Title': 'الدفع عند الاستلام',
+  'brand.heroFeature4Desc': 'ادفع نقداً عند استلام طلبك.',
+  'brand.heroFeature5Title': 'منصة محلية',
+  'brand.heroFeature5Desc': 'منصة مصممة للجزائر، من وإجل الجزائريين.',
+  'brand.heroFeature6Title': 'طلب سهل',
+  'brand.heroFeature6Desc': 'بضع نقرات ووجبتك في الطريق. بسيط، سريع، موثوق.',
+  'brand.whyKiyo': 'لماذا تختار كيو؟',
+  'brand.seoDescription': 'منصة توصيل الطعام الجزائرية. توصيل سريع، أسعار شفافة، الدفع عند الاستلام.',
+  'brand.areaServed': 'الجزائر',
   'auth.login': 'تسجيل الدخول',
   'auth.signup': 'إنشاء حساب',
   'auth.logout': 'تسجيل الخروج',

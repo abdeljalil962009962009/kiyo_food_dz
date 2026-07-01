@@ -34,6 +34,7 @@ export type Profile = {
   phone: string | null;
   role: UserRole;
   preferred_language: 'en' | 'fr' | 'ar';
+  selected_wilaya_id: number | null;
   failed_login_attempts: number;
   locked_until: string | null;
   is_suspended: boolean;
@@ -41,6 +42,17 @@ export type Profile = {
   suspended_at: string | null;
   last_login_at: string | null;
   last_login_ip: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Wilaya = {
+  id: number;
+  name_en: string;
+  name_fr: string;
+  name_ar: string;
+  code: string;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -55,7 +67,8 @@ export type Restaurant = {
   description: string | null;
   phone: string | null;
   address: string | null;
-  city: string;
+  city: string | null;
+  wilaya_id: number | null;
   status: RestaurantStatus;
   operational_status: 'open' | 'closed' | 'busy';
   is_vacation_mode: boolean;

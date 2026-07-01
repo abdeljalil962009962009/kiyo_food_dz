@@ -30,14 +30,13 @@ export function HomePage() {
 
       <main className="relative mx-auto flex max-w-6xl flex-col items-start px-4 pb-20 pt-16 sm:pt-24">
         <p className="text-sm font-medium uppercase tracking-wide text-ember-400">
-          Constantine
+          {t('brand.name')}
         </p>
         <h1 className="mt-2 max-w-2xl font-display text-4xl font-extrabold leading-tight sm:text-6xl">
           {t('brand.tagline')}
         </h1>
         <p className="mt-4 max-w-md text-sm text-ink-200 sm:text-base">
-          Commandez auprès des meilleurs restaurants de Constantine avec Kiyo Food.
-          Livraison rapide, prix transparents, paiement à la livraison.
+          {t('brand.heroSubtitle')}
         </p>
         <div className="mt-6 flex gap-3">
           <Link to="/signup" className="kiyo-btn-primary bg-ember-500 hover:bg-ember-600">
@@ -54,38 +53,38 @@ export function HomePage() {
         {/* Why Choose Kiyo Food */}
         <div className="mt-16 w-full">
           <h2 className="font-display text-2xl font-extrabold tracking-tight sm:text-3xl">
-            Pourquoi choisir Kiyo Food ?
+            {t('brand.whyKiyo')}
           </h2>
           <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <FeatureCard
               icon={Zap}
-              title="Livraison rapide"
-              desc="Vos plats préférés livrés chauds, rapidement, partout à Constantine."
+              title={t('brand.heroFeature1Title')}
+              desc={t('brand.heroFeature1Desc')}
             />
             <FeatureCard
               icon={ShieldCheck}
-              title="Restaurants vérifiés"
-              desc="Tous nos partenaires sont sélectionnés et vérifiés pour la qualité."
+              title={t('brand.heroFeature2Title')}
+              desc={t('brand.heroFeature2Desc')}
             />
             <FeatureCard
               icon={Tag}
-              title="Prix transparents"
-              desc="Pas de frais cachés. Vous voyez exactement ce que vous payez."
+              title={t('brand.heroFeature3Title')}
+              desc={t('brand.heroFeature3Desc')}
             />
             <FeatureCard
               icon={Wallet}
-              title="Paiement à la livraison"
-              desc="Payez en espèces à la réception de votre commande."
+              title={t('brand.heroFeature4Title')}
+              desc={t('brand.heroFeature4Desc')}
             />
             <FeatureCard
               icon={MapPin}
-              title="Plateforme locale"
-              desc="Une plateforme conçue pour Constantine, par et pour les Constantinois."
+              title={t('brand.heroFeature5Title')}
+              desc={t('brand.heroFeature5Desc')}
             />
             <FeatureCard
               icon={ArrowRight}
-              title="Commande facile"
-              desc="Quelques taps et votre repas est en route. Simple, rapide, fiable."
+              title={t('brand.heroFeature6Title')}
+              desc={t('brand.heroFeature6Desc')}
             />
           </div>
         </div>
@@ -106,8 +105,8 @@ export function HomePage() {
         '@context': 'https://schema.org',
         '@type': 'FoodEstablishment',
         name: 'Kiyo Food',
-        description: 'Livraison de repas locale à Constantine. Livraison rapide, prix transparents, paiement à la livraison.',
-        areaServed: 'Constantine, Algeria',
+        description: t('brand.seoDescription'),
+        areaServed: t('brand.areaServed'),
         servesCuisine: ['Algerian', 'Fast Food', 'International'],
         url: 'https://kiyo.food',
       }) }} />

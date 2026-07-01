@@ -74,12 +74,10 @@ async function fetchProfileWithRetry(
 // First-insert bootstrap: in case the on_auth_user_created trigger hasn't
 // populated the profile yet (replication lag, OAuth signup, etc.), attempt
 // an insert keyed on the auth user id.
+// Note: Super admin promotion is handled via admin_configuration table.
 async function ensureProfileExists(client: SupabaseClient, user: User): Promise<void> {
   const meta = user.user_metadata ?? {};
-  const role =
-    user.email === 'abdeljalilaldjaber@gmail.com'
-      ? 'super_admin'
-      : (meta.role as Profile['role']) ?? 'customer';
+  const role = (meta.role as Profile['role']) ?? 'customer';
   const insert = {
     id: user.id,
     email: user.email ?? '',

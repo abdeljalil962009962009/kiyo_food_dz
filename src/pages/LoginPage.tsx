@@ -149,7 +149,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
             Local flavor,<br />delivered.
           </h2>
           <p className="mt-3 max-w-sm text-sm text-ink-200">
-            Kiyo connects you with the best restaurants in Constantine — fast, premium, and reliable.
+            Kiyo connects you with the best restaurants across Algeria — fast, premium, and reliable.
           </p>
         </div>
         <div className="relative text-xs text-ink-400">© {new Date().getFullYear()} Kiyo</div>

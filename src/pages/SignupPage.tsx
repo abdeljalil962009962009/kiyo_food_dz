@@ -37,8 +37,7 @@ export default function SignupPage() {
     if (!acceptTerms) return setLocalError(t('auth.error.acceptTerms'));
 
     setSubmitting(true);
-    // Note: abdeljalilaldjaber@gmail.com is auto-promoted to super_admin
-    // server-side regardless of the chosen role (handle_new_user trigger).
+    // Note: Super admin accounts are managed via the admin panel, not during signup.
     const { ok } = await signUp(email.trim(), password, fullName.trim(), role);
     setSubmitting(false);
     if (ok) {

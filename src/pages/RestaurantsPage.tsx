@@ -58,7 +58,7 @@ export default function RestaurantsPage() {
         <h1 className="font-display text-2xl font-extrabold tracking-tight text-ink-900 sm:text-3xl">
           {t('market.browse')}
         </h1>
-        <p className="mt-1 text-sm text-ink-500">Constantine</p>
+        <p className="mt-1 text-sm text-ink-500">{t('brand.areaServed')}</p>
       </div>
 
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center">
