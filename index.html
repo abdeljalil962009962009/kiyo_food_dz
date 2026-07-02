@@ -38,6 +38,53 @@
     <meta name="twitter:title" content="Kiyo Food" />
     <meta name="twitter:description" content="Algerian food delivery marketplace. Fast delivery, transparent prices." />
 
+    <!-- Structured Data (JSON-LD) for SEO -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "Kiyo Food",
+      "url": "https://kiyo.food/",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://kiyo.food/restaurants?q={search_term_string}",
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Kiyo Food",
+      "url": "https://kiyo.food/",
+      "logo": "https://kiyo.food/icons/icon-512x512.png",
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "contactType": "customer service",
+        "availableLanguage": ["Arabic", "French", "English"]
+      },
+      "sameAs": []
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FoodService",
+      "name": "Kiyo Food",
+      "description": "Algerian food delivery marketplace connecting customers with local restaurants",
+      "serviceType": "Food Delivery",
+      "areaServed": {
+        "@type": "Country",
+        "name": "Algeria"
+      },
+      "provider": {
+        "@type": "Organization",
+        "name": "Kiyo Food"
+      }
+    }
+    </script>
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -46,5 +93,13 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Register Service Worker for PWA
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+    </script>
   </body>
 </html>

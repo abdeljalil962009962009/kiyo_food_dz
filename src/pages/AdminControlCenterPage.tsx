@@ -3,7 +3,7 @@ import {
   DollarSign, Users, Store, ShoppingBag, TrendingUp, AlertTriangle,
   CheckCircle, Clock, Ban, ShieldCheck, Star, Settings, Activity,
   Download, ChevronRight, Search, BadgeCheck, Sparkles, Tag, FileText,
-  MessageCircle, Send, ChevronLeft, Package, MapPin,
+  MessageCircle, Send, ChevronLeft, Package, MapPin, Server,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useT } from '../lib/i18n-react';
@@ -12,6 +12,7 @@ import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Skeleton, ErrorState, Spinner } from '../components/feedback';
 import { RestaurantImage } from '../components/ui';
+import { PlatformHealthPanel } from '../components/PlatformHealth';
 
 type Analytics = {
   revenue: { today: number; this_week: number; this_month: number; this_year: number; all_time: number };
@@ -1509,15 +1510,8 @@ function MonitoringTab() {
 
   return (
     <div className="space-y-6">
-      {/* System status */}
-      <div className="kiyo-card p-5">
-        <h3 className="mb-3 font-display text-base font-bold text-ink-900">System Status</h3>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <StatusIndicator label="Database" status="operational" />
-          <StatusIndicator label="Auth Service" status="operational" />
-          <StatusIndicator label="API Gateway" status="operational" />
-        </div>
-      </div>
+      {/* System health */}
+      <PlatformHealthPanel />
 
       {/* Audit log */}
       <div>

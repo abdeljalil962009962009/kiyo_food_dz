@@ -37,6 +37,7 @@ const OrdersPage = lazy(() => import('./pages/OrdersPage'));
 const RestaurantOnboardingPage = lazy(() => import('./pages/RestaurantOnboardingPage'));
 const RestaurantDashboardPage = lazy(() => import('./pages/RestaurantDashboardPage'));
 const RestaurantMenuPage = lazy(() => import('./pages/RestaurantMenuPage'));
+const RestaurantSettingsPage = lazy(() => import('./pages/RestaurantSettingsPage'));
 const AdminRestaurantsPage = lazy(() => import('./pages/AdminRestaurantsPage'));
 const AdminControlCenterPage = lazy(() => import('./pages/AdminControlCenterPage'));
 const SupportPage = lazy(() => import('./pages/SupportPage'));
@@ -86,6 +87,9 @@ const router = createBrowserRouter([
   ) },
   { path: '/restaurant/menu', element: withSuspense(
     <ProtectedRoute><RoleRoute role={['restaurant_owner','super_admin']}><RestaurantMenuPage /></RoleRoute></ProtectedRoute>,
+  ) },
+  { path: '/restaurant/settings', element: withSuspense(
+    <ProtectedRoute><RoleRoute role={['restaurant_owner','super_admin']}><RestaurantSettingsPage /></RoleRoute></ProtectedRoute>,
   ) },
   // Super admin
   { path: '/admin', element: withSuspense(

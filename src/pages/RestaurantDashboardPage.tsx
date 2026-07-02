@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Store, Utensils, Clock, RefreshCw, Bell, DollarSign, TrendingUp, X } from 'lucide-react';
+import { Store, Utensils, Clock, RefreshCw, Bell, DollarSign, TrendingUp, X, Settings, BarChart3 } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
 import { supabase, type Restaurant, type OrderRow, type OrderItemRow, type OrderStatus } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -10,6 +10,7 @@ import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Skeleton, ErrorState, Spinner } from '../components/feedback';
 import { StatusBadge, PriceTag, relativeTime } from '../components/ui';
+import { RestaurantAnalyticsPanel } from '../components/RestaurantAnalytics';
 
 export default function RestaurantDashboardPage() {
   const { t } = useT();
@@ -229,6 +230,13 @@ export default function RestaurantDashboardPage() {
         <div className="flex items-center gap-2">
           <RealtimeIndicator status={realtimeStatus} />
           <button
+            onClick={() => navigate('/restaurant/settings')}
+            className="kiyo-btn-ghost"
+            title="Settings"
+          >
+            <Settings className="h-4 w-4" />
+          </button>
+          <button
             onClick={() => navigate('/restaurant/menu')}
             className="kiyo-btn-secondary"
           >
@@ -286,6 +294,9 @@ export default function RestaurantDashboardPage() {
           {soundEnabled ? 'Sound on' : 'Sound off'}
         </button>
       </div>
+
+      {/* Analytics Panel */}
+      {restaurant && <RestaurantAnalyticsPanel restaurantId={restaurant.id} />}
 
       <ErrorBoundary variant="inline">
         {pending.length > 0 && (
