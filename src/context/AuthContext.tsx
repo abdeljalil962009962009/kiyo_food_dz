@@ -75,7 +75,8 @@ async function fetchProfileWithRetry(
 // populated the profile yet (replication lag, OAuth signup, etc.), attempt
 // an insert keyed on the auth user id.
 // Note: Super admin promotion is handled via admin_configuration table.
-async function ensureProfileExists(client: SupabaseClient, user: User): Promise<void> {
+// Returns true if profile was ensured, false if the user ID is invalid (e.g., deleted).
+async function ensureProfileExists(client: SupabaseClient, user: User): Promise<boolean> {
   const meta = user.user_metadata ?? {};
   const role = (meta.role as Profile['role']) ?? 'customer';
   const insert = {
@@ -84,7 +85,24 @@ async function ensureProfileExists(client: SupabaseClient, user: User): Promise<
     full_name: (meta.full_name as string) ?? (meta.name as string) ?? null,
     role,
   };
-  await client.from('profiles').upsert(insert, { onConflict: 'id' }).maybeSingle();
+
+  try {
+    await client.from('profiles').upsert(insert, { onConflict: 'id' }).maybeSingle();
+    return true;
+  } catch (err) {
+    // FK constraint violation means the user ID doesn't exist in auth.users
+    // This happens when a session is stale (user was deleted during auth reset)
+    const msg = (err as { message?: string; code?: string })?.message ?? '';
+    const code = (err as { code?: string })?.code;
+    if (code === '23503' || msg.includes('violates foreign key constraint')) {
+      // User was deleted - force sign out to clear the invalid session
+      console.warn('User ID no longer exists in auth.users - session is stale');
+      await client.auth.signOut();
+      return false;
+    }
+    // Other errors: re-throw
+    throw err;
+  }
 }
 
 // ----- Context -----
@@ -171,7 +189,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       // Super-admin promotion is enforced via the DB trigger on insert;
       // ensure profile row exists first (also runs the promotion).
-      await ensureProfileExists(supabase, u).catch(() => {});
+      // If this returns false, the user was signed out (stale session after auth reset).
+      const profileEnsured = await ensureProfileExists(supabase, u);
+      if (!profileEnsured) {
+        // User was signed out due to invalid session - reset state
+        if (mountedRef.current) {
+          setUser(null);
+          setProfile(null);
+          setState('unauthenticated');
+        }
+        return;
+      }
 
       const p = await fetchProfileWithRetry(supabase, u.id);
       if (!mountedRef.current) return;
