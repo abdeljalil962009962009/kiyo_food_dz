@@ -21,3 +21,7 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# Mavis sync infrastructure (tracked scripts for disaster recovery, ignored logs)
+.sync/*
+!.sync/pull.ps1

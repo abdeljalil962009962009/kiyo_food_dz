@@ -1,0 +1,26 @@
+#!/bin/sh
+# Auto-push to origin after every commit.
+# Configured via: git config core.hooksPath .githooks
+# Logs to .sync/push.log (gitignored).
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+LOG_DIR="$REPO_ROOT/.sync"
+LOG_FILE="$LOG_DIR/push.log"
+
+mkdir -p "$LOG_DIR"
+
+TS=$(date '+%Y-%m-%d %H:%M:%S')
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+echo "[$TS] post-commit: pushing $BRANCH..." >> "$LOG_FILE"
+
+if git push origin "$BRANCH" 2>>"$LOG_FILE"; then
+    SHORT=$(git rev-parse --short HEAD)
+    echo "[$TS] post-commit: push OK ($SHORT)" >> "$LOG_FILE"
+else
+    RC=$?
+    echo "[$TS] post-commit: push FAILED (rc=$RC) — run 'git push' manually" >> "$LOG_FILE"
+fi
+
+# Always exit 0 so the commit succeeds even if push failed
+exit 0
