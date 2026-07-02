@@ -86,23 +86,21 @@ async function ensureProfileExists(client: SupabaseClient, user: User): Promise<
     role,
   };
 
-  try {
-    await client.from('profiles').upsert(insert, { onConflict: 'id' }).maybeSingle();
-    return true;
-  } catch (err) {
+  const { error } = await client.from('profiles').upsert(insert, { onConflict: 'id' }).maybeSingle();
+
+  if (error) {
     // FK constraint violation means the user ID doesn't exist in auth.users
     // This happens when a session is stale (user was deleted during auth reset)
-    const msg = (err as { message?: string; code?: string })?.message ?? '';
-    const code = (err as { code?: string })?.code;
-    if (code === '23503' || msg.includes('violates foreign key constraint')) {
-      // User was deleted - force sign out to clear the invalid session
-      console.warn('User ID no longer exists in auth.users - session is stale');
+    if (error.code === '23503' || error.message?.includes('violates foreign key constraint')) {
+      console.warn('User ID no longer exists in auth.users - session is stale, signing out');
       await client.auth.signOut();
       return false;
     }
     // Other errors: re-throw
-    throw err;
+    throw error;
   }
+
+  return true;
 }
 
 // ----- Context -----
