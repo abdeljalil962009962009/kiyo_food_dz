@@ -3,7 +3,7 @@ import {
   DollarSign, Users, Store, ShoppingBag, TrendingUp, AlertTriangle,
   CheckCircle, Clock, Ban, ShieldCheck, Star, Settings, Activity,
   Download, ChevronRight, Search, BadgeCheck, Sparkles, Tag, FileText,
-  MessageCircle, Send, ChevronLeft, Package,
+  MessageCircle, Send, ChevronLeft, Package, MapPin,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useT } from '../lib/i18n-react';
@@ -22,7 +22,7 @@ type Analytics = {
   settlements: { pending: number; overdue: number; paid_this_year: number };
 };
 
-type Tab = 'overview' | 'financials' | 'settlements' | 'users' | 'restaurants' | 'rules' | 'analytics' | 'alerts' | 'marketing' | 'support' | 'monitoring';
+type Tab = 'overview' | 'financials' | 'settlements' | 'users' | 'restaurants' | 'rules' | 'analytics' | 'alerts' | 'marketing' | 'support' | 'monitoring' | 'geography';
 
 const DZD = (n: number) => new Intl.NumberFormat('fr-DZ', { style: 'currency', currency: 'DZD', maximumFractionDigits: 0 }).format(n);
 
@@ -35,6 +35,7 @@ export default function AdminControlCenterPage() {
     { id: 'settlements', label: 'Settlements', icon: FileText },
     { id: 'users', label: 'Users', icon: Users },
     { id: 'restaurants', label: 'Restaurants', icon: Store },
+    { id: 'geography', label: 'Geography', icon: MapPin },
     { id: 'rules', label: 'Business Rules', icon: Settings },
     { id: 'analytics', label: 'Analytics', icon: TrendingUp },
     { id: 'alerts', label: 'Alerts', icon: AlertTriangle },
@@ -81,6 +82,7 @@ export default function AdminControlCenterPage() {
         {tab === 'settlements' && <SettlementsTab />}
         {tab === 'users' && <UsersTab />}
         {tab === 'restaurants' && <RestaurantsTab />}
+        {tab === 'geography' && <GeographyTab />}
         {tab === 'rules' && <RulesTab />}
         {tab === 'analytics' && <AnalyticsTab />}
         {tab === 'alerts' && <AlertsTab />}
@@ -1565,6 +1567,188 @@ function StatusIndicator({ label, status }: { label: string; status: 'operationa
       <span className={`h-2.5 w-2.5 rounded-full ${colors[status]} ${status === 'operational' ? 'animate-pulse-soft' : ''}`} />
       <span className="text-sm font-medium text-ink-700">{label}</span>
       <span className="ml-auto text-xs capitalize text-ink-400">{status}</span>
+    </div>
+  );
+}
+
+// ===================== GEOGRAPHY TAB =====================
+type WilayaStats = {
+  id: number;
+  name_en: string;
+  name_fr: string;
+  name_ar: string;
+  code: string;
+  is_active: boolean;
+  restaurant_count: number;
+  customer_count: number;
+  order_count: number;
+};
+
+function GeographyTab() {
+  const [wilayaStats, setWilayaStats] = useState<WilayaStats[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadStats() {
+      setLoading(true);
+      setError(null);
+      try {
+        // Get wilayas with counts
+        const { data: wilayas } = await supabase
+          .from('wilayas')
+          .select('*')
+          .order('name_fr', { ascending: true });
+
+        // Get restaurant counts per wilaya
+        const { data: restaurantCounts } = await supabase
+          .from('restaurants')
+          .select('wilaya_id')
+          .eq('status', 'published');
+
+        // Get customer profile wilaya selections
+        const { data: profileWilayas } = await supabase
+          .from('profiles')
+          .select('selected_wilaya_id')
+          .not('selected_wilaya_id', 'is', null);
+
+        // Get order counts by restaurant wilaya
+        const { data: orders } = await supabase
+          .from('orders')
+          .select('restaurant_id')
+          .limit(1000);
+
+        // Build restaurant wilaya lookup
+        const restaurantWilayaMap: Record<string, number> = {};
+        (restaurantCounts ?? []).forEach((r: { wilaya_id: number | null }) => {
+          if (r.wilaya_id) {
+            restaurantWilayaMap[r.wilaya_id] = (restaurantWilayaMap[r.wilaya_id] || 0) + 1;
+          }
+        });
+
+        // Build profile wilaya counts
+        const profileWilayaMap: Record<number, number> = {};
+        (profileWilayas ?? []).forEach((p: { selected_wilaya_id: number }) => {
+          profileWilayaMap[p.selected_wilaya_id] = (profileWilayaMap[p.selected_wilaya_id] || 0) + 1;
+        });
+
+        // Combine into stats
+        const stats: WilayaStats[] = (wilayas ?? []).map((w) => ({
+          id: w.id,
+          name_en: w.name_en,
+          name_fr: w.name_fr,
+          name_ar: w.name_ar,
+          code: w.code,
+          is_active: w.is_active,
+          restaurant_count: restaurantWilayaMap[w.id] || 0,
+          customer_count: profileWilayaMap[w.id] || 0,
+          order_count: 0, // Would need join for accurate count
+        }));
+
+        setWilayaStats(stats);
+      } catch {
+        setError('Failed to load geographic stats');
+      } finally {
+        setLoading(false);
+      }
+    }
+    void loadStats();
+  }, []);
+
+  if (loading) return <Skeleton count={4} />;
+  if (error) return <ErrorState title="Error" message={error} onRetry={() => setLoading(true)} retryLabel="Retry" />;
+
+  const totalRestaurants = wilayaStats.reduce((sum, w) => sum + w.restaurant_count, 0);
+  const activeWilayas = wilayaStats.filter((w) => w.is_active);
+  const wilayasWithRestaurants = wilayaStats.filter((w) => w.restaurant_count > 0);
+
+  return (
+    <div className="space-y-6">
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatCard icon={MapPin} label="Active Wilayas" value={String(activeWilayas.length)} accent="ember" />
+        <StatCard icon={Store} label="Wilayas with Restaurants" value={String(wilayasWithRestaurants.length)} />
+        <StatCard icon={Users} label="Total Restaurants" value={String(totalRestaurants)} />
+        <StatCard icon={TrendingUp} label="Coverage" value={`${Math.round((wilayasWithRestaurants.length / 58) * 100)}%`} />
+      </div>
+
+      {/* Wilaya list */}
+      <div className="kiyo-card overflow-hidden p-0">
+        <div className="border-b border-ink-100 px-4 py-3">
+          <h3 className="font-display text-sm font-bold text-ink-900">Wilaya Coverage</h3>
+        </div>
+        <div className="max-h-[400px] overflow-y-auto">
+          <table className="w-full text-sm">
+            <thead className="sticky top-0 bg-ink-50">
+              <tr>
+                <th className="px-4 py-2 text-left text-xs font-semibold text-ink-500">Wilaya</th>
+                <th className="px-4 py-2 text-center text-xs font-semibold text-ink-500">Code</th>
+                <th className="px-4 py-2 text-center text-xs font-semibold text-ink-500">Restaurants</th>
+                <th className="px-4 py-2 text-center text-xs font-semibold text-ink-500">Customers</th>
+                <th className="px-4 py-2 text-center text-xs font-semibold text-ink-500">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-ink-50">
+              {wilayaStats.map((w) => (
+                <tr key={w.id} className="hover:bg-ink-50/50">
+                  <td className="px-4 py-2 font-medium text-ink-900">{w.name_fr}</td>
+                  <td className="px-4 py-2 text-center text-ink-500">{w.code}</td>
+                  <td className="px-4 py-2 text-center">
+                    <span className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-semibold ${
+                      w.restaurant_count > 0 ? 'bg-sage-100 text-sage-700' : 'bg-ink-100 text-ink-400'
+                    }`}>
+                      {w.restaurant_count}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2 text-center text-ink-600">{w.customer_count}</td>
+                  <td className="px-4 py-2 text-center">
+                    {w.is_active ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-sage-100 px-2 py-0.5 text-xs font-semibold text-sage-700">
+                        <CheckCircle className="h-3 w-3" />
+                        Active
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-ink-100 px-2 py-0.5 text-xs font-semibold text-ink-500">
+                        <Ban className="h-3 w-3" />
+                        Inactive
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Expansion opportunities */}
+      <div className="kiyo-card">
+        <div className="mb-3 flex items-center gap-2">
+          <TrendingUp className="h-4 w-4 text-ember-500" />
+          <h3 className="font-display text-sm font-bold text-ink-900">Expansion Opportunities</h3>
+        </div>
+        <p className="mb-3 text-xs text-ink-500">
+          Wilayas with customer interest but no restaurants yet.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {wilayaStats
+            .filter((w) => w.customer_count > 0 && w.restaurant_count === 0)
+            .slice(0, 10)
+            .map((w) => (
+              <span
+                key={w.id}
+                className="inline-flex items-center gap-1 rounded-lg border border-ember-200 bg-ember-50 px-2 py-1 text-xs font-medium text-ember-700"
+              >
+                <MapPin className="h-3 w-3" />
+                {w.name_fr}
+                <span className="text-ember-500">({w.customer_count} customers)</span>
+              </span>
+            ))}
+          {wilayaStats.filter((w) => w.customer_count > 0 && w.restaurant_count === 0).length === 0 && (
+            <span className="text-xs text-ink-400">All customer demand is currently served.</span>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

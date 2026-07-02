@@ -103,6 +103,7 @@ type AuthContextValue = {
     email: string, password: string, fullName: string, role: 'customer' | 'restaurant_owner'
   ) => Promise<{ ok: boolean }>;
   signInWithGoogle: () => Promise<void>;
+  signInWithApple: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ ok: boolean }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -308,6 +309,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [locale]);
 
+  const signInWithApple = useCallback(async () => {
+    clearError();
+    const { error: e } = await supabase.auth.signInWithOAuth({
+      provider: 'apple',
+      options: { redirectTo: window.location.origin + '/auth/callback' },
+    });
+    if (e) {
+      const code = mapSupabaseError(e);
+      setError({ code, message: describeAuthError(code, locale) });
+    }
+  }, [locale]);
+
   const resetPassword = useCallback<AuthContextValue['resetPassword']>(
     async (email) => {
       clearError();
@@ -347,11 +360,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthContextValue>(
     () => ({
       state, user, profile, profileError, error, locale, setLocale,
-      signInWithPassword, signUp, signInWithGoogle, resetPassword, signOut,
+      signInWithPassword, signUp, signInWithGoogle, signInWithApple, resetPassword, signOut,
       refreshProfile,
     }),
     [state, user, profile, profileError, error, locale, setLocale,
-     signInWithPassword, signUp, signInWithGoogle, resetPassword, signOut, refreshProfile],
+     signInWithPassword, signUp, signInWithGoogle, signInWithApple, resetPassword, signOut, refreshProfile],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -31,6 +31,7 @@ export type TranslationKey =
   | 'auth.resetPassword'
   | 'auth.resetPasswordCta'
   | 'auth.continueWithGoogle'
+  | 'auth.continueWithApple'
   | 'auth.orContinueWith'
   | 'auth.noAccount'
   | 'auth.haveAccount'
@@ -254,6 +255,7 @@ const en: Dict = {
   'auth.resetPassword': 'Reset password',
   'auth.resetPasswordCta': 'Send reset link',
   'auth.continueWithGoogle': 'Continue with Google',
+  'auth.continueWithApple': 'Continue with Apple',
   'auth.orContinueWith': 'or',
   'auth.noAccount': "Don't have an account?",
   'auth.haveAccount': 'Already have an account?',
@@ -467,6 +469,7 @@ const fr: Dict = {
   'auth.resetPassword': 'Réinitialiser le mot de passe',
   'auth.resetPasswordCta': 'Envoyer le lien',
   'auth.continueWithGoogle': 'Continuer avec Google',
+  'auth.continueWithApple': 'Continuer avec Apple',
   'auth.orContinueWith': 'ou',
   'auth.noAccount': "Vous n'avez pas de compte ?",
   'auth.haveAccount': 'Vous avez déjà un compte ?',
@@ -680,6 +683,7 @@ const ar: Dict = {
   'auth.resetPassword': 'إعادة تعيين كلمة المرور',
   'auth.resetPasswordCta': 'إرسال الرابط',
   'auth.continueWithGoogle': 'المتابعة عبر Google',
+  'auth.continueWithApple': 'المتابعة عبر Apple',
   'auth.orContinueWith': 'أو',
   'auth.noAccount': 'ليس لديك حساب؟',
   'auth.haveAccount': 'لديك حساب بالفعل؟',
