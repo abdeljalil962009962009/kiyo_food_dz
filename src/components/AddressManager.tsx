@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { MapPin, Home, Briefcase, Heart, Plus, Trash2, Edit2, Check, X } from 'lucide-react';
+import { MapPin, Home, Briefcase, Heart, Plus, Trash2, Check, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { useT } from '../lib/i18n-react';
+
 import DeliveryMap from './DeliveryMap';
 
 type SavedAddress = {
@@ -30,14 +30,12 @@ const LABEL_COLORS = {
 };
 
 export function AddressManager() {
-  const { t } = useT();
   const { user } = useAuth();
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newLabel, setNewLabel] = useState<'home' | 'work' | 'family' | 'other'>('home');
   const [newLocation, setNewLocation] = useState<{ lat: number; lng: number; address: string } | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {

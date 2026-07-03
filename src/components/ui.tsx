@@ -11,6 +11,7 @@ const CURRENCY_CONFIG = {
   format: (amount: number) => `${amount.toFixed(0)} DA`,
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function formatCurrency(amount: number | string, _currencyCode?: string): string {
   const n = typeof amount === 'string' ? parseFloat(amount) : amount;
   // For now, only DZD is supported. Future: lookup config by currencyCode

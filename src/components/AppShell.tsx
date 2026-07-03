@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { useCart } from '../context/CartContext';
-import { useWilaya, getWilayaName } from '../context/WilayaContext';
+import { useWilaya } from '../context/WilayaContext';
 import { useT } from '../lib/i18n-react';
 import { Logo } from './Logo';
 import { NotificationBell } from './NotificationBell';
@@ -21,7 +21,7 @@ const ROLE_LABEL: Record<string, string> = {
 export function AppShell({ children }: { children: ReactNode }) {
   const { profile, signOut, locale, setLocale } = useAuth();
   const { totalItems } = useCart();
-  const { selectedWilaya, loading: wilayaLoading, locale: wilayaLocale } = useWilaya();
+  const { loading: wilayaLoading } = useWilaya();
   const { t } = useT();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);

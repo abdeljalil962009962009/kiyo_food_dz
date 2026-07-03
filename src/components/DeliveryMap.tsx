@@ -23,15 +23,6 @@ const restaurantIcon = L.divIcon({
 // Restaurants should always have coordinates set during onboarding
 const ALGERIA_CENTER: [number, number] = [28.0, 2.0];
 
-// Debounce helper to avoid spamming Nominatim (ToS requires max 1 req/sec)
-function useDebounce<T>(value: T, delay: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(timer);
-  }, [value, delay]);
-  return debounced;
-}
 
 /**
  * Haversine distance in km between two [lat,lng] points.
@@ -181,7 +172,8 @@ export default function DeliveryMap({
       if (restaurantLat && restaurantLng) {
         map.setView([restaurantLat, restaurantLng], 13);
       }
-    }, [restaurantLat, restaurantLng, map]);
+    // restaurantLat/restaurantLng are stable prop primitives passed from parent
+    }, [map, restaurantLat, restaurantLng]);
     return null;
   }
 

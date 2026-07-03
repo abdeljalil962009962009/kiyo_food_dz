@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
-import { BarChart3, TrendingUp, Users, Clock, Star, ShoppingBag } from 'lucide-react';
+import { BarChart3, TrendingUp, Users, Star, ShoppingBag } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../context/AuthContext';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Spinner } from './feedback';
 
@@ -26,7 +25,6 @@ type TopProduct = {
 };
 
 export function RestaurantAnalyticsPanel({ restaurantId }: { restaurantId: string }) {
-  const { profile } = useAuth();
   const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
   const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
   const [loading, setLoading] = useState(true);

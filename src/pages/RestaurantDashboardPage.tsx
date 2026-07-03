@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Store, Utensils, Clock, RefreshCw, Bell, DollarSign, TrendingUp, X, Settings, BarChart3 } from 'lucide-react';
+import { Store, Utensils, Clock, RefreshCw, Bell, DollarSign, TrendingUp, X, Settings } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
 import { supabase, type Restaurant, type OrderRow, type OrderItemRow, type OrderStatus } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';

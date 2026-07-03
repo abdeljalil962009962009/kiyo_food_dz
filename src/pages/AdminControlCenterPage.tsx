@@ -3,7 +3,7 @@ import {
   DollarSign, Users, Store, ShoppingBag, TrendingUp, AlertTriangle,
   CheckCircle, Clock, Ban, ShieldCheck, Star, Settings, Activity,
   Download, ChevronRight, Search, BadgeCheck, Sparkles, Tag, FileText,
-  MessageCircle, Send, ChevronLeft, Package, MapPin, Server,
+  MessageCircle, Send, ChevronLeft, Package, MapPin,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useT } from '../lib/i18n-react';
@@ -1550,20 +1550,6 @@ function MonitoringTab() {
   );
 }
 
-function StatusIndicator({ label, status }: { label: string; status: 'operational' | 'degraded' | 'down' }) {
-  const colors = {
-    operational: 'bg-sage-500',
-    degraded: 'bg-ember-500',
-    down: 'bg-error-500',
-  };
-  return (
-    <div className="flex items-center gap-2 rounded-lg border border-ink-100 bg-white px-3 py-2">
-      <span className={`h-2.5 w-2.5 rounded-full ${colors[status]} ${status === 'operational' ? 'animate-pulse-soft' : ''}`} />
-      <span className="text-sm font-medium text-ink-700">{label}</span>
-      <span className="ml-auto text-xs capitalize text-ink-400">{status}</span>
-    </div>
-  );
-}
 
 // ===================== GEOGRAPHY TAB =====================
 type WilayaStats = {
@@ -1607,7 +1593,7 @@ function GeographyTab() {
           .not('selected_wilaya_id', 'is', null);
 
         // Get order counts by restaurant wilaya
-        const { data: orders } = await supabase
+        await supabase
           .from('orders')
           .select('restaurant_id')
           .limit(1000);

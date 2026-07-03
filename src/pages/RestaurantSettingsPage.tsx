@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Clock, MapPin, Truck, DollarSign, Settings, ChevronLeft,
-  Calendar, AlertCircle, Save, Plus, X
+  Clock, Truck, Settings, ChevronLeft,
+  AlertCircle, Save,
 } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
 import { supabase, type Restaurant } from '../lib/supabase';
@@ -10,7 +10,6 @@ import { useAuth } from '../context/AuthContext';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Skeleton, ErrorState, Spinner } from '../components/feedback';
-import { Field } from '../components/Field';
 
 type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 const DAYS: { key: DayOfWeek; label: string }[] = [
@@ -41,7 +40,6 @@ export default function RestaurantSettingsPage() {
   // Delivery settings
   const [deliveryRadius, setDeliveryRadius] = useState('10');
   const [minOrder, setMinOrder] = useState('0');
-  const [deliveryFee, setDeliveryFee] = useState('0');
   const [estimatedDeliveryMin, setEstimatedDeliveryMin] = useState('45');
 
   const [saving, setSaving] = useState(false);
