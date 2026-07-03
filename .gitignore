@@ -26,3 +26,5 @@ dist-ssr
 .sync/*
 !.sync/pull.ps1
 !.sync/pull.sh
+.sync/state.json
+.sync/pull.pid
