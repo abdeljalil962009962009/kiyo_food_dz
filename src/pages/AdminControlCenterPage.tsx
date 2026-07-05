@@ -83,6 +83,87 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'stat.commissionAllTime': 'Commission All Time',
     'stat.overdue': 'Overdue',
     'stat.paidThisYear': 'Paid This Year',
+    'geography.activeWilayas': 'Active Wilayas',
+    'geography.wilayasWithRestaurants': 'Wilayas with Restaurants',
+    'geography.totalRestaurants': 'Total Restaurants',
+    'geography.coverage': 'Coverage',
+    'geography.wilayaCoverage': 'Wilaya Coverage',
+    'geography.tbl.wilaya': 'Wilaya',
+    'geography.tbl.code': 'Code',
+    'geography.tbl.restaurants': 'Restaurants',
+    'geography.tbl.customers': 'Customers',
+    'geography.tbl.status': 'Status',
+    'geography.active': 'Active',
+    'geography.inactive': 'Inactive',
+    'geography.deliveryZones': 'Delivery Zones',
+    'geography.addZone': 'Add Zone',
+    'geography.zonesDesc': 'Configure delivery pricing for different zones.',
+    'geography.zoneName': 'Zone name',
+    'geography.baseFee': 'Base fee',
+    'geography.perKm': 'Per km',
+    'geography.minFee': 'Min fee',
+    'geography.create': 'Create',
+    'geography.cancel': 'Cancel',
+    'geography.noZones': 'No delivery zones configured',
+    'geography.tbl.zone': 'Zone',
+    'geography.tbl.baseFee': 'Base Fee',
+    'geography.tbl.perKm': 'Per Km',
+    'geography.tbl.minFee': 'Min Fee',
+    'geography.disable': 'Disable',
+    'geography.enable': 'Enable',
+    'geography.expansionOpportunities': 'Expansion Opportunities',
+    'geography.expansionDesc': 'Wilayas with customer interest but no restaurants yet.',
+    'geography.customersSuffix': 'customers',
+    'geography.demandServed': 'All customer demand is currently served.',
+    'rules.deliveryTitle': 'Delivery Rules',
+    'rules.delivery.pricePerKm': 'Price per km (DZD)',
+    'rules.delivery.minFee': 'Minimum fee (DZD)',
+    'rules.delivery.maxFee': 'Maximum fee (DZD)',
+    'rules.delivery.freeThreshold': 'Free delivery threshold (DZD)',
+    'rules.delivery.defaultMaxKm': 'Default max delivery km',
+    'rules.commissionTitle': 'Commission Rules',
+    'rules.commission.defaultRate': 'Default commission rate (%)',
+    'rules.commission.serviceRate': 'Service fee rate (%)',
+    'rules.settlementTitle': 'Settlement Rules',
+    'rules.settlement.dueDay': 'Due day of month',
+    'rules.settlement.gracePeriod': 'Grace period (days)',
+    'rules.settlement.penaltyRate': 'Penalty rate (%)',
+    'rules.operationalTitle': 'Operational Rules',
+    'rules.operational.maintenance': 'Maintenance mode',
+    'rules.operational.regOpen': 'Registration open',
+    'rules.operational.verification': 'Verification required',
+    'rules.operational.announcementBanner': 'Announcement banner',
+    'rules.operational.announcementPlaceholder': 'e.g. Free delivery this weekend!',
+    'rules.maintenanceTitle': 'Maintenance Mode',
+    'rules.maintenance.enabled': 'Enable maintenance mode',
+    'rules.maintenance.allowAdmin': 'Allow admin access during maintenance',
+    'rules.maintenance.message': 'Maintenance message',
+    'rules.orderTitle': 'Order Rules',
+    'rules.order.cancelWindow': 'Cancellation window (minutes)',
+    'rules.order.acceptTimeout': 'Acceptance timeout (minutes)',
+    'rules.order.autoCancel': 'Auto-cancel after timeout',
+    'rules.order.busyThreshold': 'Busy mode threshold (orders)',
+    'rules.order.autoBusy': 'Auto busy mode',
+    'rules.featureFlagsTitle': 'Feature Flags',
+    'rules.taxesTitle': 'Taxes & Fees',
+    'rules.taxes.vatRate': 'VAT Rate (%)',
+    'rules.taxes.transFeeFixed': 'Transaction Processing Fee (DZD)',
+    'rules.taxes.transFeePercent': 'Payment Gateway Comm. (%)',
+    'rules.driverRulesTitle': 'Driver Commission & Rules',
+    'rules.driver.basePay': 'Driver Base Pay per Order (DZD)',
+    'rules.driver.payPerKm': 'Driver Pay per km (DZD)',
+    'rules.driver.commissionRate': 'Driver Commission Cut (%)',
+    'rules.driver.autoAssign': 'Drivers Auto-assigned',
+    'rules.loyaltyTitle': 'Loyalty & Referral Program',
+    'rules.loyalty.enabled': 'Enable Loyalty Points',
+    'rules.loyalty.pointsPerHundred': 'Loyalty Points earned per 100 DZD',
+    'rules.loyalty.pointValueDzd': 'DZD Cash Value per 1 Point',
+    'rules.loyalty.referralEnabled': 'Enable Referral Discounts',
+    'rules.loyalty.referrerReward': 'Referrer Reward (DZD)',
+    'rules.loyalty.refereeDiscount': 'Referee Sign-up Discount (DZD)',
+    'rules.loyalty.minOrderToRedeem': 'Min Order to Redeem (DZD)',
+    'common.saved': 'Saved!',
+    'common.save': 'Save',
   },
   fr: {
     'overview': 'Vue d\'ensemble',
@@ -139,6 +220,87 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'stat.commissionAllTime': 'Commission de tous les temps',
     'stat.overdue': 'En retard',
     'stat.paidThisYear': 'Payé cette année',
+    'geography.activeWilayas': 'Wilayas actives',
+    'geography.wilayasWithRestaurants': 'Wilayas avec restaurants',
+    'geography.totalRestaurants': 'Total restaurants',
+    'geography.coverage': 'Couverture',
+    'geography.wilayaCoverage': 'Couverture des Wilayas',
+    'geography.tbl.wilaya': 'Wilaya',
+    'geography.tbl.code': 'Code',
+    'geography.tbl.restaurants': 'Restaurants',
+    'geography.tbl.customers': 'Clients',
+    'geography.tbl.status': 'Statut',
+    'geography.active': 'Active',
+    'geography.inactive': 'Inactive',
+    'geography.deliveryZones': 'Zones de livraison',
+    'geography.addZone': 'Ajouter une zone',
+    'geography.zonesDesc': 'Configurer les tarifs de livraison pour différentes zones.',
+    'geography.zoneName': 'Nom de la zone',
+    'geography.baseFee': 'Frais de base',
+    'geography.perKm': 'Par km',
+    'geography.minFee': 'Frais min',
+    'geography.create': 'Créer',
+    'geography.cancel': 'Annuler',
+    'geography.noZones': 'Aucune zone de livraison configurée',
+    'geography.tbl.zone': 'Zone',
+    'geography.tbl.baseFee': 'Frais de base',
+    'geography.tbl.perKm': 'Par Km',
+    'geography.tbl.minFee': 'Frais Min',
+    'geography.disable': 'Désactiver',
+    'geography.enable': 'Activer',
+    'geography.expansionOpportunities': 'Opportunités d\'expansion',
+    'geography.expansionDesc': 'Wilayas avec intérêt des clients mais sans restaurants pour le moment.',
+    'geography.customersSuffix': 'clients',
+    'geography.demandServed': 'Toute la demande des clients est actuellement servie.',
+    'rules.deliveryTitle': 'Règles de Livraison',
+    'rules.delivery.pricePerKm': 'Prix par km (DZD)',
+    'rules.delivery.minFee': 'Frais minimum (DZD)',
+    'rules.delivery.maxFee': 'Frais maximum (DZD)',
+    'rules.delivery.freeThreshold': 'Seuil de livraison gratuite (DZD)',
+    'rules.delivery.defaultMaxKm': 'Distance de livraison max par défaut (km)',
+    'rules.commissionTitle': 'Règles de Commission',
+    'rules.commission.defaultRate': 'Taux de commission par défaut (%)',
+    'rules.commission.serviceRate': 'Taux des frais de service (%)',
+    'rules.settlementTitle': 'Règles de Règlement',
+    'rules.settlement.dueDay': 'Jour d\'échéance du mois',
+    'rules.settlement.gracePeriod': 'Période de grâce (jours)',
+    'rules.settlement.penaltyRate': 'Taux de pénalité (%)',
+    'rules.operationalTitle': 'Règles Opérationnelles',
+    'rules.operational.maintenance': 'Mode maintenance',
+    'rules.operational.regOpen': 'Inscription ouverte',
+    'rules.operational.verification': 'Vérification requise',
+    'rules.operational.announcementBanner': 'Bannière d\'annonce',
+    'rules.operational.announcementPlaceholder': 'Ex: Livraison gratuite ce week-end !',
+    'rules.maintenanceTitle': 'Mode Maintenance',
+    'rules.maintenance.enabled': 'Activer le mode maintenance',
+    'rules.maintenance.allowAdmin': 'Autoriser l\'accès administrateur pendant la maintenance',
+    'rules.maintenance.message': 'Message de maintenance',
+    'rules.orderTitle': 'Règles de Commande',
+    'rules.order.cancelWindow': 'Fenêtre d\'annulation (minutes)',
+    'rules.order.acceptTimeout': 'Délai d\'acceptation (minutes)',
+    'rules.order.autoCancel': 'Annulation automatique après délai',
+    'rules.order.busyThreshold': 'Seuil du mode occupé (commandes)',
+    'rules.order.autoBusy': 'Mode occupé automatique',
+    'rules.featureFlagsTitle': 'Drapeaux de Fonctionnalités',
+    'rules.taxesTitle': 'Taxes et Frais',
+    'rules.taxes.vatRate': 'Taux de TVA (%)',
+    'rules.taxes.transFeeFixed': 'Frais de traitement fixe (DZD)',
+    'rules.taxes.transFeePercent': 'Commission passerelle de paiement (%)',
+    'rules.driverRulesTitle': 'Commission et Règles des Livreurs',
+    'rules.driver.basePay': 'Rémunération de base livreur par commande (DZD)',
+    'rules.driver.payPerKm': 'Rémunération livreur par km (DZD)',
+    'rules.driver.commissionRate': 'Part de commission livreur (%)',
+    'rules.driver.autoAssign': 'Attribution automatique des livreurs',
+    'rules.loyaltyTitle': 'Programme de Fidélité et Parrainage',
+    'rules.loyalty.enabled': 'Activer les points de fidélité',
+    'rules.loyalty.pointsPerHundred': 'Points gagnés par 100 DZD',
+    'rules.loyalty.pointValueDzd': 'Valeur en espèces d\'un point (DZD)',
+    'rules.loyalty.referralEnabled': 'Activer les remises de parrainage',
+    'rules.loyalty.referrerReward': 'Récompense du parrain (DZD)',
+    'rules.loyalty.refereeDiscount': 'Remise d\'inscription du filleul (DZD)',
+    'rules.loyalty.minOrderToRedeem': 'Commande min pour utiliser (DZD)',
+    'common.saved': 'Enregistré !',
+    'common.save': 'Enregistrer',
   },
   ar: {
     'overview': 'نظرة عامة',
@@ -195,6 +357,87 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'stat.commissionAllTime': 'العمولة الإجمالية',
     'stat.overdue': 'المتأخرة',
     'stat.paidThisYear': 'المدفوعة هذه السنة',
+    'geography.activeWilayas': 'الولايات النشطة',
+    'geography.wilayasWithRestaurants': 'الولايات التي بها مطاعم',
+    'geography.totalRestaurants': 'إجمالي المطاعم',
+    'geography.coverage': 'التغطية',
+    'geography.wilayaCoverage': 'تغطية الولايات',
+    'geography.tbl.wilaya': 'الولاية',
+    'geography.tbl.code': 'الرمز',
+    'geography.tbl.restaurants': 'المطاعم',
+    'geography.tbl.customers': 'الزبائن',
+    'geography.tbl.status': 'الحالة',
+    'geography.active': 'نشط',
+    'geography.inactive': 'غير نشط',
+    'geography.deliveryZones': 'مناطق التوصيل',
+    'geography.addZone': 'إضافة منطقة',
+    'geography.zonesDesc': 'تهيئة تسعير التوصيل للمناطق المختلفة.',
+    'geography.zoneName': 'اسم المنطقة',
+    'geography.baseFee': 'الرسوم الأساسية',
+    'geography.perKm': 'لكل كم',
+    'geography.minFee': 'الحد الأدنى للرسوم',
+    'geography.create': 'إنشاء',
+    'geography.cancel': 'إلغاء',
+    'geography.noZones': 'لا توجد مناطق توصيل مهيأة',
+    'geography.tbl.zone': 'المنطقة',
+    'geography.tbl.baseFee': 'الرسوم الأساسية',
+    'geography.tbl.perKm': 'لكل كم',
+    'geography.tbl.minFee': 'الحد الأدنى للرسوم',
+    'geography.disable': 'تعطيل',
+    'geography.enable': 'تفعيل',
+    'geography.expansionOpportunities': 'فرص التوسع',
+    'geography.expansionDesc': 'ولايات بها اهتمام من الزبائن ولكن لا توجد بها مطاعم بعد.',
+    'geography.customersSuffix': 'زبائن',
+    'geography.demandServed': 'يتم تلبية جميع طلبات الزبائن حالياً.',
+    'rules.deliveryTitle': 'قواعد التوصيل',
+    'rules.delivery.pricePerKm': 'السعر لكل كيلومتر (د.ج)',
+    'rules.delivery.minFee': 'الحد الأدنى للرسوم (د.ج)',
+    'rules.delivery.maxFee': 'الحد الأقصى للرسوم (د.ج)',
+    'rules.delivery.freeThreshold': 'حد التوصيل المجاني (د.ج)',
+    'rules.delivery.defaultMaxKm': 'أقصى مسافة توصيل افتراضية (كم)',
+    'rules.commissionTitle': 'قواعد العمولات',
+    'rules.commission.defaultRate': 'معدل العمولة الافتراضي (%)',
+    'rules.commission.serviceRate': 'معدل رسوم الخدمة (%)',
+    'rules.settlementTitle': 'قواعد التسوية',
+    'rules.settlement.dueDay': 'يوم الاستحقاق من الشهر',
+    'rules.settlement.gracePeriod': 'فترة السماح (أيام)',
+    'rules.settlement.penaltyRate': 'معدل الغرامة (%)',
+    'rules.operationalTitle': 'القواعد التشغيلية',
+    'rules.operational.maintenance': 'وضع الصيانة',
+    'rules.operational.regOpen': 'التسجيل مفتوح',
+    'rules.operational.verification': 'التحقق مطلوب',
+    'rules.operational.announcementBanner': 'شريط الإعلان',
+    'rules.operational.announcementPlaceholder': 'مثال: توصيل مجاني في نهاية هذا الأسبوع!',
+    'rules.maintenanceTitle': 'وضع الصيانة',
+    'rules.maintenance.enabled': 'تفعيل وضع الصيانة',
+    'rules.maintenance.allowAdmin': 'السماح بدخول المسؤولين أثناء الصيانة',
+    'rules.maintenance.message': 'رسالة الصيانة',
+    'rules.orderTitle': 'قواعد الطلبات',
+    'rules.order.cancelWindow': 'نافذة الإلغاء (بالدقائق)',
+    'rules.order.acceptTimeout': 'مهلة قبول الطلب (بالدقائق)',
+    'rules.order.autoCancel': 'إلغاء تلقائي بعد انتهاء المهلة',
+    'rules.order.busyThreshold': 'حد وضع الانشغال (الطلبات)',
+    'rules.order.autoBusy': 'وضع الانشغال التلقائي',
+    'rules.featureFlagsTitle': 'ميزات النظام',
+    'rules.taxesTitle': 'الضرائب والرسوم',
+    'rules.taxes.vatRate': 'معدل ضريبة القيمة المضافة (%)',
+    'rules.taxes.transFeeFixed': 'رسوم معالجة المعاملة الثابتة (د.ج)',
+    'rules.taxes.transFeePercent': 'عمولة بوابة الدفع (%)',
+    'rules.driverRulesTitle': 'عمولات وقواعد السائقين',
+    'rules.driver.basePay': 'الأجر الأساسي للسائق لكل طلب (د.ج)',
+    'rules.driver.payPerKm': 'أجر السائق لكل كيلومتر (د.ج)',
+    'rules.driver.commissionRate': 'حصة عمولة السائق (%)',
+    'rules.driver.autoAssign': 'تعيين السائقين تلقائياً',
+    'rules.loyaltyTitle': 'برنامج الولاء والإحالة',
+    'rules.loyalty.enabled': 'تفعيل نقاط الولاء',
+    'rules.loyalty.pointsPerHundred': 'نقاط الولاء المكتسبة لكل 100 د.ج',
+    'rules.loyalty.pointValueDzd': 'القيمة النقدية لكل نقطة بالدينار الجزائري',
+    'rules.loyalty.referralEnabled': 'تفعيل خصومات الإحالة',
+    'rules.loyalty.referrerReward': 'مكافأة المحيل (د.ج)',
+    'rules.loyalty.refereeDiscount': 'خصم تسجيل المحال (د.ج)',
+    'rules.loyalty.minOrderToRedeem': 'الحد الأدنى للطلب للاسترداد (د.ج)',
+    'common.saved': 'تم الحفظ!',
+    'common.save': 'حفظ',
   }
 };
 
@@ -762,6 +1005,7 @@ function RestaurantsTab() {
 // ===================== BUSINESS RULES =====================
 function RulesTab() {
   const { t } = useT();
+  const { tx } = useAdminT();
   const [settings, setSettings] = useState<Record<string, Record<string, unknown>>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -816,83 +1060,83 @@ function RulesTab() {
   return (
     <div className="space-y-6">
       {/* Delivery Rules */}
-      <RulesCard title="Delivery Rules" icon={Settings} onSave={() => save('delivery')} saving={saving} saved={savedKey === 'delivery'}>
-        <RuleField label="Price per km (DZD)" value={settings.delivery?.price_per_km as number ?? 25}
+      <RulesCard title={tx('rules.deliveryTitle', 'Delivery Rules')} icon={Settings} onSave={() => save('delivery')} saving={saving} saved={savedKey === 'delivery'}>
+        <RuleField label={tx('rules.delivery.pricePerKm', 'Price per km (DZD)')} value={settings.delivery?.price_per_km as number ?? 25}
           onChange={(v) => updateField('delivery', 'price_per_km', Number(v))} />
-        <RuleField label="Minimum fee (DZD)" value={settings.delivery?.min_fee as number ?? 50}
+        <RuleField label={tx('rules.delivery.minFee', 'Minimum fee (DZD)')} value={settings.delivery?.min_fee as number ?? 50}
           onChange={(v) => updateField('delivery', 'min_fee', Number(v))} />
-        <RuleField label="Maximum fee (DZD)" value={settings.delivery?.max_fee as number ?? 500}
+        <RuleField label={tx('rules.delivery.maxFee', 'Maximum fee (DZD)')} value={settings.delivery?.max_fee as number ?? 500}
           onChange={(v) => updateField('delivery', 'max_fee', Number(v))} />
-        <RuleField label="Free delivery threshold (DZD)" value={settings.delivery?.free_delivery_threshold as number ?? 1500}
+        <RuleField label={tx('rules.delivery.freeThreshold', 'Free delivery threshold (DZD)')} value={settings.delivery?.free_delivery_threshold as number ?? 1500}
           onChange={(v) => updateField('delivery', 'free_delivery_threshold', Number(v))} />
-        <RuleField label="Default max delivery km" value={settings.delivery?.default_max_delivery_km as number ?? 10}
+        <RuleField label={tx('rules.delivery.defaultMaxKm', 'Default max delivery km')} value={settings.delivery?.default_max_delivery_km as number ?? 10}
           onChange={(v) => updateField('delivery', 'default_max_delivery_km', Number(v))} />
       </RulesCard>
 
       {/* Commission Rules */}
-      <RulesCard title="Commission Rules" icon={DollarSign} onSave={() => save('commission')} saving={saving} saved={savedKey === 'commission'}>
-        <RuleField label="Default commission rate (%)" value={((settings.commission?.default_rate as number ?? 0.07) * 100).toFixed(1)}
+      <RulesCard title={tx('rules.commissionTitle', 'Commission Rules')} icon={DollarSign} onSave={() => save('commission')} saving={saving} saved={savedKey === 'commission'}>
+        <RuleField label={tx('rules.commission.defaultRate', 'Default commission rate (%)')} value={((settings.commission?.default_rate as number ?? 0.07) * 100).toFixed(1)}
           onChange={(v) => updateField('commission', 'default_rate', Number(v) / 100)} />
-        <RuleField label="Service fee rate (%)" value={((settings.commission?.service_fee_rate as number ?? 0.01) * 100).toFixed(1)}
+        <RuleField label={tx('rules.commission.serviceRate', 'Service fee rate (%)')} value={((settings.commission?.service_fee_rate as number ?? 0.01) * 100).toFixed(1)}
           onChange={(v) => updateField('commission', 'service_fee_rate', Number(v) / 100)} />
       </RulesCard>
 
       {/* Settlement Rules */}
-      <RulesCard title="Settlement Rules" icon={Clock} onSave={() => save('settlement')} saving={saving} saved={savedKey === 'settlement'}>
-        <RuleField label="Due day of month" value={settings.settlement?.due_day as number ?? 15}
+      <RulesCard title={tx('rules.settlementTitle', 'Settlement Rules')} icon={Clock} onSave={() => save('settlement')} saving={saving} saved={savedKey === 'settlement'}>
+        <RuleField label={tx('rules.settlement.dueDay', 'Due day of month')} value={settings.settlement?.due_day as number ?? 15}
           onChange={(v) => updateField('settlement', 'due_day', Number(v))} />
-        <RuleField label="Grace period (days)" value={settings.settlement?.grace_days as number ?? 7}
+        <RuleField label={tx('rules.settlement.gracePeriod', 'Grace period (days)')} value={settings.settlement?.grace_days as number ?? 7}
           onChange={(v) => updateField('settlement', 'grace_days', Number(v))} />
-        <RuleField label="Penalty rate (%)" value={((settings.settlement?.penalty_rate as number ?? 0.02) * 100).toFixed(1)}
+        <RuleField label={tx('rules.settlement.penaltyRate', 'Penalty rate (%)')} value={((settings.settlement?.penalty_rate as number ?? 0.02) * 100).toFixed(1)}
           onChange={(v) => updateField('settlement', 'penalty_rate', Number(v) / 100)} />
       </RulesCard>
 
       {/* Operational Rules */}
-      <RulesCard title="Operational Rules" icon={Activity} onSave={() => save('operational')} saving={saving} saved={savedKey === 'operational'}>
-        <RuleToggle label="Maintenance mode" value={settings.operational?.maintenance_mode as boolean ?? false}
+      <RulesCard title={tx('rules.operationalTitle', 'Operational Rules')} icon={Activity} onSave={() => save('operational')} saving={saving} saved={savedKey === 'operational'}>
+        <RuleToggle label={tx('rules.operational.maintenance', 'Maintenance mode')} value={settings.operational?.maintenance_mode as boolean ?? false}
           onChange={(v) => updateField('operational', 'maintenance_mode', v)} />
-        <RuleToggle label="Registration open" value={settings.operational?.registration_open as boolean ?? true}
+        <RuleToggle label={tx('rules.operational.regOpen', 'Registration open')} value={settings.operational?.registration_open as boolean ?? true}
           onChange={(v) => updateField('operational', 'registration_open', v)} />
-        <RuleToggle label="Verification required" value={settings.operational?.verification_required as boolean ?? true}
+        <RuleToggle label={tx('rules.operational.verification', 'Verification required')} value={settings.operational?.verification_required as boolean ?? true}
           onChange={(v) => updateField('operational', 'verification_required', v)} />
         <div>
-          <label className="mb-1 block text-xs font-medium text-ink-500">Announcement banner</label>
+          <label className="mb-1 block text-xs font-medium text-ink-500">{tx('rules.operational.announcementBanner', 'Announcement banner')}</label>
           <input
             type="text"
             value={(settings.operational?.announcement_banner as string) ?? ''}
             onChange={(e) => updateField('operational', 'announcement_banner', e.target.value)}
-            placeholder="e.g. Free delivery this weekend!"
+            placeholder={tx('rules.operational.announcementPlaceholder', 'e.g. Free delivery this weekend!')}
             className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm text-ink-900 placeholder:text-ink-300 focus:border-ember-500 focus:outline-none"
           />
         </div>
       </RulesCard>
 
       {/* Maintenance Mode */}
-      <RulesCard title="Maintenance Mode" icon={Settings} onSave={() => save('maintenance')} saving={saving} saved={savedKey === 'maintenance'}>
-        <RuleToggle label="Enable maintenance mode" value={settings.maintenance?.enabled as boolean ?? false}
+      <RulesCard title={tx('rules.maintenanceTitle', 'Maintenance Mode')} icon={Settings} onSave={() => save('maintenance')} saving={saving} saved={savedKey === 'maintenance'}>
+        <RuleToggle label={tx('rules.maintenance.enabled', 'Enable maintenance mode')} value={settings.maintenance?.enabled as boolean ?? false}
           onChange={(v) => updateField('maintenance', 'enabled', v)} />
-        <RuleToggle label="Allow admin access during maintenance" value={settings.maintenance?.allow_admin_access as boolean ?? true}
+        <RuleToggle label={tx('rules.maintenance.allowAdmin', 'Allow admin access during maintenance')} value={settings.maintenance?.allow_admin_access as boolean ?? true}
           onChange={(v) => updateField('maintenance', 'allow_admin_access', v)} />
-        <RuleField label="Maintenance message" value={settings.maintenance?.message as string ?? 'We are performing scheduled maintenance. Please check back shortly.'}
-          onChange={(v) => updateField('maintenance', 'message', v)} />
+        <RuleField label={tx('rules.maintenance.message', 'Maintenance message')} value={settings.maintenance?.message as string ?? 'We are performing scheduled maintenance. Please check back shortly.'}
+          onChange={(v) => updateField('maintenance', 'message', v)} type="text" />
       </RulesCard>
 
       {/* Order Rules */}
-      <RulesCard title="Order Rules" icon={Clock} onSave={() => save('order_rules')} saving={saving} saved={savedKey === 'order_rules'}>
-        <RuleField label="Cancellation window (minutes)" value={settings.order_rules?.cancellation_window_minutes as number ?? 5}
+      <RulesCard title={tx('rules.orderTitle', 'Order Rules')} icon={Clock} onSave={() => save('order_rules')} saving={saving} saved={savedKey === 'order_rules'}>
+        <RuleField label={tx('rules.order.cancelWindow', 'Cancellation window (minutes)')} value={settings.order_rules?.cancellation_window_minutes as number ?? 5}
           onChange={(v) => updateField('order_rules', 'cancellation_window_minutes', Number(v))} />
-        <RuleField label="Acceptance timeout (minutes)" value={settings.order_rules?.acceptance_timeout_minutes as number ?? 10}
+        <RuleField label={tx('rules.order.acceptTimeout', 'Acceptance timeout (minutes)')} value={settings.order_rules?.acceptance_timeout_minutes as number ?? 10}
           onChange={(v) => updateField('order_rules', 'acceptance_timeout_minutes', Number(v))} />
-        <RuleToggle label="Auto-cancel after timeout" value={settings.order_rules?.auto_cancel_after_timeout as boolean ?? true}
+        <RuleToggle label={tx('rules.order.autoCancel', 'Auto-cancel after timeout')} value={settings.order_rules?.auto_cancel_after_timeout as boolean ?? true}
           onChange={(v) => updateField('order_rules', 'auto_cancel_after_timeout', v)} />
-        <RuleField label="Busy mode threshold (orders)" value={settings.order_rules?.busy_mode_threshold as number ?? 15}
+        <RuleField label={tx('rules.order.busyThreshold', 'Busy mode threshold (orders)')} value={settings.order_rules?.busy_mode_threshold as number ?? 15}
           onChange={(v) => updateField('order_rules', 'busy_mode_threshold', Number(v))} />
-        <RuleToggle label="Auto busy mode" value={settings.order_rules?.auto_busy_mode as boolean ?? true}
+        <RuleToggle label={tx('rules.order.autoBusy', 'Auto busy mode')} value={settings.order_rules?.auto_busy_mode as boolean ?? true}
           onChange={(v) => updateField('order_rules', 'auto_busy_mode', v)} />
       </RulesCard>
 
       {/* Feature Flags */}
-      <RulesCard title="Feature Flags" icon={Sparkles} onSave={() => save('features')} saving={saving} saved={savedKey === 'features'}>
+      <RulesCard title={tx('rules.featureFlagsTitle', 'Feature Flags')} icon={Sparkles} onSave={() => save('features')} saving={saving} saved={savedKey === 'features'}>
         {Object.entries(settings.features ?? {}).filter(([, v]) => typeof v === 'boolean').map(([key, val]) => (
           <RuleToggle key={key} label={key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
             value={val as boolean} onChange={(v) => updateField('features', key, v)} />
@@ -900,42 +1144,42 @@ function RulesTab() {
       </RulesCard>
 
       {/* Taxes & Fees */}
-      <RulesCard title="Taxes & Fees" icon={FileText} onSave={() => save('taxes_fees')} saving={saving} saved={savedKey === 'taxes_fees'}>
-        <RuleField label="VAT Rate (%)" value={settings.taxes_fees?.vat_rate as number ?? 19}
+      <RulesCard title={tx('rules.taxesTitle', 'Taxes & Fees')} icon={FileText} onSave={() => save('taxes_fees')} saving={saving} saved={savedKey === 'taxes_fees'}>
+        <RuleField label={tx('rules.taxes.vatRate', 'VAT Rate (%)')} value={settings.taxes_fees?.vat_rate as number ?? 19}
           onChange={(v) => updateField('taxes_fees', 'vat_rate', Number(v))} />
-        <RuleField label="Transaction Processing Fee (DZD)" value={settings.taxes_fees?.transaction_fee_fixed as number ?? 20}
+        <RuleField label={tx('rules.taxes.transFeeFixed', 'Transaction Processing Fee (DZD)')} value={settings.taxes_fees?.transaction_fee_fixed as number ?? 20}
           onChange={(v) => updateField('taxes_fees', 'transaction_fee_fixed', Number(v))} />
-        <RuleField label="Payment Gateway Comm. (%)" value={settings.taxes_fees?.transaction_fee_percent as number ?? 1.5}
+        <RuleField label={tx('rules.taxes.transFeePercent', 'Payment Gateway Comm. (%)')} value={settings.taxes_fees?.transaction_fee_percent as number ?? 1.5}
           onChange={(v) => updateField('taxes_fees', 'transaction_fee_percent', Number(v))} />
       </RulesCard>
 
       {/* Driver Commission & Compensation */}
-      <RulesCard title="Driver Commission & Rules" icon={Truck} onSave={() => save('driver_rules')} saving={saving} saved={savedKey === 'driver_rules'}>
-        <RuleField label="Driver Base Pay per Order (DZD)" value={settings.driver_rules?.base_delivery_pay as number ?? 120}
+      <RulesCard title={tx('rules.driverRulesTitle', 'Driver Commission & Rules')} icon={Truck} onSave={() => save('driver_rules')} saving={saving} saved={savedKey === 'driver_rules'}>
+        <RuleField label={tx('rules.driver.basePay', 'Driver Base Pay per Order (DZD)')} value={settings.driver_rules?.base_delivery_pay as number ?? 120}
           onChange={(v) => updateField('driver_rules', 'base_delivery_pay', Number(v))} />
-        <RuleField label="Driver Pay per km (DZD)" value={settings.driver_rules?.per_km_delivery_pay as number ?? 15}
+        <RuleField label={tx('rules.driver.payPerKm', 'Driver Pay per km (DZD)')} value={settings.driver_rules?.per_km_delivery_pay as number ?? 15}
           onChange={(v) => updateField('driver_rules', 'per_km_delivery_pay', Number(v))} />
-        <RuleField label="Driver Commission Cut (%)" value={((settings.driver_rules?.driver_commission_rate as number ?? 0.10) * 100).toFixed(1)}
+        <RuleField label={tx('rules.driver.commissionRate', 'Driver Commission Cut (%)')} value={((settings.driver_rules?.driver_commission_rate as number ?? 0.10) * 100).toFixed(1)}
           onChange={(v) => updateField('driver_rules', 'driver_commission_rate', Number(v) / 100)} />
-        <RuleToggle label="Drivers Auto-assigned" value={settings.driver_rules?.auto_assign_drivers as boolean ?? true}
+        <RuleToggle label={tx('rules.driver.autoAssign', 'Drivers Auto-assigned')} value={settings.driver_rules?.auto_assign_drivers as boolean ?? true}
           onChange={(v) => updateField('driver_rules', 'auto_assign_drivers', v)} />
       </RulesCard>
 
       {/* Loyalty & Referral Configuration */}
-      <RulesCard title="Loyalty & Referral Program" icon={Gift} onSave={() => save('loyalty_referral')} saving={saving} saved={savedKey === 'loyalty_referral'}>
-        <RuleToggle label="Enable Loyalty Points" value={settings.loyalty_referral?.loyalty_enabled as boolean ?? true}
+      <RulesCard title={tx('rules.loyaltyTitle', 'Loyalty & Referral Program')} icon={Gift} onSave={() => save('loyalty_referral')} saving={saving} saved={savedKey === 'loyalty_referral'}>
+        <RuleToggle label={tx('rules.loyalty.enabled', 'Enable Loyalty Points')} value={settings.loyalty_referral?.loyalty_enabled as boolean ?? true}
           onChange={(v) => updateField('loyalty_referral', 'loyalty_enabled', v)} />
-        <RuleField label="Loyalty Points earned per 100 DZD" value={settings.loyalty_referral?.points_per_hundred as number ?? 5}
+        <RuleField label={tx('rules.loyalty.pointsPerHundred', 'Loyalty Points earned per 100 DZD')} value={settings.loyalty_referral?.points_per_hundred as number ?? 5}
           onChange={(v) => updateField('loyalty_referral', 'points_per_hundred', Number(v))} />
-        <RuleField label="DZD Cash Value per 1 Point" value={settings.loyalty_referral?.point_value_dzd as number ?? 1}
+        <RuleField label={tx('rules.loyalty.pointValueDzd', 'DZD Cash Value per 1 Point')} value={settings.loyalty_referral?.point_value_dzd as number ?? 1}
           onChange={(v) => updateField('loyalty_referral', 'point_value_dzd', Number(v))} />
-        <RuleToggle label="Enable Referral Discounts" value={settings.loyalty_referral?.referral_enabled as boolean ?? true}
+        <RuleToggle label={tx('rules.loyalty.referralEnabled', 'Enable Referral Discounts')} value={settings.loyalty_referral?.referral_enabled as boolean ?? true}
           onChange={(v) => updateField('loyalty_referral', 'referral_enabled', v)} />
-        <RuleField label="Referrer Reward (DZD)" value={settings.loyalty_referral?.referrer_reward as number ?? 200}
+        <RuleField label={tx('rules.loyalty.referrerReward', 'Referrer Reward (DZD)')} value={settings.loyalty_referral?.referrer_reward as number ?? 200}
           onChange={(v) => updateField('loyalty_referral', 'referrer_reward', Number(v))} />
-        <RuleField label="Referee Sign-up Discount (DZD)" value={settings.loyalty_referral?.referee_discount as number ?? 150}
+        <RuleField label={tx('rules.loyalty.refereeDiscount', 'Referee Sign-up Discount (DZD)')} value={settings.loyalty_referral?.referee_discount as number ?? 150}
           onChange={(v) => updateField('loyalty_referral', 'referee_discount', Number(v))} />
-        <RuleField label="Min Order to Redeem (DZD)" value={settings.loyalty_referral?.min_order_value as number ?? 800}
+        <RuleField label={tx('rules.loyalty.minOrderToRedeem', 'Min Order to Redeem (DZD)')} value={settings.loyalty_referral?.min_order_value as number ?? 800}
           onChange={(v) => updateField('loyalty_referral', 'min_order_value', Number(v))} />
       </RulesCard>
     </div>
@@ -945,6 +1189,7 @@ function RulesTab() {
 function RulesCard({ title, icon: Icon, children, onSave, saving, saved }: {
   title: string; icon: React.ElementType; children: React.ReactNode; onSave: () => void; saving: boolean; saved: boolean;
 }) {
+  const { tx } = useAdminT();
   return (
     <div className="kiyo-card p-5">
       <div className="mb-4 flex items-center justify-between">
@@ -956,7 +1201,7 @@ function RulesCard({ title, icon: Icon, children, onSave, saving, saved }: {
         </div>
         <button onClick={onSave} disabled={saving} className="kiyo-btn-primary text-xs">
           {saving ? <Spinner className="h-3 w-3" /> : saved ? <CheckCircle className="h-3 w-3" /> : null}
-          {saved ? 'Saved!' : 'Save'}
+          {saved ? tx('common.saved', 'Saved!') : tx('common.save', 'Save')}
         </button>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{children}</div>
@@ -2142,6 +2387,8 @@ type WilayaStats = {
 };
 
 function GeographyTab() {
+  const { t, currentLocale } = useT();
+  const { tx } = useAdminT();
   const [wilayaStats, setWilayaStats] = useState<WilayaStats[]>([]);
   const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2250,62 +2497,65 @@ function GeographyTab() {
     <div className="space-y-6">
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard icon={MapPin} label="Active Wilayas" value={String(activeWilayas.length)} accent="ember" />
-        <StatCard icon={Store} label="Wilayas with Restaurants" value={String(wilayasWithRestaurants.length)} />
-        <StatCard icon={Users} label="Total Restaurants" value={String(totalRestaurants)} />
-        <StatCard icon={TrendingUp} label="Coverage" value={`${Math.round((wilayasWithRestaurants.length / 58) * 100)}%`} />
+        <StatCard icon={MapPin} label={tx('geography.activeWilayas', 'Active Wilayas')} value={String(activeWilayas.length)} accent="ember" />
+        <StatCard icon={Store} label={tx('geography.wilayasWithRestaurants', 'Wilayas with Restaurants')} value={String(wilayasWithRestaurants.length)} />
+        <StatCard icon={Users} label={tx('geography.totalRestaurants', 'Total Restaurants')} value={String(totalRestaurants)} />
+        <StatCard icon={TrendingUp} label={tx('geography.coverage', 'Coverage')} value={`${Math.round((wilayasWithRestaurants.length / 58) * 100)}%`} />
       </div>
 
       {/* Wilaya list */}
       <div className="kiyo-card overflow-hidden p-0">
         <div className="border-b border-ink-100 px-4 py-3">
-          <h3 className="font-display text-sm font-bold text-ink-900">Wilaya Coverage</h3>
+          <h3 className="font-display text-sm font-bold text-ink-900">{tx('geography.wilayaCoverage', 'Wilaya Coverage')}</h3>
         </div>
         <div className="max-h-[400px] overflow-y-auto">
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-ink-50">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-semibold text-ink-500">Wilaya</th>
-                <th className="px-4 py-2 text-center text-xs font-semibold text-ink-500">Code</th>
-                <th className="px-4 py-2 text-center text-xs font-semibold text-ink-500">Restaurants</th>
-                <th className="px-4 py-2 text-center text-xs font-semibold text-ink-500">Customers</th>
-                <th className="px-4 py-2 text-center text-xs font-semibold text-ink-500">Status</th>
+                <th className="px-4 py-2 text-left text-xs font-semibold text-ink-500">{tx('geography.tbl.wilaya', 'Wilaya')}</th>
+                <th className="px-4 py-2 text-center text-xs font-semibold text-ink-500">{tx('geography.tbl.code', 'Code')}</th>
+                <th className="px-4 py-2 text-center text-xs font-semibold text-ink-500">{tx('geography.tbl.restaurants', 'Restaurants')}</th>
+                <th className="px-4 py-2 text-center text-xs font-semibold text-ink-500">{tx('geography.tbl.customers', 'Customers')}</th>
+                <th className="px-4 py-2 text-center text-xs font-semibold text-ink-500">{tx('geography.tbl.status', 'Status')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-50">
-              {wilayaStats.map((w) => (
-                <tr key={w.id} className="hover:bg-ink-50/50">
-                  <td className="px-4 py-2 font-medium text-ink-900">{w.name_fr}</td>
-                  <td className="px-4 py-2 text-center text-ink-500">{w.code}</td>
-                  <td className="px-4 py-2 text-center">
-                    <span className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-semibold ${
-                      w.restaurant_count > 0 ? 'bg-sage-100 text-sage-700' : 'bg-ink-100 text-ink-400'
-                    }`}>
-                      {w.restaurant_count}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-center text-ink-600">{w.customer_count}</td>
-                  <td className="px-4 py-2 text-center">
-                    <button
-                      onClick={() => toggleWilaya(w)}
-                      className="focus:outline-none transition-transform active:scale-95"
-                      title="Click to toggle active/inactive"
-                    >
-                      {w.is_active ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-sage-100 px-2 py-0.5 text-xs font-semibold text-sage-700 hover:bg-sage-200">
-                          <CheckCircle className="h-3 w-3" />
-                          Active
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-ink-100 px-2 py-0.5 text-xs font-semibold text-ink-500 hover:bg-ink-200">
-                          <Ban className="h-3 w-3" />
-                          Inactive
-                        </span>
-                      )}
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {wilayaStats.map((w) => {
+                const wName = currentLocale === 'ar' ? w.name_ar : currentLocale === 'fr' ? w.name_fr : w.name_en;
+                return (
+                  <tr key={w.id} className="hover:bg-ink-50/50">
+                    <td className="px-4 py-2 font-medium text-ink-900">{wName}</td>
+                    <td className="px-4 py-2 text-center text-ink-500">{w.code}</td>
+                    <td className="px-4 py-2 text-center">
+                      <span className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-semibold ${
+                        w.restaurant_count > 0 ? 'bg-sage-100 text-sage-700' : 'bg-ink-100 text-ink-400'
+                      }`}>
+                        {w.restaurant_count}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-center text-ink-600">{w.customer_count}</td>
+                    <td className="px-4 py-2 text-center">
+                      <button
+                        onClick={() => toggleWilaya(w)}
+                        className="focus:outline-none transition-transform active:scale-95"
+                        title="Click to toggle active/inactive"
+                      >
+                        {w.is_active ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-sage-100 px-2 py-0.5 text-xs font-semibold text-sage-700 hover:bg-sage-200">
+                            <CheckCircle className="h-3 w-3" />
+                            {tx('geography.active', 'Active')}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-ink-100 px-2 py-0.5 text-xs font-semibold text-ink-500 hover:bg-ink-200">
+                            <Ban className="h-3 w-3" />
+                            {tx('geography.inactive', 'Inactive')}
+                          </span>
+                        )}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -2316,47 +2566,47 @@ function GeographyTab() {
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <MapPin className="h-4 w-4 text-ember-500" />
-            <h3 className="font-display text-sm font-bold text-ink-900">Delivery Zones</h3>
+            <h3 className="font-display text-sm font-bold text-ink-900">{tx('geography.deliveryZones', 'Delivery Zones')}</h3>
           </div>
           <button onClick={() => setShowZoneForm((v) => !v)} className="kiyo-btn-primary text-xs">
-            Add Zone
+            {tx('geography.addZone', 'Add Zone')}
           </button>
         </div>
         <p className="mb-3 text-xs text-ink-500">
-          Configure delivery pricing for different zones.
+          {tx('geography.zonesDesc', 'Configure delivery pricing for different zones.')}
         </p>
 
         {showZoneForm && (
           <div className="mb-3 rounded-lg border border-ink-200 bg-ink-50 p-3">
             <div className="grid grid-cols-4 gap-2">
               <input value={newZone.name} onChange={(e) => setNewZone({ ...newZone, name: e.target.value })}
-                placeholder="Zone name" className="rounded border border-ink-200 px-2 py-1 text-xs" />
+                placeholder={tx('geography.zoneName', 'Zone name')} className="rounded border border-ink-200 bg-white px-2 py-1 text-xs text-ink-900 focus:border-ember-500 focus:outline-none" />
               <input type="number" value={newZone.base_fee} onChange={(e) => setNewZone({ ...newZone, base_fee: e.target.value })}
-                placeholder="Base fee" className="rounded border border-ink-200 px-2 py-1 text-xs" />
+                placeholder={tx('geography.baseFee', 'Base fee')} className="rounded border border-ink-200 bg-white px-2 py-1 text-xs text-ink-900 focus:border-ember-500 focus:outline-none" />
               <input type="number" value={newZone.per_km_fee} onChange={(e) => setNewZone({ ...newZone, per_km_fee: e.target.value })}
-                placeholder="Per km" className="rounded border border-ink-200 px-2 py-1 text-xs" />
+                placeholder={tx('geography.perKm', 'Per km')} className="rounded border border-ink-200 bg-white px-2 py-1 text-xs text-ink-900 focus:border-ember-500 focus:outline-none" />
               <input type="number" value={newZone.min_fee} onChange={(e) => setNewZone({ ...newZone, min_fee: e.target.value })}
-                placeholder="Min fee" className="rounded border border-ink-200 px-2 py-1 text-xs" />
+                placeholder={tx('geography.minFee', 'Min fee')} className="rounded border border-ink-200 bg-white px-2 py-1 text-xs text-ink-900 focus:border-ember-500 focus:outline-none" />
             </div>
             <div className="mt-2 flex gap-2">
-              <button onClick={createZone} className="kiyo-btn-primary text-xs">Create</button>
-              <button onClick={() => setShowZoneForm(false)} className="kiyo-btn-secondary text-xs">Cancel</button>
+              <button onClick={createZone} className="kiyo-btn-primary text-xs">{tx('geography.create', 'Create')}</button>
+              <button onClick={() => setShowZoneForm(false)} className="kiyo-btn-secondary text-xs">{tx('geography.cancel', 'Cancel')}</button>
             </div>
           </div>
         )}
 
         {deliveryZones.length === 0 ? (
-          <div className="rounded-lg bg-ink-50 p-4 text-center text-xs text-ink-400">No delivery zones configured</div>
+          <div className="rounded-lg bg-ink-50 p-4 text-center text-xs text-ink-400">{tx('geography.noZones', 'No delivery zones configured')}</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-ink-100 text-left text-xs font-semibold text-ink-500">
-                  <th className="px-3 py-2">Zone</th>
-                  <th className="px-3 py-2 text-right">Base Fee</th>
-                  <th className="px-3 py-2 text-right">Per Km</th>
-                  <th className="px-3 py-2 text-right">Min Fee</th>
-                  <th className="px-3 py-2 text-center">Status</th>
+                  <th className="px-3 py-2">{tx('geography.tbl.zone', 'Zone')}</th>
+                  <th className="px-3 py-2 text-right">{tx('geography.tbl.baseFee', 'Base Fee')}</th>
+                  <th className="px-3 py-2 text-right">{tx('geography.tbl.perKm', 'Per Km')}</th>
+                  <th className="px-3 py-2 text-right">{tx('geography.tbl.minFee', 'Min Fee')}</th>
+                  <th className="px-3 py-2 text-center">{tx('geography.tbl.status', 'Status')}</th>
                   <th className="px-3 py-2"></th>
                 </tr>
               </thead>
@@ -2370,11 +2620,11 @@ function GeographyTab() {
                     <td className="px-3 py-2 text-center">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                         z.is_active ? 'bg-sage-100 text-sage-700' : 'bg-ink-100 text-ink-500'
-                      }`}>{z.is_active ? 'Active' : 'Inactive'}</span>
+                      }`}>{z.is_active ? tx('geography.active', 'Active') : tx('geography.inactive', 'Inactive')}</span>
                     </td>
                     <td className="px-3 py-2 text-right">
                       <button onClick={() => toggleZone(z)} className="text-xs text-ink-500 hover:text-ink-700">
-                        {z.is_active ? 'Disable' : 'Enable'}
+                        {z.is_active ? tx('geography.disable', 'Disable') : tx('geography.enable', 'Enable')}
                       </button>
                     </td>
                   </tr>
@@ -2389,27 +2639,30 @@ function GeographyTab() {
       <div className="kiyo-card">
         <div className="mb-3 flex items-center gap-2">
           <TrendingUp className="h-4 w-4 text-ember-500" />
-          <h3 className="font-display text-sm font-bold text-ink-900">Expansion Opportunities</h3>
+          <h3 className="font-display text-sm font-bold text-ink-900">{tx('geography.expansionOpportunities', 'Expansion Opportunities')}</h3>
         </div>
         <p className="mb-3 text-xs text-ink-500">
-          Wilayas with customer interest but no restaurants yet.
+          {tx('geography.expansionDesc', 'Wilayas with customer interest but no restaurants yet.')}
         </p>
         <div className="flex flex-wrap gap-2">
           {wilayaStats
             .filter((w) => w.customer_count > 0 && w.restaurant_count === 0)
             .slice(0, 10)
-            .map((w) => (
-              <span
-                key={w.id}
-                className="inline-flex items-center gap-1 rounded-lg border border-ember-200 bg-ember-50 px-2 py-1 text-xs font-medium text-ember-700"
-              >
-                <MapPin className="h-3 w-3" />
-                {w.name_fr}
-                <span className="text-ember-500">({w.customer_count} customers)</span>
-              </span>
-            ))}
+            .map((w) => {
+              const wName = currentLocale === 'ar' ? w.name_ar : currentLocale === 'fr' ? w.name_fr : w.name_en;
+              return (
+                <span
+                  key={w.id}
+                  className="inline-flex items-center gap-1 rounded-lg border border-ember-200 bg-ember-50 px-2 py-1 text-xs font-medium text-ember-700"
+                >
+                  <MapPin className="h-3 w-3" />
+                  {wName}
+                  <span className="text-ember-500">({w.customer_count} {tx('geography.customersSuffix', 'customers')})</span>
+                </span>
+              );
+            })}
           {wilayaStats.filter((w) => w.customer_count > 0 && w.restaurant_count === 0).length === 0 && (
-            <span className="text-xs text-ink-400">All customer demand is currently served.</span>
+            <span className="text-xs text-ink-400">{tx('geography.demandServed', 'All customer demand is currently served.')}</span>
           )}
         </div>
       </div>
