@@ -1,0 +1,408 @@
+import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Bike, Car, Navigation, Package, Star, Clock, Power, MapPin, Check, X
+} from 'lucide-react';
+import { AppShell } from '../components/AppShell';
+import { ErrorBoundary } from '../components/ErrorBoundary';
+import { Skeleton } from '../components/feedback';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
+
+type Driver = {
+  id: string;
+  user_id: string;
+  vehicle_type: 'bicycle' | 'motorcycle' | 'car' | 'scooter';
+  vehicle_plate: string | null;
+  is_online: boolean;
+  is_verified: boolean;
+  is_active: boolean;
+  current_latitude: number | null;
+  current_longitude: number | null;
+  rating: number;
+  delivery_count: number;
+};
+
+type Delivery = {
+  id: string;
+  order_id: string;
+  status: string;
+  pickup_latitude: number | null;
+  pickup_longitude: number | null;
+  delivery_latitude: number | null;
+  delivery_longitude: number | null;
+  driver_notes: string | null;
+  created_at: string;
+  orders: {
+    id: string;
+    restaurant_id: string;
+    total: string;
+    delivery_address: string | null;
+    restaurants: {
+      id: string;
+      name: string;
+      address: string | null;
+    };
+  };
+};
+
+export default function DriverDashboardPage() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const [driver, setDriver] = useState<Driver | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [pendingDeliveries, setPendingDeliveries] = useState<Delivery[]>([]);
+  const [activeDelivery, setActiveDelivery] = useState<Delivery | null>(null);
+  const [earnings, setEarnings] = useState<{ today: number; week: number; pending: number }>({
+    today: 0, week: 0, pending: 0
+  });
+
+  const load = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    setError(null);
+    try {
+      // Load driver profile
+      const { data: d, error: de } = await supabase
+        .from('drivers')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (de) throw de;
+      if (!d) {
+        // Driver doesn't exist yet - show onboarding
+        navigate('/driver/onboarding', { replace: true });
+        return;
+      }
+      setDriver(d as Driver);
+
+      if (!(d as Driver).is_verified) {
+        setError('Your account is pending verification. You will be notified once approved.');
+        setLoading(false);
+        return;
+      }
+
+      // Load pending assignments
+      const { data: pending } = await supabase
+        .from('deliveries')
+        .select('id, order_id, status, pickup_latitude, pickup_longitude, delivery_latitude, delivery_longitude, driver_notes, created_at, orders!inner(id, restaurant_id, total, delivery_address, restaurants!inner(id, name, address))')
+        .eq('driver_id', (d as Driver).id)
+        .in('status', ['assigned', 'driver_accepted', 'picking_up', 'picked_up', 'en_route', 'arrived'])
+        .order('created_at', { ascending: true });
+
+      setPendingDeliveries((pending as unknown as Delivery[]) ?? []);
+
+      // Find active delivery
+      const active = (pending as unknown as Delivery[])?.find(d =>
+        ['driver_accepted', 'picking_up', 'picked_up', 'en_route', 'arrived'].includes(d.status)
+      );
+      setActiveDelivery(active ?? null);
+
+      // Load earnings
+      const { data: earningsData } = await supabase
+        .from('driver_earnings')
+        .select('total, created_at, settlement_status')
+        .eq('driver_id', (d as Driver).id);
+
+      if (earningsData) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const weekAgo = new Date(today);
+        weekAgo.setDate(weekAgo.getDate() - 7);
+
+        setEarnings({
+          today: earningsData
+            .filter(e => new Date(e.created_at) >= today)
+            .reduce((sum, e) => sum + Number(e.total), 0),
+          week: earningsData
+            .filter(e => new Date(e.created_at) >= weekAgo)
+            .reduce((sum, e) => sum + Number(e.total), 0),
+          pending: earningsData
+            .filter(e => e.settlement_status === 'pending')
+            .reduce((sum, e) => sum + Number(e.total), 0),
+        });
+      }
+    } catch (err) {
+      setError((err as Error)?.message ?? 'Failed to load driver profile');
+    } finally {
+      setLoading(false);
+    }
+  }, [user, navigate]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const toggleOnline = async () => {
+    if (!driver) return;
+    const newStatus = !driver.is_online;
+    setDriver(prev => prev ? { ...prev, is_online: newStatus } : null);
+    await supabase
+      .from('drivers')
+      .update({ is_online: newStatus, updated_at: new Date().toISOString() })
+      .eq('id', driver.id);
+  };
+
+  const acceptDelivery = async (deliveryId: string) => {
+    const { error: e } = await supabase
+      .from('deliveries')
+      .update({ status: 'driver_accepted', updated_at: new Date().toISOString() })
+      .eq('id', deliveryId);
+    if (!e) void load();
+  };
+
+  const declineDelivery = async (deliveryId: string) => {
+    const { error: e } = await supabase
+      .from('deliveries')
+      .update({ status: 'driver_declined', updated_at: new Date().toISOString() })
+      .eq('id', deliveryId);
+    if (!e) void load();
+  };
+
+  const updateDeliveryStatus = async (deliveryId: string, newStatus: string) => {
+    const update: Record<string, unknown> = { status: newStatus, updated_at: new Date().toISOString() };
+    if (newStatus === 'picked_up') update.picked_up_at = new Date().toISOString();
+    if (newStatus === 'delivered') {
+      update.delivered_at = new Date().toISOString();
+      // Also update order status
+      const delivery = activeDelivery || pendingDeliveries.find(d => d.id === deliveryId);
+      if (delivery) {
+        await supabase
+          .from('orders')
+          .update({ status: 'delivered' })
+          .eq('id', delivery.order_id);
+      }
+    }
+    const { error: e } = await supabase
+      .from('deliveries')
+      .update(update)
+      .eq('id', deliveryId);
+    if (!e) void load();
+  };
+
+  if (loading) {
+    return (
+      <AppShell>
+        <Skeleton count={4} />
+      </AppShell>
+    );
+  }
+
+  if (error && !driver?.is_verified) {
+    return (
+      <AppShell>
+        <div className="kiyo-card p-6 text-center">
+          <Clock className="mx-auto h-10 w-10 text-ink-300" />
+          <p className="mt-3 text-sm text-ink-500">{error}</p>
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (error) {
+    return (
+      <AppShell>
+        <div className="kiyo-card p-6 text-center">
+          <p className="text-sm text-error-600">{error}</p>
+          <button onClick={load} className="kiyo-btn-secondary mt-3">Retry</button>
+        </div>
+      </AppShell>
+    );
+  }
+
+  const VEHICLE_ICONS = {
+    bicycle: Bike,
+    motorcycle: Bike,
+    car: Car,
+    scooter: Bike,
+  };
+  const VehicleIcon = driver ? VEHICLE_ICONS[driver.vehicle_type] : Bike;
+
+  return (
+    <AppShell>
+      <div className="mb-5 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl font-extrabold tracking-tight text-ink-900">
+            Driver Dashboard
+          </h1>
+          <p className="text-xs text-ink-400">
+            {driver?.is_online ? 'Online - Accepting deliveries' : 'Offline'}
+          </p>
+        </div>
+        <button
+          onClick={toggleOnline}
+          className={`rounded-lg px-4 py-2.5 text-sm font-semibold transition-all ${
+            driver?.is_online
+              ? 'bg-sage-500 text-white hover:bg-sage-600'
+              : 'bg-ink-200 text-ink-600 hover:bg-ink-300'
+          }`}
+        >
+          <Power className="mr-1.5 inline h-4 w-4" />
+          {driver?.is_online ? 'Online' : 'Go Online'}
+        </button>
+      </div>
+
+      {/* Earnings summary */}
+      <div className="mb-5 grid grid-cols-3 gap-3">
+        <div className="kiyo-card p-3">
+          <div className="text-xs font-medium text-ink-400">Today</div>
+          <div className="mt-1 font-display text-lg font-bold text-ink-900">
+            {earnings.today.toLocaleString()} DZD
+          </div>
+        </div>
+        <div className="kiyo-card p-3">
+          <div className="text-xs font-medium text-ink-400">This Week</div>
+          <div className="mt-1 font-display text-lg font-bold text-ink-900">
+            {earnings.week.toLocaleString()} DZD
+          </div>
+        </div>
+        <div className="kiyo-card p-3">
+          <div className="text-xs font-medium text-ink-400">Pending</div>
+          <div className="mt-1 font-display text-lg font-bold text-ember-600">
+            {earnings.pending.toLocaleString()} DZD
+          </div>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="mb-5 flex gap-4 text-sm text-ink-500">
+        <span className="flex items-center gap-1">
+          <Star className="h-4 w-4 text-amber-500" />
+          {driver?.rating.toFixed(1) ?? '5.0'}
+        </span>
+        <span className="flex items-center gap-1">
+          <Package className="h-4 w-4" />
+          {driver?.delivery_count ?? 0} deliveries
+        </span>
+        <span className="flex items-center gap-1">
+          <VehicleIcon className="h-4 w-4" />
+          {driver?.vehicle_type}
+        </span>
+      </div>
+
+      <ErrorBoundary variant="inline">
+        {/* Active delivery */}
+        {activeDelivery && (
+          <div className="mb-5 kiyo-card border-l-4 border-ember-500 p-4">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase text-ember-600">
+                Active Delivery
+              </span>
+              <span className="rounded-full bg-ember-100 px-2 py-0.5 text-xs font-medium text-ember-700">
+                {activeDelivery.status.replace('_', ' ')}
+              </span>
+            </div>
+            <h3 className="font-display text-base font-bold text-ink-900">
+              {activeDelivery.orders.restaurants.name}
+            </h3>
+            <p className="mt-0.5 text-xs text-ink-500">
+              {activeDelivery.orders.delivery_address}
+            </p>
+            <p className="mt-1 text-sm font-semibold text-ink-900">
+              {Number(activeDelivery.orders.total).toLocaleString()} DZD
+            </p>
+
+            {/* Status buttons */}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {activeDelivery.status === 'driver_accepted' && (
+                <button
+                  onClick={() => updateDeliveryStatus(activeDelivery.id, 'picking_up')}
+                  className="kiyo-btn-primary text-xs"
+                >
+                  <Navigation className="h-3 w-3" />
+                  Heading to restaurant
+                </button>
+              )}
+              {activeDelivery.status === 'picking_up' && (
+                <button
+                  onClick={() => updateDeliveryStatus(activeDelivery.id, 'picked_up')}
+                  className="kiyo-btn-primary text-xs"
+                >
+                  <Check className="h-3 w-3" />
+                  Order collected
+                </button>
+              )}
+              {activeDelivery.status === 'picked_up' && (
+                <button
+                  onClick={() => updateDeliveryStatus(activeDelivery.id, 'en_route')}
+                  className="kiyo-btn-primary text-xs"
+                >
+                  <Navigation className="h-3 w-3" />
+                  En route to customer
+                </button>
+              )}
+              {activeDelivery.status === 'en_route' && (
+                <button
+                  onClick={() => updateDeliveryStatus(activeDelivery.id, 'arrived')}
+                  className="kiyo-btn-primary text-xs"
+                >
+                  <MapPin className="h-3 w-3" />
+                  Arrived
+                </button>
+              )}
+              {activeDelivery.status === 'arrived' && (
+                <button
+                  onClick={() => updateDeliveryStatus(activeDelivery.id, 'delivered')}
+                  className="kiyo-btn-primary text-xs"
+                >
+                  <Check className="h-3 w-3" />
+                  Mark as delivered
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* New delivery requests */}
+        {!activeDelivery && pendingDeliveries.filter(d => d.status === 'assigned').length > 0 && driver?.is_online && (
+          <div className="mb-5">
+            <h2 className="mb-2 text-sm font-semibold text-ink-600">New Delivery Request</h2>
+            {pendingDeliveries.filter(d => d.status === 'assigned').map((delivery) => (
+              <div key={delivery.id} className="kiyo-card mb-2 p-4">
+                <h3 className="font-display text-base font-bold text-ink-900">
+                  {delivery.orders.restaurants.name}
+                </h3>
+                <p className="mt-0.5 text-xs text-ink-500">
+                  Pickup: {delivery.orders.restaurants.address}
+                </p>
+                <p className="mt-0.5 text-xs text-ink-500">
+                  Deliver to: {delivery.orders.delivery_address}
+                </p>
+                <p className="mt-1 text-sm font-semibold text-ink-900">
+                  {Number(delivery.orders.total).toLocaleString()} DZD
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    onClick={() => acceptDelivery(delivery.id)}
+                    className="kiyo-btn-primary flex-1 text-xs"
+                  >
+                    <Check className="h-3 w-3" /> Accept
+                  </button>
+                  <button
+                    onClick={() => declineDelivery(delivery.id)}
+                    className="rounded-lg border border-ink-200 px-3 py-2 text-xs font-medium text-ink-600 hover:bg-ink-50"
+                  >
+                    <X className="h-3 w-3" /> Decline
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Empty state */}
+        {!activeDelivery && pendingDeliveries.filter(d => d.status === 'assigned').length === 0 && (
+          <div className="kiyo-card p-8 text-center">
+            <Package className="mx-auto h-10 w-10 text-ink-200" />
+            <p className="mt-3 text-sm text-ink-500">
+              {driver?.is_online
+                ? 'Waiting for new delivery requests...'
+                : 'Go online to start receiving deliveries'}
+            </p>
+          </div>
+        )}
+      </ErrorBoundary>
+    </AppShell>
+  );
+}

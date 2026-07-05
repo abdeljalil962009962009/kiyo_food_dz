@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Primary favicon: scalable SVG (modern browsers) -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- PNG fallbacks -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <!-- Apple touch icon (iOS home screen) — must be 180x180 PNG -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+    <!-- PWA manifest (installable app icon) -->
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#ea580c" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Kiyo Food" />
+
+    <!-- SEO meta tags -->
+    <title>Kiyo Food — Algerian Food Delivery Marketplace</title>
+    <meta name="description" content="Order from the best restaurants across Algeria with Kiyo Food. Fast delivery, transparent prices, cash on delivery. Algerian food delivery marketplace." />
+    <meta name="keywords" content="Kiyo Food, livraison repas Algérie, food delivery Algeria, restaurants, commande en ligne" />
+    <meta name="author" content="Kiyo Food" />
+    <link rel="canonical" href="https://kiyo.food/" />
+
+    <!-- Open Graph / social -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Kiyo Food" />
+    <meta property="og:title" content="Kiyo Food — Algerian Food Delivery Marketplace" />
+    <meta property="og:description" content="Order from the best restaurants across Algeria. Fast delivery, transparent prices, cash on delivery." />
+    <meta property="og:locale" content="fr_FR" />
+    <meta property="og:image" content="/icons/icon-512x512.png" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Kiyo Food" />
+    <meta name="twitter:description" content="Algerian food delivery marketplace. Fast delivery, transparent prices." />
+
+    <!-- Structured Data (JSON-LD) for SEO -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "Kiyo Food",
+      "url": "https://kiyo.food/",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://kiyo.food/restaurants?q={search_term_string}",
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Kiyo Food",
+      "url": "https://kiyo.food/",
+      "logo": "https://kiyo.food/icons/icon-512x512.png",
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "contactType": "customer service",
+        "availableLanguage": ["Arabic", "French", "English"]
+      },
+      "sameAs": []
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FoodService",
+      "name": "Kiyo Food",
+      "description": "Algerian food delivery marketplace connecting customers with local restaurants",
+      "serviceType": "Food Delivery",
+      "areaServed": {
+        "@type": "Country",
+        "name": "Algeria"
+      },
+      "provider": {
+        "@type": "Organization",
+        "name": "Kiyo Food"
+      }
+    }
+    </script>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Register Service Worker for PWA
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,37 @@
+{
+  "name": "Kiyo Food — Livraison de repas locale",
+  "short_name": "Kiyo Food",
+  "description": "Commandez auprès des meilleurs restaurants avec Kiyo Food. Livraison rapide, prix transparents, paiement à la livraison.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#141412",
+  "theme_color": "#ea580c",
+  "orientation": "portrait-primary",
+  "categories": ["food", "delivery", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icons/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
