@@ -6,19 +6,21 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Spinner } from '../components/feedback';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useT } from '../lib/i18n-react';
 
 type VehicleType = 'bicycle' | 'motorcycle' | 'car' | 'scooter';
 
-const VEHICLE_OPTIONS: { value: VehicleType; label: string; icon: typeof Bike; description: string }[] = [
-  { value: 'bicycle', label: 'Bicycle', icon: Bike, description: 'Eco-friendly for short distances' },
-  { value: 'motorcycle', label: 'Motorcycle', icon: Bike, description: 'Fast delivery in urban areas' },
-  { value: 'scooter', label: 'Scooter', icon: Bike, description: 'Efficient for city deliveries' },
-  { value: 'car', label: 'Car', icon: Car, description: 'Ideal for longer distances' },
+const VEHICLE_OPTIONS_KEYS: { value: VehicleType; labelKey: 'driver.vehicle.bicycle' | 'driver.vehicle.motorcycle' | 'driver.vehicle.scooter' | 'driver.vehicle.car'; icon: typeof Bike; descKey: 'driver.vehicle.bicycle.desc' | 'driver.vehicle.motorcycle.desc' | 'driver.vehicle.scooter.desc' | 'driver.vehicle.car.desc' }[] = [
+  { value: 'bicycle', labelKey: 'driver.vehicle.bicycle', icon: Bike, descKey: 'driver.vehicle.bicycle.desc' },
+  { value: 'motorcycle', labelKey: 'driver.vehicle.motorcycle', icon: Bike, descKey: 'driver.vehicle.motorcycle.desc' },
+  { value: 'scooter', labelKey: 'driver.vehicle.scooter', icon: Bike, descKey: 'driver.vehicle.scooter.desc' },
+  { value: 'car', labelKey: 'driver.vehicle.car', icon: Car, descKey: 'driver.vehicle.car.desc' },
 ];
 
 export default function DriverOnboardingPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { t } = useT();
 
   const [step, setStep] = useState(1);
   const [vehicleType, setVehicleType] = useState<VehicleType>('bicycle');
@@ -40,7 +42,7 @@ export default function DriverOnboardingPage() {
   const submitApplication = useCallback(async () => {
     if (!user) return;
     if (!phone.trim()) {
-      setError('Phone number is required');
+      setError(t('checkout.invalidPhone'));
       return;
     }
 
@@ -92,11 +94,11 @@ export default function DriverOnboardingPage() {
         navigate('/driver', { replace: true });
       }, 3000);
     } catch (err) {
-      setError((err as Error)?.message ?? 'Failed to submit application');
+      setError((err as Error)?.message ?? t('auth.error.unknown'));
     } finally {
       setLoading(false);
     }
-  }, [user, vehicleType, vehiclePlate, phone, navigate]);
+  }, [user, vehicleType, vehiclePlate, phone, navigate, t]);
 
   if (success) {
     return (
@@ -105,11 +107,11 @@ export default function DriverOnboardingPage() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-sage-100">
             <Check className="h-8 w-8 text-sage-600" />
           </div>
-          <h2 className="font-display text-xl font-bold text-ink-900">Application Submitted!</h2>
+          <h2 className="font-display text-xl font-bold text-ink-900">{t('driver.onboard.success.title')}</h2>
           <p className="mt-2 text-sm text-ink-500">
-            Your driver application is being reviewed. You will be notified once approved.
+            {t('driver.onboard.success.body')}
           </p>
-          <p className="mt-4 text-xs text-ink-400">Redirecting to dashboard...</p>
+          <p className="mt-4 text-xs text-ink-400">{t('driver.onboard.success.redirect')}</p>
         </div>
       </AppShell>
     );
@@ -120,10 +122,10 @@ export default function DriverOnboardingPage() {
       <div className="mx-auto max-w-xl">
         <div className="mb-6">
           <h1 className="font-display text-2xl font-extrabold tracking-tight text-ink-900">
-            Become a Driver
+            {t('driver.onboard.title')}
           </h1>
           <p className="mt-1 text-sm text-ink-500">
-            Complete your application to start earning with Kiyo Food
+            {t('driver.onboard.subtitle')}
           </p>
         </div>
 
@@ -142,7 +144,7 @@ export default function DriverOnboardingPage() {
         <ErrorBoundary variant="inline">
           <div className="kiyo-card p-6">
             {error && (
-              <div className="mb-4 flex items-center gap-2 rounded-lg bg-error-50 p-3 text-sm text-error-600">
+              <div className="mb-4 flex items-center gap-2 rounded-lg bg-error-55 p-3 text-sm text-error-600">
                 <AlertCircle className="h-4 w-4" />
                 {error}
               </div>
@@ -151,9 +153,9 @@ export default function DriverOnboardingPage() {
             {/* Step 1: Vehicle Selection */}
             {step === 1 && (
               <div>
-                <h2 className="mb-4 text-lg font-semibold text-ink-900">Select Your Vehicle</h2>
+                <h2 className="mb-4 text-lg font-semibold text-ink-900">{t('driver.onboard.step.vehicle')}</h2>
                 <div className="grid grid-cols-2 gap-3">
-                  {VEHICLE_OPTIONS.map((option) => {
+                  {VEHICLE_OPTIONS_KEYS.map((option) => {
                     const Icon = option.icon;
                     const isSelected = vehicleType === option.value;
                     return (
@@ -167,8 +169,8 @@ export default function DriverOnboardingPage() {
                         }`}
                       >
                         <Icon className={`h-6 w-6 ${isSelected ? 'text-ember-500' : 'text-ink-400'}`} />
-                        <div className="mt-2 font-medium text-ink-900">{option.label}</div>
-                        <div className="text-xs text-ink-500">{option.description}</div>
+                        <div className="mt-2 font-medium text-ink-900">{t(option.labelKey)}</div>
+                        <div className="text-xs text-ink-500">{t(option.descKey)}</div>
                       </button>
                     );
                   })}
@@ -177,7 +179,7 @@ export default function DriverOnboardingPage() {
                   onClick={() => setStep(2)}
                   className="kiyo-btn-primary mt-6 w-full"
                 >
-                  Continue
+                  {t('common.continue')}
                 </button>
               </div>
             )}
@@ -185,12 +187,12 @@ export default function DriverOnboardingPage() {
             {/* Step 2: Vehicle Details & Documents */}
             {step === 2 && (
               <div>
-                <h2 className="mb-4 text-lg font-semibold text-ink-900">Vehicle Details</h2>
+                <h2 className="mb-4 text-lg font-semibold text-ink-900">{t('driver.onboard.step.details')}</h2>
 
                 {['car', 'motorcycle', 'scooter'].includes(vehicleType) && (
                   <div className="mb-4">
                     <label className="mb-1.5 block text-sm font-medium text-ink-700">
-                      License Plate Number
+                      {t('driver.onboard.licensePlate')}
                     </label>
                     <input
                       type="text"
@@ -204,7 +206,7 @@ export default function DriverOnboardingPage() {
 
                 <div className="mb-4">
                   <label className="mb-1.5 block text-sm font-medium text-ink-700">
-                    Driver's License Number
+                    {t('driver.onboard.licenseNumber')}
                   </label>
                   <input
                     type="text"
@@ -217,7 +219,7 @@ export default function DriverOnboardingPage() {
 
                 <div className="mb-4">
                   <label className="mb-1.5 block text-sm font-medium text-ink-700">
-                    National ID Number
+                    {t('driver.onboard.idNumber')}
                   </label>
                   <input
                     type="text"
@@ -230,7 +232,7 @@ export default function DriverOnboardingPage() {
 
                 <div className="mb-4">
                   <label className="mb-1.5 block text-sm font-medium text-ink-700">
-                    Upload Documents
+                    {t('driver.onboard.uploadDocuments')}
                   </label>
                   <div className="rounded-lg border-2 border-dashed border-ink-200 p-6 text-center">
                     <input
@@ -247,9 +249,9 @@ export default function DriverOnboardingPage() {
                     >
                       <Upload className="mx-auto h-8 w-8 text-ink-300" />
                       <p className="mt-2 text-sm text-ink-500">
-                        Upload license, ID, and vehicle registration
+                        {t('driver.onboard.uploadPrompt')}
                       </p>
-                      <p className="text-xs text-ink-400">PNG, JPG, or PDF</p>
+                      <p className="text-xs text-ink-400">{t('driver.onboard.uploadFormat')}</p>
                     </label>
                   </div>
                   {documents.length > 0 && (
@@ -269,13 +271,13 @@ export default function DriverOnboardingPage() {
                     onClick={() => setStep(1)}
                     className="kiyo-btn-secondary flex-1"
                   >
-                    Back
+                    {t('common.back')}
                   </button>
                   <button
                     onClick={() => setStep(3)}
                     className="kiyo-btn-primary flex-1"
                   >
-                    Continue
+                    {t('common.continue')}
                   </button>
                 </div>
               </div>
@@ -284,11 +286,11 @@ export default function DriverOnboardingPage() {
             {/* Step 3: Contact & Submit */}
             {step === 3 && (
               <div>
-                <h2 className="mb-4 text-lg font-semibold text-ink-900">Contact Information</h2>
+                <h2 className="mb-4 text-lg font-semibold text-ink-900">{t('driver.onboard.contactTitle')}</h2>
 
                 <div className="mb-4">
                   <label className="mb-1.5 block text-sm font-medium text-ink-700">
-                    Phone Number <span className="text-error-500">*</span>
+                    {t('driver.onboard.phone')} <span className="text-error-500">*</span>
                   </label>
                   <input
                     type="tel"
@@ -299,19 +301,19 @@ export default function DriverOnboardingPage() {
                     required
                   />
                   <p className="mt-1 text-xs text-ink-400">
-                    We'll use this number to contact you about deliveries
+                    {t('driver.onboard.phoneHelp')}
                   </p>
                 </div>
 
                 <div className="mb-6 rounded-lg bg-ink-50 p-4">
-                  <h3 className="text-sm font-semibold text-ink-900">Application Summary</h3>
+                  <h3 className="text-sm font-semibold text-ink-900">{t('driver.onboard.summary')}</h3>
                   <div className="mt-2 space-y-1 text-sm text-ink-600">
-                    <p><span className="font-medium">Vehicle:</span> {vehicleType}</p>
-                    {vehiclePlate && <p><span className="font-medium">Plate:</span> {vehiclePlate}</p>}
-                    {licenseNumber && <p><span className="font-medium">License:</span> {licenseNumber}</p>}
-                    {idNumber && <p><span className="font-medium">ID:</span> {idNumber}</p>}
+                    <p><span className="font-medium">{t('driver.onboard.vehicle')}:</span> {t(`driver.vehicle.${vehicleType}` as 'driver.vehicle.bicycle')}</p>
+                    {vehiclePlate && <p><span className="font-medium">{t('driver.onboard.plate')}:</span> {vehiclePlate}</p>}
+                    {licenseNumber && <p><span className="font-medium">{t('driver.onboard.license')}:</span> {licenseNumber}</p>}
+                    {idNumber && <p><span className="font-medium">{t('driver.onboard.id')}:</span> {idNumber}</p>}
                     {documents.length > 0 && (
-                      <p><span className="font-medium">Documents:</span> {documents.length} file(s)</p>
+                      <p><span className="font-medium">{t('driver.onboard.documents')}:</span> {documents.length}</p>
                     )}
                   </div>
                 </div>
@@ -321,14 +323,14 @@ export default function DriverOnboardingPage() {
                     onClick={() => setStep(2)}
                     className="kiyo-btn-secondary flex-1"
                   >
-                    Back
+                    {t('common.back')}
                   </button>
                   <button
                     onClick={submitApplication}
                     disabled={loading || !phone.trim()}
                     className="kiyo-btn-primary flex-1"
                   >
-                    {loading ? <Spinner className="h-4 w-4" /> : 'Submit Application'}
+                    {loading ? <Spinner size="sm" /> : t('driver.onboard.submit')}
                   </button>
                 </div>
               </div>

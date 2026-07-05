@@ -99,9 +99,9 @@ export default function ProfilePage() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      setExportMsg('Export downloaded.');
+      setExportMsg(t('profile.privacy.exportSuccess'));
     } catch {
-      setExportMsg('Export failed. Please try again.');
+      setExportMsg(t('profile.privacy.exportFailed'));
     } finally {
       setExporting(false);
     }
@@ -116,17 +116,17 @@ export default function ProfilePage() {
       if (error) {
         if (error.message.includes('cannot_delete_active_restaurant_owner')) {
           setDeleteError(
-            'Your account owns an active restaurant. Please contact Kiyo support to transfer ownership or close the restaurant first.',
+            t('profile.deleteModal.warn'),
           );
         } else {
-          setDeleteError('Could not delete your account. Please try again.');
+          setDeleteError(t('error.genericBody'));
         }
         return;
       }
       await signOut();
       navigate('/login', { replace: true });
     } catch {
-      setDeleteError('Could not delete your account. Please try again.');
+      setDeleteError(t('error.genericBody'));
     } finally {
       setDeleting(false);
     }
@@ -147,11 +147,11 @@ export default function ProfilePage() {
                 <div className="flex items-center gap-2">
                   <Award className="h-5 w-5 text-amber-500" />
                   <h2 className="font-display text-base font-bold text-ink-900">
-                    Loyalty Program
+                    {t('profile.loyalty.title')}
                   </h2>
                 </div>
                 <p className="mt-1 text-xs text-ink-500">
-                  Earn 1 point for every 100 DZD spent
+                  {t('profile.loyalty.subtitle')}
                 </p>
               </div>
               <div className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${
@@ -166,7 +166,7 @@ export default function ProfilePage() {
             <div className="mt-4 grid grid-cols-3 gap-4">
               <div>
                 <div className="flex items-center gap-1 text-xs text-ink-400">
-                  <Star className="h-3 w-3" /> Current Points
+                  <Star className="h-3 w-3" /> {t('profile.loyalty.currentPoints')}
                 </div>
                 <div className="mt-1 font-display text-xl font-bold text-ink-900">
                   {loyalty?.points?.toLocaleString() ?? 0}
@@ -174,19 +174,19 @@ export default function ProfilePage() {
               </div>
               <div>
                 <div className="flex items-center gap-1 text-xs text-ink-400">
-                  <TrendingUp className="h-3 w-3" /> Lifetime Points
+                  <TrendingUp className="h-3 w-3" /> {t('profile.loyalty.lifetimePoints')}
                 </div>
                 <div className="mt-1 font-display text-xl font-bold text-ink-900">
                   {loyalty?.lifetime_points?.toLocaleString() ?? 0}
                 </div>
               </div>
               <div>
-                <div className="text-xs text-ink-400">Next Tier</div>
+                <div className="text-xs text-ink-400">{t('profile.loyalty.nextTier')}</div>
                 <div className="mt-1 text-sm font-semibold text-ink-700">
                   {(loyalty?.tier === 'bronze' && '500 pts to Silver') ||
                    (loyalty?.tier === 'silver' && '1500 pts to Gold') ||
                    (loyalty?.tier === 'gold' && '5000 pts to Platinum') ||
-                   'Maximum tier reached!'}
+                   t('profile.loyalty.maxTier')}
                 </div>
               </div>
             </div>
@@ -201,15 +201,15 @@ export default function ProfilePage() {
             <div className="space-y-3">
               <Row icon={UserIcon} label={t('auth.fullName')} value={profile?.full_name ?? '—'} />
               <Row icon={Mail} label={t('auth.email')} value={profile?.email ?? '—'} />
-              <Row icon={Phone} label="Phone" value={profile?.phone ?? '—'} />
-              <Row icon={Shield} label={t('dash.role')} value={(profile?.role ?? 'customer').replace('_', ' ')} />
+              <Row icon={Phone} label={t('profile.phone')} value={profile?.phone ?? '—'} />
+              <Row icon={Shield} label={t('dash.role')} value={t(`role.${profile?.role}` as any)} />
             </div>
           </div>
 
           <div className="kiyo-card p-5">
             <h2 className="mb-4 font-display text-base font-bold text-ink-900">
               <Globe className="mr-1.5 inline h-4 w-4" />
-              Language
+              {t('profile.language')}
             </h2>
             <div className="space-y-2">
               {([
@@ -242,7 +242,7 @@ export default function ProfilePage() {
         <div className="kiyo-card mt-6 p-5">
           <h2 className="mb-4 font-display text-base font-bold text-ink-900">
             <MapPin className="mr-1.5 inline h-4 w-4" />
-            Saved Addresses
+            {t('profile.addresses.title')}
           </h2>
           <AddressManager />
         </div>
@@ -251,11 +251,10 @@ export default function ProfilePage() {
         <div className="kiyo-card mt-6 p-5">
           <h2 className="mb-1 font-display text-base font-bold text-ink-900">
             <Shield className="mr-1.5 inline h-4 w-4" />
-            Privacy & Data
+            {t('profile.privacy.title')}
           </h2>
           <p className="mb-4 text-xs text-ink-500">
-            Your data, your control. Export or delete your personal data in compliance with our{' '}
-            <Link to="/legal/account-deletion" className="underline">Account Deletion Policy</Link>.
+            {t('profile.privacy.subtitle')}
           </p>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -266,8 +265,8 @@ export default function ProfilePage() {
             >
               {exporting ? <Spinner className="h-4 w-4" /> : <Download className="h-4 w-4 text-ember-500" />}
               <div className="flex-1">
-                <div className="font-semibold text-ink-900">Export my data</div>
-                <div className="text-xs text-ink-400">Download as JSON</div>
+                <div className="font-semibold text-ink-900">{t('profile.privacy.export')}</div>
+                <div className="text-xs text-ink-400">{t('profile.privacy.exportDesc')}</div>
               </div>
             </button>
 
@@ -277,8 +276,8 @@ export default function ProfilePage() {
             >
               <Trash2 className="h-4 w-4 text-error-600" />
               <div className="flex-1">
-                <div className="font-semibold text-error-600">Delete my account</div>
-                <div className="text-xs text-error-600/70">Permanent after 14 days</div>
+                <div className="font-semibold text-error-600">{t('profile.privacy.delete')}</div>
+                <div className="text-xs text-error-600/70">{t('profile.privacy.deleteDesc')}</div>
               </div>
             </button>
           </div>
@@ -289,13 +288,13 @@ export default function ProfilePage() {
 
           <div className="mt-4 flex flex-wrap gap-3 border-t border-ink-100 pt-3 text-xs">
             <Link to="/legal/privacy" className="inline-flex items-center gap-1 text-ink-500 hover:text-ink-900">
-              <FileText className="h-3 w-3" /> Privacy Policy
+              <FileText className="h-3 w-3" /> {t('profile.privacy.policy')}
             </Link>
             <Link to="/legal/cookies" className="inline-flex items-center gap-1 text-ink-500 hover:text-ink-900">
-              <FileText className="h-3 w-3" /> Cookie Policy
+              <FileText className="h-3 w-3" /> {t('profile.privacy.cookie')}
             </Link>
             <Link to="/legal/refund" className="inline-flex items-center gap-1 text-ink-500 hover:text-ink-900">
-              <FileText className="h-3 w-3" /> Refund & Cancellation
+              <FileText className="h-3 w-3" /> {t('profile.privacy.refund')}
             </Link>
           </div>
         </div>
@@ -319,7 +318,7 @@ export default function ProfilePage() {
             <div className="mb-4 flex items-start justify-between">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-error-600" />
-                <h3 className="font-display text-lg font-bold text-ink-900">Delete account</h3>
+                <h3 className="font-display text-lg font-bold text-ink-900">{t('profile.deleteModal.title')}</h3>
               </div>
               <button
                 onClick={() => !deleting && setShowDeleteModal(false)}
@@ -332,20 +331,17 @@ export default function ProfilePage() {
 
             <div className="space-y-3 text-sm text-ink-600">
               <p>
-                This will <strong>immediately sign you out</strong> and lock your account.
-                Your profile, favorites, and saved data will be deleted within 14 days.
+                {t('profile.deleteModal.body1')}
               </p>
               <p>
-                Order and financial records are retained for 7 years as required by
-                tax law — but they will be anonymized and no longer linked to your identity.
+                {t('profile.deleteModal.body2')}
               </p>
               <div className="rounded-lg bg-error-500/10 px-3 py-2 text-xs text-error-600">
-                Restaurant owner accounts with an active restaurant cannot self-delete.
-                Contact support instead.
+                {t('profile.deleteModal.warn')}
               </div>
               <div>
                 <label className="kiyo-label" htmlFor="confirm-delete">
-                  Type <strong>DELETE</strong> to confirm
+                  {t('profile.deleteModal.confirmText')}
                 </label>
                 <input
                   id="confirm-delete"
@@ -369,7 +365,7 @@ export default function ProfilePage() {
                 disabled={deleting}
                 className="kiyo-btn-secondary flex-1"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={requestDeletion}
@@ -378,11 +374,11 @@ export default function ProfilePage() {
               >
                 {deleting ? (
                   <>
-                    <Spinner className="h-4 w-4" /> Deleting…
+                    <Spinner className="h-4 w-4" /> {t('profile.deleteModal.deleting')}
                   </>
                 ) : (
                   <>
-                    <Trash2 className="h-4 w-4" /> Delete forever
+                    <Trash2 className="h-4 w-4" /> {t('profile.deleteModal.deleteForever')}
                   </>
                 )}
               </button>

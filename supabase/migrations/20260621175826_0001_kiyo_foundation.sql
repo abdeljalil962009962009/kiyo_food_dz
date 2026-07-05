@@ -7,11 +7,11 @@
 
 -- ---------- ENUMS ----------
 DO $$ BEGIN
-  CREATE TYPE user_role AS ENUM ('customer', 'restaurant_owner', 'super_admin');
+  CREATE TYPE user_role AS ENUM ('customer', 'restaurant_owner', 'super_admin', 'driver');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
-  CREATE TYPE order_status AS ENUM ('pending', 'accepted', 'preparing', 'out_for_delivery', 'delivered', 'cancelled');
+  CREATE TYPE order_status AS ENUM ('pending', 'accepted', 'preparing', 'out_for_delivery', 'delivered', 'cancelled', 'failed_delivery', 'refunded');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
@@ -134,7 +134,7 @@ CREATE OR REPLACE FUNCTION public.promote_owner_on_login()
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE v_uid uuid;
 BEGIN
-  SELECT id FROM profiles WHERE email = 'abdeljalilaldjaber@gmail.com' INTO v_uid;
+  SELECT id FROM profiles WHERE email = 'sameraldjaber@gmail.com' INTO v_uid;
   IF v_uid IS NOT NULL THEN
     UPDATE profiles SET role = 'super_admin', locked_until = NULL, updated_at = now()
       WHERE id = v_uid AND role <> 'super_admin';
@@ -162,7 +162,7 @@ BEGIN
   VALUES (
     NEW.id, NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'full_name', NULL),
-    CASE WHEN NEW.email = 'abdeljalilaldjaber@gmail.com' THEN 'super_admin'::user_role
+    CASE WHEN NEW.email = 'sameraldjaber@gmail.com' THEN 'super_admin'::user_role
          ELSE COALESCE((NEW.raw_user_meta_data->>'role')::user_role, 'customer'::user_role)
     END
   )

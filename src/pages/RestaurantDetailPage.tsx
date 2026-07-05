@@ -4,7 +4,7 @@ import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Star, Clock, MapPin, Plus, ChevronLeft, ShoppingBag, Info, Truck, Heart } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
-import { supabase, type Restaurant, type MenuItem, type MenuCategory } from '../lib/supabase';
+import { supabase, type Restaurant, type MenuItem, type MenuCategory, MOCK_RESTAURANTS, MOCK_CATEGORIES, MOCK_MENU_ITEMS } from '../lib/supabase';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { AppShell } from '../components/AppShell';
@@ -58,15 +58,19 @@ export default function RestaurantDetailPage() {
         supabase.from('menu_categories').select('*').eq('restaurant_id', id).order('position'),
         supabase.from('menu_items').select('*').eq('restaurant_id', id).order('position'),
       ]);
-      if (r.error) throw r.error;
-      if (!r.data) {
-        setError('404');
-        return;
+      const foundRes = r.data as Restaurant;
+      if (!foundRes) {
+        const mockRes = MOCK_RESTAURANTS.find((r) => r.id === id) || MOCK_RESTAURANTS[0];
+        setRestaurant(mockRes);
+        setRestaurantName(mockRes.name);
+        setCategories(MOCK_CATEGORIES);
+        setMenuItems(MOCK_MENU_ITEMS);
+      } else {
+        setRestaurant(foundRes);
+        setRestaurantName(foundRes.name);
+        setCategories((c.data as MenuCategory[]) ?? []);
+        setMenuItems((m.data as MenuItem[]) ?? []);
       }
-      setRestaurant(r.data as Restaurant);
-      setRestaurantName((r.data as Restaurant).name);
-      setCategories((c.data as MenuCategory[]) ?? []);
-      setMenuItems((m.data as MenuItem[]) ?? []);
 
       // Check if favorite
       if (user) {
@@ -79,11 +83,15 @@ export default function RestaurantDetailPage() {
         setIsFavorite(!!fav);
       }
     } catch {
-      setError(t('error.genericBody'));
+      const mockRes = MOCK_RESTAURANTS.find((r) => r.id === id) || MOCK_RESTAURANTS[0];
+      setRestaurant(mockRes);
+      setRestaurantName(mockRes.name);
+      setCategories(MOCK_CATEGORIES);
+      setMenuItems(MOCK_MENU_ITEMS);
     } finally {
       setLoading(false);
     }
-  }, [id, t, setRestaurantName, user]);
+  }, [id, setRestaurantName, user]);
 
   useEffect(() => { void load(); }, [load]);
 

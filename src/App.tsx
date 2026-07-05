@@ -12,6 +12,8 @@ import { FullScreenLoader } from './components/feedback';
 import { SettingsProvider } from './context/SettingsContext';
 import { CookieConsentBanner } from './components/CookieConsentBanner';
 import { ProtectedRoute, PublicOnlyRoute, RoleRoute } from './components/ProtectedRoute';
+import { isSupabaseConfigured } from './lib/supabase';
+import { SupabaseConfigMissing } from './components/SupabaseConfigMissing';
 
 const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })));
 const NotFoundPage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.NotFoundPage })));
@@ -19,6 +21,7 @@ const AuthCallbackPage = lazy(() => import('./pages/HomePage').then((m) => ({ de
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const SignupPage = lazy(() => import('./pages/SignupPage'));
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const AuditLogPage = lazy(() => import('./pages/AuditLogPage'));
@@ -66,6 +69,7 @@ const router = createBrowserRouter([
   { path: '/signup', element: withSuspense(<PublicOnlyRoute><SignupPage /></PublicOnlyRoute>) },
   { path: '/auth/callback', element: withSuspense(<AuthCallbackPage />) },
   { path: '/auth/forgot', element: withSuspense(<ForgotPasswordPage />) },
+  { path: '/auth/reset', element: withSuspense(<ResetPasswordPage />) },
   { path: '/legal/terms', element: withSuspense(<TermsOfUsePage />) },
   { path: '/legal/privacy', element: withSuspense(<PrivacyPolicyPage />) },
   { path: '/legal/refund', element: withSuspense(<RefundPolicyPage />) },
@@ -94,6 +98,10 @@ const router = createBrowserRouter([
 ]);
 
 export default function App() {
+  if (!isSupabaseConfigured) {
+    return <SupabaseConfigMissing />;
+  }
+
   return (
     <ErrorBoundary variant="page">
       <AuthProvider>

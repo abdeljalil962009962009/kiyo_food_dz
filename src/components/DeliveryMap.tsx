@@ -173,6 +173,7 @@ export default function DeliveryMap({
         map.setView([restaurantLat, restaurantLng], 13);
       }
     // restaurantLat/restaurantLng are stable prop primitives passed from parent
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [map, restaurantLat, restaurantLng]);
     return null;
   }

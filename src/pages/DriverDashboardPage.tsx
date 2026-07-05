@@ -8,6 +8,7 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Skeleton } from '../components/feedback';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useT } from '../lib/i18n-react';
 
 type Driver = {
   id: string;
@@ -49,6 +50,7 @@ type Delivery = {
 export default function DriverDashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { t } = useT();
 
   const [driver, setDriver] = useState<Driver | null>(null);
   const [loading, setLoading] = useState(true);
@@ -80,7 +82,7 @@ export default function DriverDashboardPage() {
       setDriver(d as Driver);
 
       if (!(d as Driver).is_verified) {
-        setError('Your account is pending verification. You will be notified once approved.');
+        setError(t('driver.dash.pendingVerification'));
         setLoading(false);
         return;
       }
@@ -93,10 +95,10 @@ export default function DriverDashboardPage() {
         .in('status', ['assigned', 'driver_accepted', 'picking_up', 'picked_up', 'en_route', 'arrived'])
         .order('created_at', { ascending: true });
 
-      setPendingDeliveries((pending as unknown as Delivery[]) ?? []);
+      setPendingDeliveries((pending as Delivery[]) ?? []);
 
       // Find active delivery
-      const active = (pending as unknown as Delivery[])?.find(d =>
+      const active = (pending as Delivery[])?.find(d =>
         ['driver_accepted', 'picking_up', 'picked_up', 'en_route', 'arrived'].includes(d.status)
       );
       setActiveDelivery(active ?? null);
@@ -126,11 +128,11 @@ export default function DriverDashboardPage() {
         });
       }
     } catch (err) {
-      setError((err as Error)?.message ?? 'Failed to load driver profile');
+      setError((err as Error)?.message ?? t('driver.dash.failedLoad'));
     } finally {
       setLoading(false);
     }
-  }, [user, navigate]);
+  }, [user, navigate, t]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -205,7 +207,7 @@ export default function DriverDashboardPage() {
       <AppShell>
         <div className="kiyo-card p-6 text-center">
           <p className="text-sm text-error-600">{error}</p>
-          <button onClick={load} className="kiyo-btn-secondary mt-3">Retry</button>
+          <button onClick={load} className="kiyo-btn-secondary mt-3">{t('error.retry')}</button>
         </div>
       </AppShell>
     );
@@ -224,10 +226,10 @@ export default function DriverDashboardPage() {
       <div className="mb-5 flex items-start justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-extrabold tracking-tight text-ink-900">
-            Driver Dashboard
+            {t('driver.dash.title')}
           </h1>
           <p className="text-xs text-ink-400">
-            {driver?.is_online ? 'Online - Accepting deliveries' : 'Offline'}
+            {driver?.is_online ? t('driver.dash.onlineAccepting') : t('driver.dash.offline')}
           </p>
         </div>
         <button
@@ -239,26 +241,26 @@ export default function DriverDashboardPage() {
           }`}
         >
           <Power className="mr-1.5 inline h-4 w-4" />
-          {driver?.is_online ? 'Online' : 'Go Online'}
+          {driver?.is_online ? t('driver.dash.online') : t('driver.dash.goOnline')}
         </button>
       </div>
 
       {/* Earnings summary */}
       <div className="mb-5 grid grid-cols-3 gap-3">
         <div className="kiyo-card p-3">
-          <div className="text-xs font-medium text-ink-400">Today</div>
+          <div className="text-xs font-medium text-ink-400">{t('driver.dash.today')}</div>
           <div className="mt-1 font-display text-lg font-bold text-ink-900">
             {earnings.today.toLocaleString()} DZD
           </div>
         </div>
         <div className="kiyo-card p-3">
-          <div className="text-xs font-medium text-ink-400">This Week</div>
+          <div className="text-xs font-medium text-ink-400">{t('driver.dash.thisWeek')}</div>
           <div className="mt-1 font-display text-lg font-bold text-ink-900">
             {earnings.week.toLocaleString()} DZD
           </div>
         </div>
         <div className="kiyo-card p-3">
-          <div className="text-xs font-medium text-ink-400">Pending</div>
+          <div className="text-xs font-medium text-ink-400">{t('driver.dash.pending')}</div>
           <div className="mt-1 font-display text-lg font-bold text-ember-600">
             {earnings.pending.toLocaleString()} DZD
           </div>
@@ -273,11 +275,11 @@ export default function DriverDashboardPage() {
         </span>
         <span className="flex items-center gap-1">
           <Package className="h-4 w-4" />
-          {driver?.delivery_count ?? 0} deliveries
+          {driver?.delivery_count ?? 0} {t('driver.dash.deliveries')}
         </span>
         <span className="flex items-center gap-1">
           <VehicleIcon className="h-4 w-4" />
-          {driver?.vehicle_type}
+          {driver ? t(`driver.vehicle.${driver.vehicle_type}` as 'driver.vehicle.car') : ''}
         </span>
       </div>
 
@@ -287,7 +289,7 @@ export default function DriverDashboardPage() {
           <div className="mb-5 kiyo-card border-l-4 border-ember-500 p-4">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-xs font-semibold uppercase text-ember-600">
-                Active Delivery
+                {t('driver.dash.activeDelivery')}
               </span>
               <span className="rounded-full bg-ember-100 px-2 py-0.5 text-xs font-medium text-ember-700">
                 {activeDelivery.status.replace('_', ' ')}
@@ -311,7 +313,7 @@ export default function DriverDashboardPage() {
                   className="kiyo-btn-primary text-xs"
                 >
                   <Navigation className="h-3 w-3" />
-                  Heading to restaurant
+                  {t('driver.dash.headingToRestaurant')}
                 </button>
               )}
               {activeDelivery.status === 'picking_up' && (
@@ -320,7 +322,7 @@ export default function DriverDashboardPage() {
                   className="kiyo-btn-primary text-xs"
                 >
                   <Check className="h-3 w-3" />
-                  Order collected
+                  {t('driver.dash.orderCollected')}
                 </button>
               )}
               {activeDelivery.status === 'picked_up' && (
@@ -329,7 +331,7 @@ export default function DriverDashboardPage() {
                   className="kiyo-btn-primary text-xs"
                 >
                   <Navigation className="h-3 w-3" />
-                  En route to customer
+                  {t('driver.dash.enRouteToCustomer')}
                 </button>
               )}
               {activeDelivery.status === 'en_route' && (
@@ -338,7 +340,7 @@ export default function DriverDashboardPage() {
                   className="kiyo-btn-primary text-xs"
                 >
                   <MapPin className="h-3 w-3" />
-                  Arrived
+                  {t('driver.dash.arrived')}
                 </button>
               )}
               {activeDelivery.status === 'arrived' && (
@@ -347,7 +349,7 @@ export default function DriverDashboardPage() {
                   className="kiyo-btn-primary text-xs"
                 >
                   <Check className="h-3 w-3" />
-                  Mark as delivered
+                  {t('driver.dash.markAsDelivered')}
                 </button>
               )}
             </div>
@@ -357,17 +359,17 @@ export default function DriverDashboardPage() {
         {/* New delivery requests */}
         {!activeDelivery && pendingDeliveries.filter(d => d.status === 'assigned').length > 0 && driver?.is_online && (
           <div className="mb-5">
-            <h2 className="mb-2 text-sm font-semibold text-ink-600">New Delivery Request</h2>
+            <h2 className="mb-2 text-sm font-semibold text-ink-600">{t('driver.dash.newRequest')}</h2>
             {pendingDeliveries.filter(d => d.status === 'assigned').map((delivery) => (
               <div key={delivery.id} className="kiyo-card mb-2 p-4">
                 <h3 className="font-display text-base font-bold text-ink-900">
                   {delivery.orders.restaurants.name}
                 </h3>
                 <p className="mt-0.5 text-xs text-ink-500">
-                  Pickup: {delivery.orders.restaurants.address}
+                  {t('driver.dash.pickup')}: {delivery.orders.restaurants.address}
                 </p>
                 <p className="mt-0.5 text-xs text-ink-500">
-                  Deliver to: {delivery.orders.delivery_address}
+                  {t('driver.dash.deliverTo')}: {delivery.orders.delivery_address}
                 </p>
                 <p className="mt-1 text-sm font-semibold text-ink-900">
                   {Number(delivery.orders.total).toLocaleString()} DZD
@@ -377,13 +379,13 @@ export default function DriverDashboardPage() {
                     onClick={() => acceptDelivery(delivery.id)}
                     className="kiyo-btn-primary flex-1 text-xs"
                   >
-                    <Check className="h-3 w-3" /> Accept
+                    <Check className="h-3 w-3" /> {t('driver.dash.accept')}
                   </button>
                   <button
                     onClick={() => declineDelivery(delivery.id)}
                     className="rounded-lg border border-ink-200 px-3 py-2 text-xs font-medium text-ink-600 hover:bg-ink-50"
                   >
-                    <X className="h-3 w-3" /> Decline
+                    <X className="h-3 w-3" /> {t('driver.dash.decline')}
                   </button>
                 </div>
               </div>
@@ -397,8 +399,8 @@ export default function DriverDashboardPage() {
             <Package className="mx-auto h-10 w-10 text-ink-200" />
             <p className="mt-3 text-sm text-ink-500">
               {driver?.is_online
-                ? 'Waiting for new delivery requests...'
-                : 'Go online to start receiving deliveries'}
+                ? t('driver.dash.waiting')
+                : t('driver.dash.goOnlineHelp')}
             </p>
           </div>
         )}

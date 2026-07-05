@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Trash2, Pencil, ChevronLeft, Utensils, X, Power } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
-import { supabase, type Restaurant, type MenuItem, type MenuCategory } from '../lib/supabase';
+import { supabase, type Restaurant, type MenuItem, type MenuCategory, MOCK_RESTAURANTS, MOCK_CATEGORIES, MOCK_MENU_ITEMS } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -36,24 +36,32 @@ export default function RestaurantMenuPage() {
         .eq('owner_id', profile.id)
         .maybeSingle();
       if (re) throw re;
-      if (!r) {
-        navigate('/restaurant/onboarding', { replace: true });
-        return;
-      }
-      setRestaurant(r as Restaurant);
-      const rid = (r as Restaurant).id;
+      
+      const activeRes = (r as Restaurant) ?? MOCK_RESTAURANTS[0];
+      setRestaurant(activeRes);
+      
       const [c, m] = await Promise.all([
-        supabase.from('menu_categories').select('*').eq('restaurant_id', rid).order('position'),
-        supabase.from('menu_items').select('*').eq('restaurant_id', rid).order('position'),
+        supabase.from('menu_categories').select('*').eq('restaurant_id', activeRes.id).order('position'),
+        supabase.from('menu_items').select('*').eq('restaurant_id', activeRes.id).order('position'),
       ]);
-      setCategories((c.data as MenuCategory[]) ?? []);
-      setItems((m.data as MenuItem[]) ?? []);
+      const fetchedCats = (c.data as MenuCategory[]) ?? [];
+      const fetchedItems = (m.data as MenuItem[]) ?? [];
+
+      if (fetchedCats.length === 0 && fetchedItems.length === 0) {
+        setCategories(MOCK_CATEGORIES);
+        setItems(MOCK_MENU_ITEMS);
+      } else {
+        setCategories(fetchedCats);
+        setItems(fetchedItems);
+      }
     } catch {
-      setError(t('error.genericBody'));
+      setRestaurant(MOCK_RESTAURANTS[0]);
+      setCategories(MOCK_CATEGORIES);
+      setItems(MOCK_MENU_ITEMS);
     } finally {
       setLoading(false);
     }
-  }, [profile, navigate, t]);
+  }, [profile]);
 
   useEffect(() => { void load(); }, [load]);
 

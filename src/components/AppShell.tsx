@@ -12,13 +12,6 @@ import { NotificationBell } from './NotificationBell';
 import { WilayaSelector } from './WilayaSelector';
 import type { Locale } from '../lib/i18n';
 
-const ROLE_LABEL: Record<string, string> = {
-  super_admin: 'Super Admin',
-  restaurant_owner: 'Restaurant Owner',
-  customer: 'Customer',
-  driver: 'Driver',
-};
-
 export function AppShell({ children }: { children: ReactNode }) {
   const { profile, signOut, locale, setLocale } = useAuth();
   const { totalItems } = useCart();
@@ -26,6 +19,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { t } = useT();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const ROLE_LABEL: Record<string, string> = {
+    super_admin: t('role.super_admin'),
+    restaurant_owner: t('role.restaurant_owner'),
+    customer: t('role.customer'),
+    driver: t('role.driver'),
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -40,18 +40,18 @@ export function AppShell({ children }: { children: ReactNode }) {
       { to: '/restaurants', label: t('market.browse'), icon: ShoppingBag },
       { to: '/favorites', label: t('nav.favorites'), icon: Heart },
       { to: '/orders', label: t('orders.title'), icon: Utensils },
-      { to: '/support', label: 'Support', icon: MessageCircle },
+      { to: '/support', label: t('nav.support'), icon: MessageCircle },
     ] : []),
     ...(role === 'restaurant_owner' ? [
-      { to: '/restaurant', label: t('restaurant.dashboard'), icon: Store },
+      { to: '/restaurant', label: t('restaurant.dashboard'), icon: Store, end: true },
       { to: '/restaurant/menu', label: t('restaurant.manageMenu'), icon: Utensils },
     ] : []),
     ...(role === 'driver' ? [
-      { to: '/driver', label: 'Driver Dashboard', icon: Bike },
+      { to: '/driver', label: t('nav.driverDashboard'), icon: Bike },
     ] : []),
     ...(role === 'super_admin' ? [
       { to: '/restaurants', label: t('market.browse'), icon: ShoppingBag },
-      { to: '/admin', label: 'Control Center', icon: ShieldCheck },
+      { to: '/admin', label: t('nav.controlCenter'), icon: ShieldCheck, end: true },
       { to: '/admin/restaurants', label: t('admin.restaurantsManagement'), icon: Store },
       { to: '/admin/audit', label: t('audit.title'), icon: ShieldCheck },
     ] : []),
@@ -67,9 +67,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-ember-500/10">
             <Utensils className="h-8 w-8 text-ember-500" />
           </div>
-          <h1 className="font-display text-2xl font-extrabold text-ink-900">Under Maintenance</h1>
+          <h1 className="font-display text-2xl font-extrabold text-ink-900">{t('sys.underMaintenance')}</h1>
           <p className="mt-2 text-sm text-ink-500">
-            We are performing scheduled maintenance. Please check back shortly.
+            {t('sys.maintenanceDesc')}
           </p>
         </div>
       </div>
@@ -106,6 +106,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <NavLink
                 key={item.to}
                 to={item.to}
+                end={item.end}
                 className={({ isActive }) =>
                   `inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                     isActive ? 'bg-ink-900 text-white' : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900'
@@ -172,6 +173,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <NavLink
                 key={item.to}
                 to={item.to}
+                end={item.end}
                 onClick={() => setMobileOpen(false)}
                 className={({ isActive }) =>
                   `flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium ${

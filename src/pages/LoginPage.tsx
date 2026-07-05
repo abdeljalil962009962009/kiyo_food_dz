@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, type FormEvent } from 'react';
-import { Mail, Lock, AlertCircle } from 'lucide-react';
+import { Mail, Lock, AlertCircle, Database, Copy, Check, ExternalLink, Download, X, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../lib/i18n-react';
 import { Logo } from '../components/Logo';
@@ -139,10 +139,70 @@ export default function LoginPage() {
 
 // Shared split-screen layout for auth pages.
 export function AuthLayout({ children }: { children: React.ReactNode }) {
+  const [showHelper, setShowHelper] = useState(false);
+  const [sqlContent, setSqlContent] = useState<string | null>(null);
+  const [loadingSql, setLoadingSql] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  const fetchSql = async () => {
+    if (sqlContent) return;
+    setLoadingSql(true);
+    setFetchError(null);
+    try {
+      const res = await fetch('/supabase_schema.sql');
+      if (!res.ok) throw new Error('Failed to load local supabase_schema.sql');
+      const text = await res.text();
+      setSqlContent(text);
+    } catch (err: unknown) {
+      console.error(err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch the SQL script.';
+      setFetchError(errorMessage);
+    } finally {
+      setLoadingSql(false);
+    }
+  };
+
+  const copyToClipboard = async () => {
+    if (!sqlContent) return;
+    try {
+      await navigator.clipboard.writeText(sqlContent);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Copy failed:', err);
+      alert('Failed to copy. Please manually select the text or download the file.');
+    }
+  };
+
+  const showBanner = typeof window !== 'undefined' && window.location.search.includes('setup=true');
+
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-2">
+    <div className="min-h-screen lg:grid lg:grid-cols-2 relative">
+      {/* Visual database setup banner at the top of the whole screen */}
+      {showBanner && (
+        <div className="absolute top-0 left-0 right-0 z-50 bg-amber-500 text-ink-950 text-xs px-4 py-2.5 flex items-center justify-between gap-3 font-medium shadow-sm border-b border-amber-600/20">
+          <div className="flex items-center gap-2">
+            <Database className="h-4 w-4 text-ink-950 animate-pulse flex-shrink-0" />
+            <span>
+              <strong>First time setup?</strong> Paste our unified 1-click database schema into Supabase SQL Editor.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setShowHelper(true);
+              fetchSql();
+            }}
+            className="bg-ink-950 text-white rounded px-2.5 py-1 text-[11px] font-bold hover:bg-ink-900 transition-colors flex items-center gap-1.5 whitespace-nowrap"
+          >
+            <Database className="h-3 w-3" /> Setup Database
+          </button>
+        </div>
+      )}
+
       {/* Brand panel */}
-      <aside className="relative hidden overflow-hidden bg-ink-900 lg:flex lg:flex-col lg:justify-between lg:p-12">
+      <aside className={`relative hidden overflow-hidden bg-ink-900 lg:flex lg:flex-col lg:justify-between lg:p-12 ${showBanner ? 'pt-20' : ''}`}>
         <div
           className="absolute inset-0 opacity-[0.35]"
           style={{
@@ -166,9 +226,153 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Form panel */}
-      <main className="flex min-h-screen items-center justify-center bg-ink-50 px-4 py-10 sm:px-8">
+      <main className={`flex min-h-screen items-center justify-center bg-ink-50 px-4 py-16 sm:px-8 ${showBanner ? 'pt-20' : ''}`}>
         <div className="w-full max-w-sm">{children}</div>
       </main>
+
+      {/* Database Setup Helper Modal */}
+      {showHelper && (
+        <div className="fixed inset-0 z-[100] bg-ink-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col shadow-2xl border border-ink-100">
+            {/* Header */}
+            <div className="border-b border-ink-100 px-6 py-4 flex items-center justify-between bg-ink-50">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                  <Database className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-display font-extrabold text-ink-900 text-lg">
+                    Supabase Database 1-Click Setup
+                  </h3>
+                  <p className="text-xs text-ink-500">Initialize your schema to prevent signup and authentication errors</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowHelper(false)}
+                className="text-ink-400 hover:text-ink-600 p-1.5 rounded-lg hover:bg-ink-100 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-5">
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex gap-3 text-sm text-amber-900">
+                <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <strong className="font-semibold block">Why is this required?</strong>
+                  Without database tables, Supabase cannot create user profiles during signup. Pasting the schema below in your Supabase SQL Editor will build all the required tables, triggers, and indices instantly.
+                </div>
+              </div>
+
+              {/* Steps */}
+              <div className="space-y-3">
+                <h4 className="font-display font-bold text-sm text-ink-900 uppercase tracking-wider">
+                  How to initialize:
+                </h4>
+                <ol className="list-decimal list-inside text-sm text-ink-700 space-y-2 pl-1">
+                  <li>
+                    Open your{' '}
+                    <a
+                      href="https://supabase.com/dashboard"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-ember-600 font-semibold inline-flex items-center gap-1 hover:underline"
+                    >
+                      Supabase Dashboard <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </li>
+                  <li>Click on the <strong>SQL Editor</strong> tab in the left sidebar (looks like a code icon <code>&gt;_</code>)</li>
+                  <li>Click <strong>New Query</strong> at the top</li>
+                  <li>Copy the database schema using the button below, paste it into the editor, and click <strong>Run</strong>!</li>
+                </ol>
+              </div>
+
+              {/* Actions & Code Box */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-xs font-bold text-ink-500 uppercase tracking-wider">Unified SQL Script (187KB)</span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={copyToClipboard}
+                      disabled={loadingSql || !sqlContent}
+                      className="kiyo-btn-primary py-1.5 px-3 text-xs flex items-center gap-1.5"
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="h-3.5 w-3.5" /> Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3.5 w-3.5" /> Copy Script
+                        </>
+                      )}
+                    </button>
+                    <a
+                      href="/supabase_schema.sql"
+                      download="supabase_schema.sql"
+                      className="kiyo-btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5"
+                    >
+                      <Download className="h-3.5 w-3.5" /> Download .sql
+                    </a>
+                  </div>
+                </div>
+
+                <div className="relative rounded-xl border border-ink-200 bg-ink-950 p-4 font-mono text-xs text-ink-200 overflow-hidden h-48 flex flex-col justify-between">
+                  {loadingSql ? (
+                    <div className="absolute inset-0 bg-ink-950/80 flex flex-col items-center justify-center gap-3">
+                      <svg className="animate-spin h-6 w-6 text-amber-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <span className="text-xs text-ink-400">Loading full SQL schema...</span>
+                    </div>
+                  ) : fetchError ? (
+                    <div className="absolute inset-0 bg-ink-950/80 p-4 flex flex-col items-center justify-center gap-2 text-center">
+                      <AlertTriangle className="h-6 w-6 text-error-500" />
+                      <span className="text-xs text-error-400">{fetchError}</span>
+                      <button
+                        type="button"
+                        onClick={fetchSql}
+                        className="text-xs text-amber-500 hover:underline mt-1"
+                      >
+                        Retry Loading
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="overflow-y-auto flex-1 pr-2 scrollbar-thin select-all">
+                        {sqlContent ? (
+                          sqlContent.substring(0, 1500) + '\n\n... [remaining 180+ KB schema content] ...'
+                        ) : (
+                          '-- Click Load Schema or Download button to fetch content'
+                        )}
+                      </div>
+                      <div className="border-t border-ink-800 pt-2 mt-2 flex items-center justify-between text-[10px] text-ink-400">
+                        <span>Includes tables, enums, triggers, and full multi-wilaya setup</span>
+                        <span className="font-bold text-amber-500">Fully Optimized</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="border-t border-ink-100 px-6 py-4 bg-ink-50 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowHelper(false)}
+                className="kiyo-btn-secondary px-4 py-2 text-sm"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

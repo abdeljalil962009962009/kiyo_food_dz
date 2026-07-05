@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { MapPin, Home, Briefcase, Heart, Plus, Trash2, Check, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useT } from '../lib/i18n-react';
 
 import DeliveryMap from './DeliveryMap';
 
@@ -30,6 +31,7 @@ const LABEL_COLORS = {
 };
 
 export function AddressManager() {
+  const { t } = useT();
   const { user } = useAuth();
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,7 +126,7 @@ export function AddressManager() {
   if (!user) {
     return (
       <div className="rounded-lg bg-ink-50 px-4 py-6 text-center text-sm text-ink-500">
-        Sign in to manage your saved addresses.
+        {t('profile.addresses.signinToManage')}
       </div>
     );
   }
@@ -132,13 +134,13 @@ export function AddressManager() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-display text-base font-bold text-ink-900">Saved Addresses</h3>
+        <h3 className="font-display text-base font-bold text-ink-900">{t('profile.addresses.title')}</h3>
         <button
           onClick={() => setShowAddForm(true)}
           className="kiyo-btn-secondary text-xs"
         >
           <Plus className="h-3 w-3" />
-          Add New
+          {t('profile.addresses.addNew')}
         </button>
       </div>
 
@@ -165,11 +167,11 @@ export function AddressManager() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-                      {addr.label}
+                      {t(`profile.addresses.${addr.label}` as any)}
                     </span>
                     {addr.is_default && (
                       <span className="rounded bg-ember-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                        Default
+                        {t('profile.addresses.default')}
                       </span>
                     )}
                   </div>
@@ -180,7 +182,7 @@ export function AddressManager() {
                     <button
                       onClick={() => setDefault(addr.id)}
                       className="rounded p-1.5 text-ink-400 hover:bg-ink-50 hover:text-ink-600"
-                      title="Set as default"
+                      title={t('profile.addresses.setAsDefault')}
                     >
                       <Check className="h-4 w-4" />
                     </button>
@@ -188,7 +190,7 @@ export function AddressManager() {
                   <button
                     onClick={() => deleteAddress(addr.id)}
                     className="rounded p-1.5 text-ink-400 hover:bg-error-50 hover:text-error-600"
-                    title="Delete"
+                    title={t('profile.addresses.delete')}
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -199,7 +201,7 @@ export function AddressManager() {
 
           {addresses.length === 0 && !showAddForm && (
             <div className="rounded-lg border border-dashed border-ink-200 px-4 py-6 text-center text-sm text-ink-500">
-              No saved addresses yet. Add your home, work, or favorite delivery spots.
+              {t('profile.addresses.none')}
             </div>
           )}
         </div>
@@ -208,7 +210,7 @@ export function AddressManager() {
       {showAddForm && (
         <div className="rounded-xl border border-ink-200 bg-white p-4">
           <div className="mb-4 flex items-center gap-2">
-            <span className="text-sm font-medium text-ink-700">Label:</span>
+            <span className="text-sm font-medium text-ink-700">{t('profile.addresses.label')}:</span>
             {(['home', 'work', 'family', 'other'] as const).map((label) => {
               const Icon = LABEL_ICONS[label];
               const isActive = newLabel === label;
@@ -223,7 +225,7 @@ export function AddressManager() {
                   }`}
                 >
                   <Icon className="h-3 w-3" />
-                  {label.charAt(0).toUpperCase() + label.slice(1)}
+                  {t(`profile.addresses.${label}` as any)}
                 </button>
               );
             })}
@@ -242,7 +244,7 @@ export function AddressManager() {
               className="kiyo-btn-ghost text-xs"
             >
               <X className="h-3 w-3" />
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               onClick={addAddress}
@@ -250,7 +252,7 @@ export function AddressManager() {
               className="kiyo-btn-primary text-xs"
             >
               <Check className="h-3 w-3" />
-              Save Address
+              {t('profile.addresses.save')}
             </button>
           </div>
         </div>

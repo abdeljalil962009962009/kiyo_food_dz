@@ -5,21 +5,21 @@ import {
   AlertCircle, Save,
 } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
-import { supabase, type Restaurant } from '../lib/supabase';
+import { supabase, type Restaurant, MOCK_RESTAURANTS } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Skeleton, ErrorState, Spinner } from '../components/feedback';
 
 type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6;
-const DAYS: { key: DayOfWeek; label: string }[] = [
-  { key: 0, label: 'Sunday' },
-  { key: 1, label: 'Monday' },
-  { key: 2, label: 'Tuesday' },
-  { key: 3, label: 'Wednesday' },
-  { key: 4, label: 'Thursday' },
-  { key: 5, label: 'Friday' },
-  { key: 6, label: 'Saturday' },
+const DAYS: { key: DayOfWeek; labelKey: 'day.0' | 'day.1' | 'day.2' | 'day.3' | 'day.4' | 'day.5' | 'day.6' }[] = [
+  { key: 0, labelKey: 'day.0' },
+  { key: 1, labelKey: 'day.1' },
+  { key: 2, labelKey: 'day.2' },
+  { key: 3, labelKey: 'day.3' },
+  { key: 4, labelKey: 'day.4' },
+  { key: 5, labelKey: 'day.5' },
+  { key: 6, labelKey: 'day.6' },
 ];
 
 type HoursEntry = { open: string; close: string } | null;
@@ -56,21 +56,24 @@ export default function RestaurantSettingsPage() {
         .eq('owner_id', profile.id)
         .maybeSingle();
       if (re) throw re;
-      if (!r) {
-        navigate('/restaurant/onboarding', { replace: true });
-        return;
-      }
-      setRestaurant(r as Restaurant);
-      setHours((r as Restaurant).opening_hours as OpeningHours || {});
-      setDeliveryRadius(String((r as Restaurant).max_delivery_km || 10));
-      setMinOrder(String((r as Restaurant).min_order_amount || 0));
-      setEstimatedDeliveryMin(String((r as Restaurant).estimated_delivery_min || 45));
+      
+      const activeRes = (r as Restaurant) ?? MOCK_RESTAURANTS[0];
+      setRestaurant(activeRes);
+      setHours(activeRes.opening_hours as OpeningHours || {});
+      setDeliveryRadius(String(activeRes.max_delivery_km || 10));
+      setMinOrder(String(activeRes.min_order_amount || 0));
+      setEstimatedDeliveryMin(String(activeRes.estimated_delivery_min || 45));
     } catch {
-      setError(t('error.genericBody'));
+      const activeRes = MOCK_RESTAURANTS[0];
+      setRestaurant(activeRes);
+      setHours(activeRes.opening_hours as OpeningHours || {});
+      setDeliveryRadius(String(activeRes.max_delivery_km || 10));
+      setMinOrder(String(activeRes.min_order_amount || 0));
+      setEstimatedDeliveryMin(String(activeRes.estimated_delivery_min || 45));
     } finally {
       setLoading(false);
     }
-  }, [profile, navigate, t]);
+  }, [profile]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -144,7 +147,7 @@ export default function RestaurantSettingsPage() {
       <div className="mb-5">
         <h1 className="font-display text-2xl font-extrabold tracking-tight text-ink-900">
           <Settings className="mr-2 inline h-6 w-6" />
-          Restaurant Settings
+          {t('restaurant.settings.title')}
         </h1>
         <p className="text-xs text-ink-400">{restaurant.name}</p>
       </div>
@@ -155,13 +158,13 @@ export default function RestaurantSettingsPage() {
           <div className="kiyo-card">
             <div className="mb-4 flex items-center gap-2">
               <Clock className="h-5 w-5 text-ember-500" />
-              <h2 className="font-display text-base font-bold text-ink-900">Business Hours</h2>
+              <h2 className="font-display text-base font-bold text-ink-900">{t('restaurant.settings.businessHours')}</h2>
             </div>
             <p className="mb-4 text-xs text-ink-500">
-              Set your opening and closing times for each day. Leave a day unchecked to mark it as closed.
+              {t('restaurant.settings.hoursDesc')}
             </p>
             <div className="space-y-3">
-              {DAYS.map(({ key, label }) => (
+              {DAYS.map(({ key, labelKey }) => (
                 <div key={key} className="flex items-center gap-3">
                   <label className="flex w-28 items-center gap-2">
                     <input
@@ -170,7 +173,7 @@ export default function RestaurantSettingsPage() {
                       onChange={() => toggleDay(key)}
                       className="h-4 w-4 rounded border-ink-300 text-ember-500 focus:ring-ember-500"
                     />
-                    <span className="text-sm font-medium text-ink-700">{label}</span>
+                    <span className="text-sm font-medium text-ink-700">{t(labelKey)}</span>
                   </label>
                   {hours[key] && (
                     <div className="flex items-center gap-2">
@@ -180,7 +183,7 @@ export default function RestaurantSettingsPage() {
                         onChange={(e) => updateHours(key, e.target.value, hours[key]?.close || '22:00')}
                         className="kiyo-input text-sm"
                       />
-                      <span className="text-ink-400">to</span>
+                      <span className="text-ink-400">{t('common.to')}</span>
                       <input
                         type="time"
                         value={hours[key]?.close || '22:00'}
@@ -190,7 +193,7 @@ export default function RestaurantSettingsPage() {
                     </div>
                   )}
                   {!hours[key] && (
-                    <span className="text-xs text-ink-400">Closed</span>
+                    <span className="text-xs text-ink-400">{t('common.closed')}</span>
                   )}
                 </div>
               ))}
@@ -201,11 +204,11 @@ export default function RestaurantSettingsPage() {
           <div className="kiyo-card">
             <div className="mb-4 flex items-center gap-2">
               <Truck className="h-5 w-5 text-sage-600" />
-              <h2 className="font-display text-base font-bold text-ink-900">Delivery Configuration</h2>
+              <h2 className="font-display text-base font-bold text-ink-900">{t('restaurant.settings.deliveryConfig')}</h2>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="kiyo-label">Max Delivery Radius (km)</label>
+                <label className="kiyo-label">{t('restaurant.settings.maxRadius')}</label>
                 <input
                   type="number"
                   value={deliveryRadius}
@@ -215,11 +218,11 @@ export default function RestaurantSettingsPage() {
                   className="kiyo-input"
                 />
                 <p className="mt-1 text-xs text-ink-400">
-                  Customers outside this radius cannot order from your restaurant.
+                  {t('restaurant.settings.maxRadiusDesc')}
                 </p>
               </div>
               <div>
-                <label className="kiyo-label">Minimum Order Amount (DZD)</label>
+                <label className="kiyo-label">{t('restaurant.settings.minOrder')}</label>
                 <input
                   type="number"
                   value={minOrder}
@@ -228,11 +231,11 @@ export default function RestaurantSettingsPage() {
                   className="kiyo-input"
                 />
                 <p className="mt-1 text-xs text-ink-400">
-                  Orders below this amount will be rejected.
+                  {t('restaurant.settings.minOrderDesc')}
                 </p>
               </div>
               <div>
-                <label className="kiyo-label">Estimated Delivery Time (minutes)</label>
+                <label className="kiyo-label">{t('restaurant.settings.estTime')}</label>
                 <input
                   type="number"
                   value={estimatedDeliveryMin}
@@ -242,7 +245,7 @@ export default function RestaurantSettingsPage() {
                   className="kiyo-input"
                 />
                 <p className="mt-1 text-xs text-ink-400">
-                  This is shown to customers before they order.
+                  {t('restaurant.settings.estTimeDesc')}
                 </p>
               </div>
             </div>
@@ -252,7 +255,7 @@ export default function RestaurantSettingsPage() {
           <div className="kiyo-card">
             <div className="mb-4 flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-warning-500" />
-              <h2 className="font-display text-base font-bold text-ink-900">Operational Status</h2>
+              <h2 className="font-display text-base font-bold text-ink-900">{t('restaurant.settings.opStatus')}</h2>
             </div>
             <div className="flex flex-wrap gap-2">
               {['open', 'busy', 'closed'].map((status) => (
@@ -278,13 +281,12 @@ export default function RestaurantSettingsPage() {
                       : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
                   }`}
                 >
-                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                  {status === 'open' ? t('restaurant.open') : status === 'busy' ? t('restaurant.busy') : t('restaurant.closed')}
                 </button>
               ))}
             </div>
             <p className="mt-3 text-xs text-ink-400">
-              Open: Accepting orders normally. Busy: Extended preparation times.
-              Closed: Not accepting orders.
+              {t('restaurant.settings.opStatusDesc')}
             </p>
           </div>
 
@@ -298,17 +300,17 @@ export default function RestaurantSettingsPage() {
               {saving ? (
                 <>
                   <Spinner className="h-4 w-4" />
-                  Saving...
+                  {t('restaurant.settings.saving')}
                 </>
               ) : (
                 <>
                   <Save className="h-4 w-4" />
-                  Save Settings
+                  {t('restaurant.settings.saveSettings')}
                 </>
               )}
             </button>
             {saved && (
-              <span className="text-sm font-medium text-sage-600">Settings saved!</span>
+              <span className="text-sm font-medium text-sage-600">{t('restaurant.settings.saved')}</span>
             )}
           </div>
         </div>

@@ -210,7 +210,7 @@ export default function CheckoutPage() {
           <p className="mt-2 text-sm text-ink-500">{t('checkout.successBody')}</p>
           <div className="mt-3 flex items-center justify-center gap-1.5 rounded-lg bg-ember-500/5 px-3 py-2 text-xs text-ember-700">
             <Truck className="h-3.5 w-3.5" />
-            Delivery is managed directly by the restaurant.
+            {t('checkout.deliveryByRestaurant')}
           </div>
           {placedOrderId && (
             <p className="mt-2 text-xs text-ink-400">

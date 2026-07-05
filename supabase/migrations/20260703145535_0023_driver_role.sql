@@ -1,5 +1,6 @@
 -- Add driver role to user_role enum
-ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'driver';
+-- (Commented out: driver is now included natively in the foundation migration user_role enum)
+-- ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'driver';
 
 -- Create driver profile view with computed fields
 CREATE OR REPLACE VIEW driver_profile_view AS

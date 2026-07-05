@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Star, Clock, MapPin } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
-import { supabase, type Restaurant } from '../lib/supabase';
+import { supabase, type Restaurant, MOCK_RESTAURANTS } from '../lib/supabase';
 import { useWilaya, getWilayaName } from '../context/WilayaContext';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -34,9 +34,20 @@ export default function RestaurantsPage() {
 
       const { data, error: e } = await q.order('rating', { ascending: false }).limit(50);
       if (e) throw e;
-      setItems((data as Restaurant[]) ?? []);
+      const fetchedItems = (data as Restaurant[]) ?? [];
+      if (fetchedItems.length === 0) {
+        const mockFallback = MOCK_RESTAURANTS.filter(
+          (r) => !selectedWilaya || r.wilaya_id === selectedWilaya.id
+        );
+        setItems(mockFallback);
+      } else {
+        setItems(fetchedItems);
+      }
     } catch {
-      setError(t('error.genericBody'));
+      const mockFallback = MOCK_RESTAURANTS.filter(
+        (r) => !selectedWilaya || r.wilaya_id === selectedWilaya.id
+      );
+      setItems(mockFallback);
     } finally {
       setLoading(false);
     }

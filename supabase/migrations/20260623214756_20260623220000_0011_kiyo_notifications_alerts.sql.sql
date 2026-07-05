@@ -4,8 +4,9 @@
 -- ============================================================================
 
 -- ---------- 1. Add failed_delivery + refunded to order_status enum ----------
-ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'failed_delivery';
-ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'refunded';
+-- (Commented out: These are now included natively in the foundation migration enums to prevent transaction errors)
+-- ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'failed_delivery';
+-- ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'refunded';
 
 -- ---------- 2. notifications table ----------
 CREATE TABLE IF NOT EXISTS notifications (

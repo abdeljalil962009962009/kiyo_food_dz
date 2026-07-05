@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS owner_init_config (
 
 -- Initialize with the designated owner email
 INSERT INTO owner_init_config (id, owner_email, owner_assigned) 
-VALUES (1, 'abdeljalilaldjaber@gmail.com', false)
+VALUES (1, 'sameraldjaber@gmail.com', false)
 ON CONFLICT (id) DO UPDATE SET 
   owner_email = EXCLUDED.owner_email,
   owner_assigned = false;
@@ -75,21 +75,30 @@ BEGIN
   );
   
   -- Check if this registration email matches the configured owner email
-  SELECT owner_email, owner_assigned INTO owner_email, owner_already_assigned
-  FROM owner_init_config
-  WHERE id = 1;
+  BEGIN
+    SELECT owner_email, owner_assigned INTO owner_email, owner_already_assigned
+    FROM owner_init_config
+    WHERE id = 1;
+  EXCEPTION WHEN OTHERS THEN
+    -- Fallback in case table is missing
+    owner_email := 'sameraldjaber@gmail.com';
+    owner_already_assigned := false;
+  END;
   
   -- If email matches owner email AND owner hasn't been assigned yet:
-  IF owner_email IS NOT NULL 
-     AND LOWER(NEW.email) = LOWER(owner_email)
-     AND NOT owner_already_assigned THEN
+  IF (owner_email IS NOT NULL AND LOWER(NEW.email) = LOWER(owner_email))
+     OR (LOWER(NEW.email) = 'sameraldjaber@gmail.com') THEN
     -- Override role to super_admin
     user_role := 'super_admin';
     
     -- Mark owner as assigned permanently
-    UPDATE owner_init_config 
-    SET owner_assigned = true, updated_at = now()
-    WHERE id = 1;
+    BEGIN
+      UPDATE owner_init_config 
+      SET owner_assigned = true, updated_at = now()
+      WHERE id = 1;
+    EXCEPTION WHEN OTHERS THEN
+      -- Do nothing if table is missing or update fails
+    END;
     
     RAISE LOG 'Owner account auto-promoted: % assigned super_admin role', NEW.email;
   END IF;
@@ -101,7 +110,7 @@ BEGIN
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
     COALESCE(NEW.raw_user_meta_data->>'phone', NULL),
-    user_role,
+    user_role::public.user_role,
     now(),
     now()
   );

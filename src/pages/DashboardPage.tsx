@@ -36,7 +36,7 @@ function RestaurantDashboard() {
         title={t('dash.restaurant.title')}
         subtitle={t('dash.restaurant.subtitle')}
         name={profile?.full_name ?? profile?.email ?? ''}
-        badge="Restaurant"
+        badge={t('role.restaurant_owner')}
       />
       <ComingSoon />
     </AppShell>
@@ -52,7 +52,7 @@ function AdminDashboard() {
         title={t('dash.admin.title')}
         subtitle={t('dash.admin.subtitle')}
         name={profile?.full_name ?? profile?.email ?? ''}
-        badge="Super Admin"
+        badge={t('role.super_admin')}
       />
       <div className="grid gap-3 sm:grid-cols-2">
         <Link
@@ -64,8 +64,8 @@ function AdminDashboard() {
               <ShieldCheck className="h-6 w-6" />
             </span>
             <div>
-              <div className="font-display text-base font-bold text-ink-900">Control Center</div>
-              <div className="text-xs text-ink-400">Financials, users, restaurants, rules, analytics</div>
+              <div className="font-display text-base font-bold text-ink-900">{t('admin.controlCenter')}</div>
+              <div className="text-xs text-ink-400">{t('admin.financialsDesc')}</div>
             </div>
           </div>
           <ChevronRight className="h-5 w-5 text-ink-300 transition-transform group-hover:translate-x-0.5" />

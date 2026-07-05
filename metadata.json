@@ -1,0 +1,6 @@
+{
+  "name": "Kiyo Food",
+  "description": "An elegant, fully-featured, high-performance food delivery platform with localized Wilaya settings, robust dashboards, and real-time support.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

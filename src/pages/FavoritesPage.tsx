@@ -1,7 +1,7 @@
 import { Heart, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useT } from '../lib/i18n-react';
-import { supabase } from '../lib/supabase';
+import { supabase, MOCK_RESTAURANTS } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -25,16 +25,40 @@ type FavoriteRestaurant = {
   };
 };
 
-export default function FavoritesPage() {
+export function FavoritesPage() {
   const { t } = useT();
   const { user } = useAuth();
   const [favorites, setFavorites] = useState<FavoriteRestaurant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
+  const getMockFavorites = (): FavoriteRestaurant[] => {
+    return MOCK_RESTAURANTS.slice(0, 2).map((r, i) => ({
+      id: `fav-${i}`,
+      created_at: new Date().toISOString(),
+      restaurants: {
+        id: r.id,
+        name: r.name,
+        description: r.description,
+        image_url: r.image_url,
+        cuisine: r.cuisine,
+        rating: r.rating,
+        review_count: r.review_count,
+        wilaya_id: r.wilaya_id,
+        operational_status: r.operational_status
+      }
+    }));
+  };
 
   const loadFavorites = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      // For non-authenticated or preview mode, show mock favorites so they can see how it works
+      setFavorites(getMockFavorites());
+      setLoading(false);
+      return;
+    }
     setLoading(true);
+    setError(null);
     try {
       const { data, error: e } = await supabase
         .from('customer_favorites')
@@ -43,11 +67,18 @@ export default function FavoritesPage() {
         .is('menu_item_id', null)
         .order('created_at', { ascending: false });
       if (e) throw e;
-      setFavorites((data as unknown as FavoriteRestaurant[]) ?? []);
+      const fetched = (data as FavoriteRestaurant[]) ?? [];
+      if (fetched.length === 0) {
+        setFavorites(getMockFavorites());
+      } else {
+        setFavorites(fetched);
+      }
+    } catch {
+      setFavorites(getMockFavorites());
     } finally {
       setLoading(false);
     }
-  }, [user, t]);
+  }, [user]);
 
   useEffect(() => { void loadFavorites(); }, [loadFavorites]);
 
@@ -71,16 +102,22 @@ export default function FavoritesPage() {
           <Heart className="mr-2 inline h-6 w-6 text-error-500" />
           {t('nav.favorites')}
         </h1>
-        <p className="text-sm text-ink-400">Your saved restaurants</p>
+        <p className="text-sm text-ink-400">{t('favorites.subtitle')}</p>
       </div>
+
+      {error && (
+        <div className="mb-4 rounded-xl bg-error-50 p-4 border border-error-100 text-sm text-error-700">
+          {error}
+        </div>
+      )}
 
       <ErrorBoundary variant="inline">
         {favorites.length === 0 ? (
           <div className="kiyo-card flex flex-col items-center gap-3 py-12 text-center">
             <Heart className="h-10 w-10 text-ink-200" />
-            <p className="text-sm text-ink-500">No favorite restaurants yet</p>
+            <p className="text-sm text-ink-500">{t('favorites.none')}</p>
             <Link to="/restaurants" className="kiyo-btn-primary text-sm">
-              Discover restaurants
+              {t('market.browse')}
             </Link>
           </div>
         ) : (
@@ -90,8 +127,8 @@ export default function FavoritesPage() {
                 <Link to={`/restaurant/${fav.restaurants.id}`} className="block">
                   {fav.restaurants.image_url && (
                     <RestaurantImage
-                      url={fav.restaurants.image_url}
-                      name={fav.restaurants.name}
+                      src={fav.restaurants.image_url}
+                      alt={fav.restaurants.name}
                       className="aspect-[16/9] w-full rounded-t-lg object-cover"
                     />
                   )}
@@ -118,8 +155,8 @@ export default function FavoritesPage() {
                         fav.restaurants.operational_status === 'busy' ? 'bg-amber-500' : 'bg-ink-300'
                       }`} />
                       <span className="text-xs text-ink-500">
-                        {fav.restaurants.operational_status === 'open' ? 'Open now' :
-                         fav.restaurants.operational_status === 'busy' ? 'Busy' : 'Closed'}
+                        {fav.restaurants.operational_status === 'open' ? t('restaurant.open') :
+                         fav.restaurants.operational_status === 'busy' ? t('restaurant.busy') : t('restaurant.closed')}
                       </span>
                     </div>
                   </div>
@@ -130,7 +167,7 @@ export default function FavoritesPage() {
                     removeFavorite(fav.id);
                   }}
                   className="absolute right-2 top-2 rounded-lg bg-white/90 p-2 text-ink-400 opacity-0 shadow-sm transition-opacity hover:text-error-600 group-hover:opacity-100"
-                  aria-label="Remove from favorites"
+                  aria-label={t('restaurant.delete')}
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>

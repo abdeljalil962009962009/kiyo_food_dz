@@ -1,4 +1,6 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { Zap, ShieldCheck, Tag, Wallet, MapPin, ArrowRight } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
 import { Logo } from '../components/Logo';
@@ -145,5 +147,25 @@ export function NotFoundPage() {
 
 export function AuthCallbackPage() {
   const { t } = useT();
+  const navigate = useNavigate();
+  const { state } = useAuth();
+
+  useEffect(() => {
+    if (window.opener) {
+      // In OAuth popup window
+      if (state === 'authenticated') {
+        window.opener.postMessage({ type: 'OAUTH_AUTH_SUCCESS' }, '*');
+        window.close();
+      }
+    } else {
+      // Direct window redirect
+      if (state === 'authenticated') {
+        navigate('/dashboard', { replace: true });
+      } else if (state === 'unauthenticated') {
+        navigate('/login', { replace: true });
+      }
+    }
+  }, [state, navigate]);
+
   return <FullScreenLoader label={t('auth.sessionRestoring')} />;
 }

@@ -133,6 +133,9 @@ export type TranslationKey =
   | 'restaurant.newItem'
   | 'restaurant.onboard'
   | 'restaurant.onboard.prompt'
+  | 'restaurant.onboard.existingOwnerHelp'
+  | 'restaurant.onboard.noOwners'
+  | 'restaurant.onboard.pendingNotice'
   | 'restaurant.phone'
   | 'restaurant.address'
   | 'restaurant.cuisine'
@@ -177,6 +180,7 @@ export type TranslationKey =
   | 'checkout.placeOrderSummary'
   | 'checkout.success'
   | 'checkout.successBody'
+  | 'checkout.deliveryByRestaurant'
   | 'checkout.viewOrders'
   | 'checkout.backToCart'
   | 'checkout.backToDetails'
@@ -223,7 +227,217 @@ export type TranslationKey =
   | 'wilaya.searchPlaceholder'
   | 'wilaya.detectLocation'
   | 'wilaya.detecting'
-  | 'wilaya.noResults';
+  | 'wilaya.noResults'
+  // navigation, maintenance, roles and admin details
+  | 'nav.controlCenter'
+  | 'nav.driverDashboard'
+  | 'nav.support'
+  | 'role.super_admin'
+  | 'role.restaurant_owner'
+  | 'role.customer'
+  | 'role.driver'
+  | 'sys.underMaintenance'
+  | 'sys.maintenanceDesc'
+  | 'admin.controlCenter'
+  | 'admin.fullVisibility'
+  | 'admin.financialsDesc'
+  // support
+  | 'support.title'
+  | 'support.subtitle'
+  | 'support.newTicket'
+  | 'support.noTickets'
+  | 'support.needHelp'
+  | 'support.prioritySuffix'
+  | 'support.form.subject'
+  | 'support.form.subjectPlaceholder'
+  | 'support.form.category'
+  | 'support.form.priority'
+  | 'support.form.orderIdOptional'
+  | 'support.form.orderIdPlaceholder'
+  | 'support.form.description'
+  | 'support.form.descriptionPlaceholder'
+  | 'support.form.submit'
+  | 'support.form.validation'
+  | 'support.backToTickets'
+  | 'support.conversation'
+  | 'support.noMessages'
+  | 'support.typeReply'
+  | 'support.category.general'
+  | 'support.category.bug'
+  | 'support.category.abuse'
+  | 'support.category.complaint'
+  | 'support.category.billing'
+  | 'support.category.other'
+  | 'support.priority.low'
+  | 'support.priority.normal'
+  | 'support.priority.high'
+  | 'support.priority.urgent'
+  | 'support.you'
+  | 'support.staff'
+  // profile & privacy
+  | 'profile.loyalty.title'
+  | 'profile.loyalty.subtitle'
+  | 'profile.loyalty.currentPoints'
+  | 'profile.loyalty.lifetimePoints'
+  | 'profile.loyalty.nextTier'
+  | 'profile.loyalty.maxTier'
+  | 'profile.phone'
+  | 'profile.language'
+  | 'profile.addresses.title'
+  | 'profile.addresses.addNew'
+  | 'profile.addresses.label'
+  | 'profile.addresses.home'
+  | 'profile.addresses.work'
+  | 'profile.addresses.family'
+  | 'profile.addresses.other'
+  | 'profile.addresses.default'
+  | 'profile.addresses.setAsDefault'
+  | 'profile.addresses.delete'
+  | 'profile.addresses.none'
+  | 'profile.addresses.signinToManage'
+  | 'profile.addresses.save'
+  | 'profile.privacy.title'
+  | 'profile.privacy.subtitle'
+  | 'profile.privacy.export'
+  | 'profile.privacy.exportDesc'
+  | 'profile.privacy.delete'
+  | 'profile.privacy.deleteDesc'
+  | 'profile.privacy.exportSuccess'
+  | 'profile.privacy.exportFailed'
+  | 'profile.privacy.policy'
+  | 'profile.privacy.cookie'
+  | 'profile.privacy.refund'
+  // deletion modal
+  | 'profile.deleteModal.title'
+  | 'profile.deleteModal.body1'
+  | 'profile.deleteModal.body2'
+  | 'profile.deleteModal.warn'
+  | 'profile.deleteModal.confirmText'
+  | 'profile.deleteModal.deleteForever'
+  | 'profile.deleteModal.deleting'
+  // driver dashboard & onboarding
+  | 'driver.dashboard'
+  | 'driver.activeDelivery'
+  | 'driver.waitingRequests'
+  | 'driver.goOnlineDesc'
+  | 'driver.onboarding.title'
+  | 'driver.onboarding.subtitle'
+  | 'driver.onboarding.successTitle'
+  | 'driver.onboarding.successBody'
+  | 'driver.onboarding.redirecting'
+  | 'driver.onboarding.step1Title'
+  | 'driver.onboarding.step2Title'
+  | 'driver.onboarding.step3Title'
+  | 'driver.onboarding.licensePlate'
+  | 'driver.onboarding.licenseNumber'
+  | 'driver.onboarding.idNumber'
+  | 'driver.onboarding.uploadDocs'
+  | 'driver.onboarding.uploadPrompt'
+  | 'driver.onboarding.uploadFormat'
+  | 'driver.onboarding.phonePrompt'
+  | 'driver.onboarding.appSummary'
+  // reset password
+  | 'auth.resetPasswordSuccess'
+  | 'auth.resetPasswordSuccessBody'
+  | 'auth.newPassword'
+  | 'auth.newPasswordPrompt'
+  | 'auth.updating'
+  | 'auth.savePassword'
+  // restaurant settings
+  | 'restaurant.settings.title'
+  | 'restaurant.settings.businessHours'
+  | 'restaurant.settings.hoursDesc'
+  | 'restaurant.settings.deliveryConfig'
+  | 'restaurant.settings.maxRadius'
+  | 'restaurant.settings.maxRadiusDesc'
+  | 'restaurant.settings.minOrder'
+  | 'restaurant.settings.minOrderDesc'
+  | 'restaurant.settings.estTime'
+  | 'restaurant.settings.estTimeDesc'
+  | 'restaurant.settings.opStatus'
+  | 'restaurant.settings.opStatusDesc'
+  | 'restaurant.settings.saving'
+  | 'restaurant.settings.saveSettings'
+  | 'restaurant.settings.saved'
+  | 'restaurant.dash.today'
+  | 'restaurant.dash.thisMonth'
+  | 'restaurant.dash.commissionOwed'
+  | 'restaurant.dash.netPayout'
+  | 'restaurant.dash.soundOn'
+  | 'restaurant.dash.soundOff'
+  | 'restaurant.dash.activeOrders'
+  | 'restaurant.dash.completed'
+  | 'restaurant.dash.newOrderAlert'
+  | 'favorites.subtitle'
+  | 'favorites.none'
+  | 'orders.reviewed'
+  | 'orders.leaveReview'
+  | 'driver.onboard.title'
+  | 'driver.onboard.subtitle'
+  | 'driver.onboard.success.title'
+  | 'driver.onboard.success.body'
+  | 'driver.onboard.success.redirect'
+  | 'driver.onboard.step.vehicle'
+  | 'driver.onboard.step.details'
+  | 'driver.onboard.licensePlate'
+  | 'driver.onboard.licenseNumber'
+  | 'driver.onboard.idNumber'
+  | 'driver.onboard.uploadDocuments'
+  | 'driver.onboard.uploadPrompt'
+  | 'driver.onboard.uploadFormat'
+  | 'driver.onboard.contactTitle'
+  | 'driver.onboard.phone'
+  | 'driver.onboard.phoneHelp'
+  | 'driver.onboard.summary'
+  | 'driver.onboard.vehicle'
+  | 'driver.onboard.plate'
+  | 'driver.onboard.license'
+  | 'driver.onboard.id'
+  | 'driver.onboard.documents'
+  | 'driver.onboard.submit'
+  | 'driver.vehicle.bicycle'
+  | 'driver.vehicle.bicycle.desc'
+  | 'driver.vehicle.motorcycle'
+  | 'driver.vehicle.motorcycle.desc'
+  | 'driver.vehicle.scooter'
+  | 'driver.vehicle.scooter.desc'
+  | 'driver.vehicle.car'
+  | 'driver.vehicle.car.desc'
+  | 'common.continue'
+  | 'common.back'
+  | 'common.to'
+  | 'common.closed'
+  | 'day.0'
+  | 'day.1'
+  | 'day.2'
+  | 'day.3'
+  | 'day.4'
+  | 'day.5'
+  | 'day.6'
+  | 'driver.dash.pendingVerification'
+  | 'driver.dash.failedLoad'
+  | 'driver.dash.onlineAccepting'
+  | 'driver.dash.offline'
+  | 'driver.dash.goOnline'
+  | 'driver.dash.online'
+  | 'driver.dash.today'
+  | 'driver.dash.thisWeek'
+  | 'driver.dash.pending'
+  | 'driver.dash.deliveries'
+  | 'driver.dash.headingToRestaurant'
+  | 'driver.dash.orderCollected'
+  | 'driver.dash.enRouteToCustomer'
+  | 'driver.dash.arrived'
+  | 'driver.dash.markAsDelivered'
+  | 'driver.dash.newRequest'
+  | 'driver.dash.pickup'
+  | 'driver.dash.deliverTo'
+  | 'driver.dash.accept'
+  | 'driver.dash.decline'
+  | 'driver.dash.title'
+  | 'driver.dash.activeDelivery'
+  | 'driver.dash.waiting'
+  | 'driver.dash.goOnlineHelp';
 
 type Dict = Record<TranslationKey, string>;
 
@@ -352,6 +566,9 @@ const en: Dict = {
   'restaurant.newItem': 'New item',
   'restaurant.onboard': 'Open your restaurant',
   'restaurant.onboard.prompt': 'List your restaurant on Kiyo Food in minutes.',
+  'restaurant.onboard.existingOwnerHelp': '(existing restaurant owner)',
+  'restaurant.onboard.noOwners': 'No restaurant-owner accounts exist yet. Have the owner sign up first (they will choose "Sell on Kiyo" on the signup form), then return here to create their restaurant.',
+  'restaurant.onboard.pendingNotice': 'Created as pending_approval. Review and publish from the admin restaurants page.',
   'restaurant.phone': 'Phone',
   'restaurant.address': 'Address',
   'restaurant.cuisine': 'Cuisine (comma-separated)',
@@ -395,6 +612,7 @@ const en: Dict = {
   'checkout.placeOrderSummary': 'You will be charged a fixed fee, calculated by Kiyo Food based on delivery distance.',
   'checkout.success': 'Order placed!',
   'checkout.successBody': 'Your order has been sent to the restaurant.',
+  'checkout.deliveryByRestaurant': 'Delivery is managed directly by the restaurant.',
   'checkout.viewOrders': 'View my orders',
   'checkout.backToCart': 'Back to cart',
   'checkout.backToDetails': 'Back to details',
@@ -440,6 +658,215 @@ const en: Dict = {
   'wilaya.detectLocation': 'Detect my location',
   'wilaya.detecting': 'Detecting…',
   'wilaya.noResults': 'No wilayas found.',
+  'nav.controlCenter': 'Control Center',
+  'nav.driverDashboard': 'Driver Dashboard',
+  'nav.support': 'Support',
+  'role.super_admin': 'Super Admin',
+  'role.restaurant_owner': 'Restaurant Owner',
+  'role.customer': 'Customer',
+  'role.driver': 'Driver',
+  'sys.underMaintenance': 'Under Maintenance',
+  'sys.maintenanceDesc': 'We are performing scheduled maintenance. Please check back shortly.',
+  'admin.controlCenter': 'Control Center',
+  'admin.fullVisibility': 'Full platform visibility & management',
+  'admin.financialsDesc': 'Financials, users, restaurants, rules, analytics',
+  // support
+  'support.title': 'Support',
+  'support.subtitle': 'Get help with orders, payments, or account issues',
+  'support.newTicket': 'New Ticket',
+  'support.noTickets': 'No support tickets yet',
+  'support.needHelp': 'Need help? Create a ticket above.',
+  'support.prioritySuffix': 'priority',
+  'support.form.subject': 'Subject',
+  'support.form.subjectPlaceholder': 'Brief description of your issue',
+  'support.form.category': 'Category',
+  'support.form.priority': 'Priority',
+  'support.form.orderIdOptional': 'Order ID (optional)',
+  'support.form.orderIdPlaceholder': 'Paste order ID if related to a specific order',
+  'support.form.description': 'Description',
+  'support.form.descriptionPlaceholder': 'Describe your issue in detail...',
+  'support.form.submit': 'Submit Ticket',
+  'support.form.validation': 'Please fill in subject and description',
+  'support.backToTickets': 'Back to tickets',
+  'support.conversation': 'Conversation',
+  'support.noMessages': 'No messages yet. Start the conversation below.',
+  'support.typeReply': 'Type your reply...',
+  'support.category.general': 'General',
+  'support.category.bug': 'Bug / Technical',
+  'support.category.abuse': 'Abuse / Report',
+  'support.category.complaint': 'Complaint',
+  'support.category.billing': 'Billing / Payment',
+  'support.category.other': 'Other',
+  'support.priority.low': 'Low',
+  'support.priority.normal': 'Normal',
+  'support.priority.high': 'High',
+  'support.priority.urgent': 'Urgent',
+  'support.you': 'You',
+  'support.staff': 'Support',
+  // profile & privacy
+  'profile.loyalty.title': 'Loyalty Program',
+  'profile.loyalty.subtitle': 'Earn 1 point for every 100 DZD spent',
+  'profile.loyalty.currentPoints': 'Current Points',
+  'profile.loyalty.lifetimePoints': 'Lifetime Points',
+  'profile.loyalty.nextTier': 'Next Tier',
+  'profile.loyalty.maxTier': 'Maximum tier reached!',
+  'profile.phone': 'Phone',
+  'profile.language': 'Language',
+  'profile.addresses.title': 'Saved Addresses',
+  'profile.addresses.addNew': 'Add New',
+  'profile.addresses.label': 'Label',
+  'profile.addresses.home': 'Home',
+  'profile.addresses.work': 'Work',
+  'profile.addresses.family': 'Family',
+  'profile.addresses.other': 'Other',
+  'profile.addresses.default': 'Default',
+  'profile.addresses.setAsDefault': 'Set as default',
+  'profile.addresses.delete': 'Delete',
+  'profile.addresses.none': 'No saved addresses yet. Add your home, work, or favorite delivery spots.',
+  'profile.addresses.signinToManage': 'Sign in to manage your saved addresses.',
+  'profile.addresses.save': 'Save Address',
+  'profile.privacy.title': 'Privacy & Data',
+  'profile.privacy.subtitle': 'Your data, your control. Export or delete your personal data in compliance with our Account Deletion Policy.',
+  'profile.privacy.export': 'Export my data',
+  'profile.privacy.exportDesc': 'Download as JSON',
+  'profile.privacy.delete': 'Delete my account',
+  'profile.privacy.deleteDesc': 'Permanent after 14 days',
+  'profile.privacy.exportSuccess': 'Export downloaded.',
+  'profile.privacy.exportFailed': 'Export failed. Please try again.',
+  'profile.privacy.policy': 'Privacy Policy',
+  'profile.privacy.cookie': 'Cookie Policy',
+  'profile.privacy.refund': 'Refund & Cancellation',
+  // deletion modal
+  'profile.deleteModal.title': 'Delete account',
+  'profile.deleteModal.body1': 'This will immediately sign you out and lock your account. Your profile, favorites, and saved data will be deleted within 14 days.',
+  'profile.deleteModal.body2': 'Order and financial records are retained for 7 years as required by tax law — but they will be anonymized and no longer linked to your identity.',
+  'profile.deleteModal.warn': 'Restaurant owner accounts with an active restaurant cannot self-delete. Contact support instead.',
+  'profile.deleteModal.confirmText': 'Type DELETE to confirm',
+  'profile.deleteModal.deleteForever': 'Delete forever',
+  'profile.deleteModal.deleting': 'Deleting…',
+  // driver dashboard & onboarding
+  'driver.dashboard': 'Driver Dashboard',
+  'driver.activeDelivery': 'Active Delivery',
+  'driver.waitingRequests': 'Waiting for new delivery requests...',
+  'driver.goOnlineDesc': 'Go online to start receiving deliveries',
+  'driver.onboarding.title': 'Become a Driver',
+  'driver.onboarding.subtitle': 'Complete your application to start earning with Kiyo Food',
+  'driver.onboarding.successTitle': 'Application Submitted!',
+  'driver.onboarding.successBody': 'Your driver application is being reviewed. You will be notified once approved.',
+  'driver.onboarding.redirecting': 'Redirecting to dashboard...',
+  'driver.onboarding.step1Title': 'Select Your Vehicle',
+  'driver.onboarding.step2Title': 'Vehicle Details',
+  'driver.onboarding.step3Title': 'Contact Information',
+  'driver.onboarding.licensePlate': 'License Plate Number',
+  'driver.onboarding.licenseNumber': "Driver's License Number",
+  'driver.onboarding.idNumber': 'National ID Number',
+  'driver.onboarding.uploadDocs': 'Upload Documents',
+  'driver.onboarding.uploadPrompt': 'Upload license, ID, and vehicle registration',
+  'driver.onboarding.uploadFormat': 'PNG, JPG, or PDF',
+  'driver.onboarding.phonePrompt': "We'll use this number to contact you about deliveries",
+  'driver.onboarding.appSummary': 'Application Summary',
+  // reset password
+  'auth.resetPasswordSuccess': 'Password reset successfully!',
+  'auth.resetPasswordSuccessBody': 'Your password has been updated successfully.',
+  'auth.newPassword': 'New Password',
+  'auth.newPasswordPrompt': 'Enter your new password below.',
+  'auth.updating': 'Updating...',
+  'auth.savePassword': 'Save password',
+  // restaurant settings
+  'restaurant.settings.title': 'Restaurant Settings',
+  'restaurant.settings.businessHours': 'Business Hours',
+  'restaurant.settings.hoursDesc': 'Set your opening and closing times for each day. Leave a day unchecked to mark it as closed.',
+  'restaurant.settings.deliveryConfig': 'Delivery Configuration',
+  'restaurant.settings.maxRadius': 'Max Delivery Radius (km)',
+  'restaurant.settings.maxRadiusDesc': 'Customers outside this radius cannot order from your restaurant.',
+  'restaurant.settings.minOrder': 'Minimum Order Amount (DZD)',
+  'restaurant.settings.minOrderDesc': 'Orders below this amount will be rejected.',
+  'restaurant.settings.estTime': 'Estimated Delivery Time (minutes)',
+  'restaurant.settings.estTimeDesc': 'This is shown to customers before they order.',
+  'restaurant.settings.opStatus': 'Operational Status',
+  'restaurant.settings.opStatusDesc': 'Open: Accepting orders normally. Busy: Extended preparation times. Closed: Not accepting orders.',
+  'restaurant.settings.saving': 'Saving...',
+  'restaurant.settings.saveSettings': 'Save Settings',
+  'restaurant.settings.saved': 'Settings saved!',
+  'restaurant.dash.today': 'Today',
+  'restaurant.dash.thisMonth': 'This Month',
+  'restaurant.dash.commissionOwed': 'Commission Owed',
+  'restaurant.dash.netPayout': 'Net Payout',
+  'restaurant.dash.soundOn': 'Sound on',
+  'restaurant.dash.soundOff': 'Sound off',
+  'restaurant.dash.activeOrders': 'Active orders',
+  'restaurant.dash.completed': 'Completed',
+  'restaurant.dash.newOrderAlert': 'New order received!',
+  'favorites.subtitle': 'Your saved restaurants',
+  'favorites.none': 'No favorite restaurants yet',
+  'orders.reviewed': 'Reviewed',
+  'orders.leaveReview': 'Leave a Review',
+  'driver.onboard.title': 'Become a Driver',
+  'driver.onboard.subtitle': 'Complete your application to start earning with Kiyo Food',
+  'driver.onboard.success.title': 'Application Submitted!',
+  'driver.onboard.success.body': 'Your driver application is being reviewed. You will be notified once approved.',
+  'driver.onboard.success.redirect': 'Redirecting to dashboard...',
+  'driver.onboard.step.vehicle': 'Select Your Vehicle',
+  'driver.onboard.step.details': 'Vehicle Details',
+  'driver.onboard.licensePlate': 'License Plate Number',
+  'driver.onboard.licenseNumber': "Driver's License Number",
+  'driver.onboard.idNumber': 'National ID Number',
+  'driver.onboard.uploadDocuments': 'Upload Documents',
+  'driver.onboard.uploadPrompt': 'Upload license, ID, and vehicle registration',
+  'driver.onboard.uploadFormat': 'PNG, JPG, or PDF',
+  'driver.onboard.contactTitle': 'Contact Information',
+  'driver.onboard.phone': 'Phone Number',
+  'driver.onboard.phoneHelp': "We'll use this number to contact you about deliveries",
+  'driver.onboard.summary': 'Application Summary',
+  'driver.onboard.vehicle': 'Vehicle',
+  'driver.onboard.plate': 'Plate',
+  'driver.onboard.license': 'License',
+  'driver.onboard.id': 'ID',
+  'driver.onboard.documents': 'Documents',
+  'driver.onboard.submit': 'Submit Application',
+  'driver.vehicle.bicycle': 'Bicycle',
+  'driver.vehicle.bicycle.desc': 'Eco-friendly for short distances',
+  'driver.vehicle.motorcycle': 'Motorcycle',
+  'driver.vehicle.motorcycle.desc': 'Fast delivery in urban areas',
+  'driver.vehicle.scooter': 'Scooter',
+  'driver.vehicle.scooter.desc': 'Efficient for city deliveries',
+  'driver.vehicle.car': 'Car',
+  'driver.vehicle.car.desc': 'Ideal for longer distances',
+  'common.continue': 'Continue',
+  'common.back': 'Back',
+  'common.to': 'to',
+  'common.closed': 'Closed',
+  'day.0': 'Sunday',
+  'day.1': 'Monday',
+  'day.2': 'Tuesday',
+  'day.3': 'Wednesday',
+  'day.4': 'Thursday',
+  'day.5': 'Friday',
+  'day.6': 'Saturday',
+  'driver.dash.pendingVerification': 'Your account is pending verification. You will be notified once approved.',
+  'driver.dash.failedLoad': 'Failed to load driver profile',
+  'driver.dash.onlineAccepting': 'Online - Accepting deliveries',
+  'driver.dash.offline': 'Offline',
+  'driver.dash.goOnline': 'Go Online',
+  'driver.dash.online': 'Online',
+  'driver.dash.today': 'Today',
+  'driver.dash.thisWeek': 'This Week',
+  'driver.dash.pending': 'Pending',
+  'driver.dash.deliveries': 'deliveries',
+  'driver.dash.headingToRestaurant': 'Heading to restaurant',
+  'driver.dash.orderCollected': 'Order collected',
+  'driver.dash.enRouteToCustomer': 'En route to customer',
+  'driver.dash.arrived': 'Arrived',
+  'driver.dash.markAsDelivered': 'Mark as delivered',
+  'driver.dash.newRequest': 'New Delivery Request',
+  'driver.dash.pickup': 'Pickup',
+  'driver.dash.deliverTo': 'Deliver to',
+  'driver.dash.accept': 'Accept',
+  'driver.dash.decline': 'Decline',
+  'driver.dash.title': 'Driver Dashboard',
+  'driver.dash.activeDelivery': 'Active Delivery',
+  'driver.dash.waiting': 'Waiting for new delivery requests...',
+  'driver.dash.goOnlineHelp': 'Go online to start receiving deliveries',
 };
 
 const fr: Dict = {
@@ -567,6 +994,9 @@ const fr: Dict = {
   'restaurant.newItem': 'Nouveau plat',
   'restaurant.onboard': 'Ouvrir votre restaurant',
   'restaurant.onboard.prompt': 'Inscrivez votre restaurant sur Kiyo Food.',
+  'restaurant.onboard.existingOwnerHelp': '(propriétaire de restaurant existant)',
+  'restaurant.onboard.noOwners': 'Aucun compte de propriétaire de restaurant n\'existe encore. Demandez d\'abord au propriétaire de s\'inscrire (il choisira "Vendre sur Kiyo" sur le formulaire d\'inscription), puis revenez ici pour créer son restaurant.',
+  'restaurant.onboard.pendingNotice': 'Créé en tant que "en attente d\'approbation". Examinez et publiez depuis la page de gestion des restaurants.',
   'restaurant.phone': 'Téléphone',
   'restaurant.address': 'Adresse',
   'restaurant.cuisine': 'Cuisine (séparée par virgules)',
@@ -610,6 +1040,7 @@ const fr: Dict = {
   'checkout.placeOrderSummary': 'Un calculé selon la distance. Kiyo Food fixe ce montant.',
   'checkout.success': 'Commande passée !',
   'checkout.successBody': 'Votre commande a été envoyée au restaurant.',
+  'checkout.deliveryByRestaurant': 'La livraison est gérée directement par le restaurant.',
   'checkout.viewOrders': 'Voir mes commandes',
   'checkout.backToCart': 'Retour au panier',
   'checkout.backToDetails': 'Retour',
@@ -655,6 +1086,215 @@ const fr: Dict = {
   'wilaya.detectLocation': 'Détecter ma position',
   'wilaya.detecting': 'Détection…',
   'wilaya.noResults': 'Aucune wilaya trouvée.',
+  'nav.controlCenter': 'Centre de contrôle',
+  'nav.driverDashboard': 'Tableau de bord livreur',
+  'nav.support': 'Support',
+  'role.super_admin': 'Super Administrateur',
+  'role.restaurant_owner': 'Propriétaire de Restaurant',
+  'role.customer': 'Client',
+  'role.driver': 'Livreur',
+  'sys.underMaintenance': 'En Maintenance',
+  'sys.maintenanceDesc': 'Nous effectuons une maintenance planifiée. Veuillez revenir bientôt.',
+  'admin.controlCenter': 'Centre de contrôle',
+  'admin.fullVisibility': 'Visibilité et gestion complètes de la plateforme',
+  'admin.financialsDesc': 'Finances, utilisateurs, restaurants, règles, analyses',
+  // support
+  'support.title': 'Support client',
+  'support.subtitle': "Obtenez de l'aide pour vos commandes, paiements ou compte",
+  'support.newTicket': 'Nouveau ticket',
+  'support.noTickets': 'Aucun ticket de support pour le moment',
+  'support.needHelp': 'Besoin d\'aide ? Créez un ticket ci-dessus.',
+  'support.prioritySuffix': 'priorité',
+  'support.form.subject': 'Sujet',
+  'support.form.subjectPlaceholder': 'Description rapide de votre problème',
+  'support.form.category': 'Catégorie',
+  'support.form.priority': 'Priorité',
+  'support.form.orderIdOptional': 'ID de commande (optionnel)',
+  'support.form.orderIdPlaceholder': 'Collez l\'ID de commande si lié à une commande spécifique',
+  'support.form.description': 'Description',
+  'support.form.descriptionPlaceholder': 'Décrivez votre problème en détail...',
+  'support.form.submit': 'Envoyer le ticket',
+  'support.form.validation': 'Veuillez remplir le sujet et la description',
+  'support.backToTickets': 'Retour aux tickets',
+  'support.conversation': 'Discussion',
+  'support.noMessages': 'Aucun message pour le moment. Démarrez la discussion ci-dessous.',
+  'support.typeReply': 'Écrivez votre réponse...',
+  'support.category.general': 'Général',
+  'support.category.bug': 'Bug / Technique',
+  'support.category.abuse': 'Abus / Signalement',
+  'support.category.complaint': 'Réclamation',
+  'support.category.billing': 'Facturation / Paiement',
+  'support.category.other': 'Autre',
+  'support.priority.low': 'Basse',
+  'support.priority.normal': 'Normale',
+  'support.priority.high': 'Haute',
+  'support.priority.urgent': 'Urgente',
+  'support.you': 'Vous',
+  'support.staff': 'Support',
+  // profile & privacy
+  'profile.loyalty.title': 'Programme de fidélité',
+  'profile.loyalty.subtitle': 'Gagnez 1 point pour chaque 100 DZD dépensé',
+  'profile.loyalty.currentPoints': 'Points actuels',
+  'profile.loyalty.lifetimePoints': 'Points cumulés',
+  'profile.loyalty.nextTier': 'Prochain niveau',
+  'profile.loyalty.maxTier': 'Niveau maximum atteint !',
+  'profile.phone': 'Téléphone',
+  'profile.language': 'Langue',
+  'profile.addresses.title': 'Adresses enregistrées',
+  'profile.addresses.addNew': 'Ajouter',
+  'profile.addresses.label': 'Libellé',
+  'profile.addresses.home': 'Maison',
+  'profile.addresses.work': 'Travail',
+  'profile.addresses.family': 'Famille',
+  'profile.addresses.other': 'Autre',
+  'profile.addresses.default': 'Par défaut',
+  'profile.addresses.setAsDefault': 'Définir par défaut',
+  'profile.addresses.delete': 'Supprimer',
+  'profile.addresses.none': 'Aucune adresse enregistrée. Ajoutez votre maison, travail ou lieu de livraison.',
+  'profile.addresses.signinToManage': 'Connectez-vous pour gérer vos adresses enregistrées.',
+  'profile.addresses.save': 'Enregistrer l\'adresse',
+  'profile.privacy.title': 'Confidentialité et données',
+  'profile.privacy.subtitle': 'Vos données, votre contrôle. Exportez ou supprimez vos données conformément à notre politique de suppression de compte.',
+  'profile.privacy.export': 'Exporter mes données',
+  'profile.privacy.exportDesc': 'Télécharger au format JSON',
+  'profile.privacy.delete': 'Supprimer mon compte',
+  'profile.privacy.deleteDesc': 'Définitif après 14 jours',
+  'profile.privacy.exportSuccess': 'Exportation téléchargée.',
+  'profile.privacy.exportFailed': 'Échec de l\'exportation. Veuillez réessayer.',
+  'profile.privacy.policy': 'Politique de confidentialité',
+  'profile.privacy.cookie': 'Politique relative aux cookies',
+  'profile.privacy.refund': 'Remboursement et annulation',
+  // deletion modal
+  'profile.deleteModal.title': 'Supprimer le compte',
+  'profile.deleteModal.body1': 'Cela vous déconnectera immédiatement et verrouillera votre compte. Votre profil, vos favoris et vos données enregistrées seront supprimés dans un délai de 14 jours.',
+  'profile.deleteModal.body2': 'Les dossiers de commande et financiers sont conservés pendant 7 ans, comme l\'exige la loi fiscale, mais ils seront anonymisés et ne seront plus liés à votre identité.',
+  'profile.deleteModal.warn': 'Les comptes de propriétaires de restaurant avec un restaurant actif ne peuvent pas se supprimer eux-mêmes. Contactez le support.',
+  'profile.deleteModal.confirmText': 'Écrivez DELETE pour confirmer',
+  'profile.deleteModal.deleteForever': 'Supprimer définitivement',
+  'profile.deleteModal.deleting': 'Suppression…',
+  // driver dashboard & onboarding
+  'driver.dashboard': 'Tableau de bord du livreur',
+  'driver.activeDelivery': 'Livraison active',
+  'driver.waitingRequests': 'En attente de nouvelles demandes de livraison...',
+  'driver.goOnlineDesc': 'Passez en ligne pour commencer à recevoir des livraisons',
+  'driver.onboarding.title': 'Devenir livreur',
+  'driver.onboarding.subtitle': 'Complétez votre candidature pour commencer à gagner de l\'argent',
+  'driver.onboarding.successTitle': 'Candidature envoyée !',
+  'driver.onboarding.successBody': 'Votre candidature est en cours d\'examen. Vous serez informé dès son approbation.',
+  'driver.onboarding.redirecting': 'Redirection vers le tableau de bord...',
+  'driver.onboarding.step1Title': 'Sélectionnez votre véhicule',
+  'driver.onboarding.step2Title': 'Détails du véhicule',
+  'driver.onboarding.step3Title': 'Coordonnées de contact',
+  'driver.onboarding.licensePlate': 'Numéro de plaque d\'immatriculation',
+  'driver.onboarding.licenseNumber': 'Numéro de permis de conduire',
+  'driver.onboarding.idNumber': 'Numéro de carte d\'identité nationale',
+  'driver.onboarding.uploadDocs': 'Télécharger les documents',
+  'driver.onboarding.uploadPrompt': 'Télécharger permis, ID et carte grise',
+  'driver.onboarding.uploadFormat': 'PNG, JPG ou PDF',
+  'driver.onboarding.phonePrompt': 'Nous utiliserons ce numéro pour vous contacter au sujet des livraisons',
+  'driver.onboarding.appSummary': 'Résumé de la candidature',
+  // reset password
+  'auth.resetPasswordSuccess': 'Mot de passe réinitialisé !',
+  'auth.resetPasswordSuccessBody': 'Votre mot de passe a été mis à jour avec succès.',
+  'auth.newPassword': 'Nouveau mot de passe',
+  'auth.newPasswordPrompt': 'Saisissez votre nouveau mot de passe ci-dessous.',
+  'auth.updating': 'Mise à jour...',
+  'auth.savePassword': 'Enregistrer le mot de passe',
+  // restaurant settings
+  'restaurant.settings.title': 'Paramètres du restaurant',
+  'restaurant.settings.businessHours': 'Heures d\'ouverture',
+  'restaurant.settings.hoursDesc': 'Définissez vos heures d\'ouverture et de fermeture pour chaque jour. Laissez décoché pour marquer comme fermé.',
+  'restaurant.settings.deliveryConfig': 'Configuration de la livraison',
+  'restaurant.settings.maxRadius': 'Rayon de livraison max (km)',
+  'restaurant.settings.maxRadiusDesc': 'Les clients en dehors de ce rayon ne peuvent pas commander.',
+  'restaurant.settings.minOrder': 'Montant minimum de commande (DZD)',
+  'restaurant.settings.minOrderDesc': 'Les commandes inférieures à ce montant seront rejetées.',
+  'restaurant.settings.estTime': 'Temps de livraison estimé (minutes)',
+  'restaurant.settings.estTimeDesc': 'Ceci est affiché aux clients avant qu\'ils ne commandent.',
+  'restaurant.settings.opStatus': 'Statut opérationnel',
+  'restaurant.settings.opStatusDesc': 'Ouvert: Accepte les commandes. Occupé: Temps de préparation prolongés. Fermé: Ne prend pas de commandes.',
+  'restaurant.settings.saving': 'Enregistrement...',
+  'restaurant.settings.saveSettings': 'Enregistrer les paramètres',
+  'restaurant.settings.saved': 'Paramètres enregistrés !',
+  'restaurant.dash.today': 'Aujourd\'hui',
+  'restaurant.dash.thisMonth': 'Ce mois-ci',
+  'restaurant.dash.commissionOwed': 'Commission due',
+  'restaurant.dash.netPayout': 'Versement net',
+  'restaurant.dash.soundOn': 'Son activé',
+  'restaurant.dash.soundOff': 'Son désactivé',
+  'restaurant.dash.activeOrders': 'Commandes actives',
+  'restaurant.dash.completed': 'Terminées',
+  'restaurant.dash.newOrderAlert': 'Nouvelle commande reçue !',
+  'favorites.subtitle': 'Vos restaurants enregistrés',
+  'favorites.none': 'Aucun restaurant favori pour le moment',
+  'orders.reviewed': 'Avis laissé',
+  'orders.leaveReview': 'Laisser un avis',
+  'driver.onboard.title': 'Devenir chauffeur',
+  'driver.onboard.subtitle': 'Complétez votre candidature pour commencer à gagner avec Kiyo Food',
+  'driver.onboard.success.title': 'Candidature soumise !',
+  'driver.onboard.success.body': 'Votre candidature de chauffeur est en cours d\'examen. Vous serez averti une fois approuvé.',
+  'driver.onboard.success.redirect': 'Redirection vers le tableau de bord...',
+  'driver.onboard.step.vehicle': 'Sélectionnez votre véhicule',
+  'driver.onboard.step.details': 'Détails du véhicule',
+  'driver.onboard.licensePlate': 'Numéro de plaque d\'immatriculation',
+  'driver.onboard.licenseNumber': 'Numéro de permis de conduire',
+  'driver.onboard.idNumber': 'Numéro de carte d\'identité nationale',
+  'driver.onboard.uploadDocuments': 'Télécharger des documents',
+  'driver.onboard.uploadPrompt': 'Téléchargez le permis, la pièce d\'identité et l\'immatriculation du véhicule',
+  'driver.onboard.uploadFormat': 'PNG, JPG ou PDF',
+  'driver.onboard.contactTitle': 'Informations de contact',
+  'driver.onboard.phone': 'Numéro de téléphone',
+  'driver.onboard.phoneHelp': 'Nous utiliserons ce numéro pour vous contacter concernant les livraisons',
+  'driver.onboard.summary': 'Résumé de la candidature',
+  'driver.onboard.vehicle': 'Véhicule',
+  'driver.onboard.plate': 'Plaque',
+  'driver.onboard.license': 'Permis',
+  'driver.onboard.id': 'Pièce d\'identité',
+  'driver.onboard.documents': 'Documents',
+  'driver.onboard.submit': 'Soumettre la candidature',
+  'driver.vehicle.bicycle': 'Vélo',
+  'driver.vehicle.bicycle.desc': 'Écologique pour les courtes distances',
+  'driver.vehicle.motorcycle': 'Moto',
+  'driver.vehicle.motorcycle.desc': 'Livraison rapide dans les zones urbaines',
+  'driver.vehicle.scooter': 'Scooter',
+  'driver.vehicle.scooter.desc': 'Efficace pour les livraisons en ville',
+  'driver.vehicle.car': 'Voiture',
+  'driver.vehicle.car.desc': 'Idéal pour les plus longues distances',
+  'common.continue': 'Continuer',
+  'common.back': 'Retour',
+  'common.to': 'à',
+  'common.closed': 'Fermé',
+  'day.0': 'Dimanche',
+  'day.1': 'Lundi',
+  'day.2': 'Mardi',
+  'day.3': 'Mercredi',
+  'day.4': 'Jeudi',
+  'day.5': 'Vendredi',
+  'day.6': 'Samedi',
+  'driver.dash.pendingVerification': 'Votre compte est en attente de vérification. Vous serez informé dès son approbation.',
+  'driver.dash.failedLoad': 'Échec du chargement du profil de livreur',
+  'driver.dash.onlineAccepting': 'En ligne - Accepte les livraisons',
+  'driver.dash.offline': 'Hors ligne',
+  'driver.dash.goOnline': 'Passer en ligne',
+  'driver.dash.online': 'En ligne',
+  'driver.dash.today': 'Aujourd\'hui',
+  'driver.dash.thisWeek': 'Cette semaine',
+  'driver.dash.pending': 'En attente',
+  'driver.dash.deliveries': 'livraisons',
+  'driver.dash.headingToRestaurant': 'En route vers le restaurant',
+  'driver.dash.orderCollected': 'Commande récupérée',
+  'driver.dash.enRouteToCustomer': 'En route vers le client',
+  'driver.dash.arrived': 'Arrivé',
+  'driver.dash.markAsDelivered': 'Marquer comme livré',
+  'driver.dash.newRequest': 'Nouvelle demande de livraison',
+  'driver.dash.pickup': 'Récupération',
+  'driver.dash.deliverTo': 'Livrer à',
+  'driver.dash.accept': 'Accepter',
+  'driver.dash.decline': 'Décliner',
+  'driver.dash.title': 'Tableau de bord du livreur',
+  'driver.dash.activeDelivery': 'Livraison active',
+  'driver.dash.waiting': 'En attente de nouvelles demandes de livraison...',
+  'driver.dash.goOnlineHelp': 'Passez en ligne pour commencer à recevoir des livraisons',
 };
 
 const ar: Dict = {
@@ -782,6 +1422,9 @@ const ar: Dict = {
   'restaurant.newItem': 'طبق جديد',
   'restaurant.onboard': 'افتح مطعمك',
   'restaurant.onboard.prompt': 'سجّل مطعمك على كيو بدقائق.',
+  'restaurant.onboard.existingOwnerHelp': '(مالك مطعم حالي)',
+  'restaurant.onboard.noOwners': 'لا توجد حسابات لمالكي المطاعم بعد. اطلب من المالك التسجيل أولاً (سيختار "البيع على كيو" في نموذج التسجيل)، ثم عد إلى هنا لإنشاء مطعمه.',
+  'restaurant.onboard.pendingNotice': 'يتم إنشاؤه كـ "قيد المراجعة". قم بمراجعته ونشره من صفحة إدارة المطاعم.',
   'restaurant.phone': 'الهاتف',
   'restaurant.address': 'العنوان',
   'restaurant.cuisine': 'نوع المطبخ (افصل بفاصلة)',
@@ -825,6 +1468,7 @@ const ar: Dict = {
   'checkout.placeOrderSummary': 'تُحتسب الرسوم حسب المسافة. كيو يحدد المبلغ.',
   'checkout.success': 'تم الطلب!',
   'checkout.successBody': 'تم إرسال طلبك إلى المطعم.',
+  'checkout.deliveryByRestaurant': 'يتم إدارة التوصيل مباشرة من قبل المطعم.',
   'checkout.viewOrders': 'عرض طلباتي',
   'checkout.backToCart': 'للسلة',
   'checkout.backToDetails': 'للتفاصيل',
@@ -870,6 +1514,215 @@ const ar: Dict = {
   'wilaya.detectLocation': 'تحديد موقعي',
   'wilaya.detecting': 'جاري التحديد…',
   'wilaya.noResults': 'لم تُوجد ولاية.',
+  'nav.controlCenter': 'مركز التحكم',
+  'nav.driverDashboard': 'لوحة تحكم السائق',
+  'nav.support': 'الدعم الفني',
+  'role.super_admin': 'مدير النظام',
+  'role.restaurant_owner': 'مالك مطعم',
+  'role.customer': 'عميل',
+  'role.driver': 'سائق توصيل',
+  'sys.underMaintenance': 'قيد الصيانة',
+  'sys.maintenanceDesc': 'نحن نقوم بصيانة دورية مجدولة. يرجى العودة لاحقاً.',
+  'admin.controlCenter': 'مركز التحكم',
+  'admin.fullVisibility': 'رؤية كاملة وإدارة للمنصة',
+  'admin.financialsDesc': 'المالية، المستخدمين، المطاعم، القوانين، التحليلات',
+  // support
+  'support.title': 'الدعم الفني',
+  'support.subtitle': 'احصل على المساعدة في الطلبات أو الدفع أو الحساب',
+  'support.newTicket': 'تذكرة جديدة',
+  'support.noTickets': 'لا توجد تذاكر دعم بعد',
+  'support.needHelp': 'هل تحتاج إلى مساعدة؟ أنشئ تذكرة أعلاه.',
+  'support.prioritySuffix': 'أولوية',
+  'support.form.subject': 'الموضوع',
+  'support.form.subjectPlaceholder': 'وصف موجز لمشكلتك',
+  'support.form.category': 'الفئة',
+  'support.form.priority': 'الأولوية',
+  'support.form.orderIdOptional': 'رقم الطلب (اختياري)',
+  'support.form.orderIdPlaceholder': 'أدخل رقم الطلب إذا كان الأمر يتعلق بطلب معين',
+  'support.form.description': 'الوصف',
+  'support.form.descriptionPlaceholder': 'يرجى وصف المشكلة بالتفصيل...',
+  'support.form.submit': 'إرسال التذكرة',
+  'support.form.validation': 'يرجى ملء الموضوع والوصف',
+  'support.backToTickets': 'العودة إلى التذاكر',
+  'support.conversation': 'المحادثة',
+  'support.noMessages': 'لا توجد رسائل بعد. ابدأ المحادثة أدناه.',
+  'support.typeReply': 'اكتب ردك هنا...',
+  'support.category.general': 'عام',
+  'support.category.bug': 'مشكلة تقنية',
+  'support.category.abuse': 'إبلاغ عن إساءة',
+  'support.category.complaint': 'شكوى',
+  'support.category.billing': 'الفواتير والدفع',
+  'support.category.other': 'آخر',
+  'support.priority.low': 'منخفضة',
+  'support.priority.normal': 'عادية',
+  'support.priority.high': 'عالية',
+  'support.priority.urgent': 'عاجلة',
+  'support.you': 'أنت',
+  'support.staff': 'الدعم الفني',
+  // profile & privacy
+  'profile.loyalty.title': 'برنامج الولاء',
+  'profile.loyalty.subtitle': 'اكسب نقطة واحدة مقابل كل 100 دج تنفقها',
+  'profile.loyalty.currentPoints': 'النقاط الحالية',
+  'profile.loyalty.lifetimePoints': 'إجمالي النقاط',
+  'profile.loyalty.nextTier': 'المستوى التالي',
+  'profile.loyalty.maxTier': 'تم الوصول إلى الحد الأقصى للمستوى!',
+  'profile.phone': 'الهاتف',
+  'profile.language': 'اللغة',
+  'profile.addresses.title': 'العناوين المحفوظة',
+  'profile.addresses.addNew': 'إضافة جديد',
+  'profile.addresses.label': 'التسمية',
+  'profile.addresses.home': 'المنزل',
+  'profile.addresses.work': 'العمل',
+  'profile.addresses.family': 'العائلة',
+  'profile.addresses.other': 'أخرى',
+  'profile.addresses.default': 'الافتراضي',
+  'profile.addresses.setAsDefault': 'تعيين كافتراضي',
+  'profile.addresses.delete': 'حذف',
+  'profile.addresses.none': 'لا توجد عناوين محفوظة بعد. أضف منزلك أو عملك أو أماكن التوصيل المفضلة.',
+  'profile.addresses.signinToManage': 'سجل الدخول لإدارة عناوينك المحفوظة.',
+  'profile.addresses.save': 'حفظ العنوان',
+  'profile.privacy.title': 'الخصوصية والبيانات',
+  'profile.privacy.subtitle': 'بياناتك تحت تحكمك الكامل. يمكنك تصدير بياناتك أو حذفها وفقاً لسياسة حذف الحساب الخاصة بنا.',
+  'profile.privacy.export': 'تصدير بياناتي',
+  'profile.privacy.exportDesc': 'تحميل بصيغة JSON',
+  'profile.privacy.delete': 'حذف حسابي',
+  'profile.privacy.deleteDesc': 'نهائي بعد 14 يوماً',
+  'profile.privacy.exportSuccess': 'تم تحميل البيانات المصدرة.',
+  'profile.privacy.exportFailed': 'فشل تصدير البيانات. يرجى المحاولة مرة أخرى.',
+  'profile.privacy.policy': 'سياسة الخصوصية',
+  'profile.privacy.cookie': 'سياسة ملفات تعريف الارتباط',
+  'profile.privacy.refund': 'سياسة الاسترداد والإلغاء',
+  // deletion modal
+  'profile.deleteModal.title': 'حذف الحساب',
+  'profile.deleteModal.body1': 'سيؤدي هذا إلى تسجيل خروجك فوراً وقفل حسابك. سيتم حذف ملفك الشخصي ومفضلتك وبياناتك المحفوظة في غضون 14 يوماً.',
+  'profile.deleteModal.body2': 'يتم الاحتفاظ بملفات الطلبات والسجلات المالية لمدة 7 سنوات بموجب القانون الضريبي - ولكن سيتم إخفاء هويتك ولن تعد مرتبطة بملفاتك الشخصية.',
+  'profile.deleteModal.warn': 'لا يمكن لحسابات مالكي المطاعم النشطة حذف الحساب بأنفسهم. يرجى الاتصال بالدعم الفني بدلاً من ذلك.',
+  'profile.deleteModal.confirmText': 'اكتب DELETE للتأكيد',
+  'profile.deleteModal.deleteForever': 'حذف نهائي',
+  'profile.deleteModal.deleting': 'جاري الحذف…',
+  // driver dashboard & onboarding
+  'driver.dashboard': 'لوحة تحكم السائق',
+  'driver.activeDelivery': 'التوصيل النشط',
+  'driver.waitingRequests': 'بانتظار طلبات توصيل جديدة...',
+  'driver.goOnlineDesc': 'قم بتفعيل الاتصال لبدء تلقي طلبات التوصيل',
+  'driver.onboarding.title': 'كن سائق توصيل معنا',
+  'driver.onboarding.subtitle': 'أكمل طلبك لبدء الكسب مع كيو فود',
+  'driver.onboarding.successTitle': 'تم تقديم الطلب بنجاح!',
+  'driver.onboarding.successBody': 'طلب السائق الخاص بك قيد المراجعة حالياً. سنقوم بإشعارك فور الموافقة.',
+  'driver.onboarding.redirecting': 'جاري الانتقال إلى لوحة التحكم...',
+  'driver.onboarding.step1Title': 'اختر نوع مركبتك',
+  'driver.onboarding.step2Title': 'تفاصيل المركبة',
+  'driver.onboarding.step3Title': 'معلومات الاتصال',
+  'driver.onboarding.licensePlate': 'رقم لوحة المركبة',
+  'driver.onboarding.licenseNumber': 'رقم رخصة القيادة',
+  'driver.onboarding.idNumber': 'رقم الهوية الوطنية',
+  'driver.onboarding.uploadDocs': 'تحميل الوثائق',
+  'driver.onboarding.uploadPrompt': 'تحميل الرخصة والهوية ووثائق المركبة',
+  'driver.onboarding.uploadFormat': 'PNG، JPG أو PDF',
+  'driver.onboarding.phonePrompt': 'سنستخدم هذا الرقم للاتصال بك بشأن عمليات التوصيل',
+  'driver.onboarding.appSummary': 'ملخص الطلب',
+  // reset password
+  'auth.resetPasswordSuccess': 'تمت إعادة تعيين كلمة المرور بنجاح!',
+  'auth.resetPasswordSuccessBody': 'تم تحديث كلمة المرور الخاصة بك بنجاح.',
+  'auth.newPassword': 'كلمة المرور الجديدة',
+  'auth.newPasswordPrompt': 'أدخل كلمة المرور الجديدة أدناه.',
+  'auth.updating': 'جاري التحديث...',
+  'auth.savePassword': 'حفظ كلمة المرور',
+  // restaurant settings
+  'restaurant.settings.title': 'إعدادات المطعم',
+  'restaurant.settings.businessHours': 'ساعات العمل',
+  'restaurant.settings.hoursDesc': 'قم بتعيين أوقات الفتح والإغلاق لكل يوم. اترك اليوم غير محدد لتمييزه كمغلق.',
+  'restaurant.settings.deliveryConfig': 'إعدادات التوصيل',
+  'restaurant.settings.maxRadius': 'نطاق التوصيل الأقصى (كم)',
+  'restaurant.settings.maxRadiusDesc': 'لن يتمكن العملاء خارج هذا النطاق من الطلب من مطعمك.',
+  'restaurant.settings.minOrder': 'الحد الأدنى لقيمة الطلب (دج)',
+  'restaurant.settings.minOrderDesc': 'سيتم رفض الطلبات التي تقل قيمتها عن هذا المبلغ.',
+  'restaurant.settings.estTime': 'وقت التوصيل المقدر (بالدقائق)',
+  'restaurant.settings.estTimeDesc': 'يتم عرض هذا للعملاء قبل تقديم الطلب.',
+  'restaurant.settings.opStatus': 'الحالة التشغيلية',
+  'restaurant.settings.opStatusDesc': 'مفتوح: استقبال الطلبات بشكل عادي. مزدحم: وقت تحضير أطول. مغلق: لا يستقبل طلبات.',
+  'restaurant.settings.saving': 'جاري الحفظ...',
+  'restaurant.settings.saveSettings': 'حفظ الإعدادات',
+  'restaurant.settings.saved': 'تم حفظ الإعدادات!',
+  'restaurant.dash.today': 'اليوم',
+  'restaurant.dash.thisMonth': 'هذا الشهر',
+  'restaurant.dash.commissionOwed': 'العمولة المستحقة',
+  'restaurant.dash.netPayout': 'صافي الأرباح',
+  'restaurant.dash.soundOn': 'الصوت مفعل',
+  'restaurant.dash.soundOff': 'الصوت مغلق',
+  'restaurant.dash.activeOrders': 'الطلبات النشطة',
+  'restaurant.dash.completed': 'المكتملة',
+  'restaurant.dash.newOrderAlert': 'تم استقبال طلب جديد!',
+  'favorites.subtitle': 'مطاعمك المفضلة',
+  'favorites.none': 'لا توجد مطاعم مفضلة بعد',
+  'orders.reviewed': 'تم التقييم',
+  'orders.leaveReview': 'اترك تقييماً',
+  'driver.onboard.title': 'كن سائقاً',
+  'driver.onboard.subtitle': 'أكمل طلبك لبدء الكسب مع كيو فود',
+  'driver.onboard.success.title': 'تم تقديم الطلب!',
+  'driver.onboard.success.body': 'جاري مراجعة طلب السائق الخاص بك. سيتم إعلامك بمجرد الموافقة.',
+  'driver.onboard.success.redirect': 'جاري إعادة التوجيه إلى لوحة التحكم...',
+  'driver.onboard.step.vehicle': 'اختر مركبتك',
+  'driver.onboard.step.details': 'تفاصيل المركبة',
+  'driver.onboard.licensePlate': 'رقم لوحة المركبة',
+  'driver.onboard.licenseNumber': 'رقم رخصة القيادة',
+  'driver.onboard.idNumber': 'رقم الهوية الوطنية',
+  'driver.onboard.uploadDocuments': 'تحميل الوثائق',
+  'driver.onboard.uploadPrompt': 'تحميل الرخصة والهوية ووثائق المركبة',
+  'driver.onboard.uploadFormat': 'PNG، JPG أو PDF',
+  'driver.onboard.contactTitle': 'معلومات الاتصال',
+  'driver.onboard.phone': 'رقم الهاتف',
+  'driver.onboard.phoneHelp': 'سنستخدم هذا الرقم للاتصال بك بشأن عمليات التوصيل',
+  'driver.onboard.summary': 'ملخص الطلب',
+  'driver.onboard.vehicle': 'المركبة',
+  'driver.onboard.plate': 'اللوحة',
+  'driver.onboard.license': 'الرخصة',
+  'driver.onboard.id': 'الهوية',
+  'driver.onboard.documents': 'الوثائق',
+  'driver.onboard.submit': 'تقديم الطلب',
+  'driver.vehicle.bicycle': 'دراجة هوائية',
+  'driver.vehicle.bicycle.desc': 'صديقة للبيئة للمسافات القصيرة',
+  'driver.vehicle.motorcycle': 'دراجة نارية',
+  'driver.vehicle.motorcycle.desc': 'توصيل سريع في المناطق الحضرية',
+  'driver.vehicle.scooter': 'سكوتر',
+  'driver.vehicle.scooter.desc': 'فعال لعمليات التوصيل داخل المدينة',
+  'driver.vehicle.car': 'سيارة',
+  'driver.vehicle.car.desc': 'مثالية للمسافات الأطول',
+  'common.continue': 'متابعة',
+  'common.back': 'عودة',
+  'common.to': 'إلى',
+  'common.closed': 'مغلق',
+  'day.0': 'الأحد',
+  'day.1': 'الإثنين',
+  'day.2': 'الثلاثاء',
+  'day.3': 'الأربعاء',
+  'day.4': 'الخميس',
+  'day.5': 'الجمعة',
+  'day.6': 'السبت',
+  'driver.dash.pendingVerification': 'حسابك قيد المراجعة والتحقق. سيتم إشعارك فور الموافقة عليه.',
+  'driver.dash.failedLoad': 'فشل تحميل ملف السائق',
+  'driver.dash.onlineAccepting': 'نشط - استقبال طلبات التوصيل',
+  'driver.dash.offline': 'غير نشط',
+  'driver.dash.goOnline': 'تفعيل الاتصال',
+  'driver.dash.online': 'نشط',
+  'driver.dash.today': 'اليوم',
+  'driver.dash.thisWeek': 'هذا الأسبوع',
+  'driver.dash.pending': 'قيد الانتظار',
+  'driver.dash.deliveries': 'عمليات التوصيل',
+  'driver.dash.headingToRestaurant': 'التوجه إلى المطعم',
+  'driver.dash.orderCollected': 'تم استلام الطلب',
+  'driver.dash.enRouteToCustomer': 'جاري التوصيل للعميل',
+  'driver.dash.arrived': 'وصلت',
+  'driver.dash.markAsDelivered': 'تم التوصيل',
+  'driver.dash.newRequest': 'طلب توصيل جديد',
+  'driver.dash.pickup': 'الاستلام من',
+  'driver.dash.deliverTo': 'التوصيل إلى',
+  'driver.dash.accept': 'قبول',
+  'driver.dash.decline': 'رفض',
+  'driver.dash.title': 'لوحة تحكم السائق',
+  'driver.dash.activeDelivery': 'التوصيل النشط',
+  'driver.dash.waiting': 'بانتظار طلبات توصيل جديدة...',
+  'driver.dash.goOnlineHelp': 'قم بتفعيل الاتصال لبدء استقبال طلبات التوصيل',
 };
 
 const dicts: Record<Locale, Dict> = { en, fr, ar };

@@ -136,7 +136,7 @@ export default function RestaurantOnboardingPage() {
 
             <div>
               <label htmlFor="r-owner" className="kiyo-label">
-                {t('restaurant.owner')} (existing restaurant owner)
+                {t('restaurant.owner')} {t('restaurant.onboard.existingOwnerHelp')}
               </label>
               {ownersLoading ? (
                 <div className="flex items-center gap-2 text-xs text-ink-400">
@@ -144,9 +144,7 @@ export default function RestaurantOnboardingPage() {
                 </div>
               ) : owners.length === 0 ? (
                 <p className="rounded-lg bg-warning-500/10 px-3 py-2 text-xs text-warning-600">
-                  No restaurant-owner accounts exist yet. Have the owner sign up
-                  first (they will choose "Sell on Kiyo" on the signup form),
-                  then return here to create their restaurant.
+                  {t('restaurant.onboard.noOwners')}
                 </p>
               ) : (
                 <select
@@ -209,8 +207,7 @@ export default function RestaurantOnboardingPage() {
               )}
             </button>
             <p className="text-center text-xs text-ink-400">
-              Created as <code className="font-mono">pending_approval</code>.
-              Review and publish from the admin restaurants page.
+              {t('restaurant.onboard.pendingNotice')}
             </p>
           </form>
         </ErrorBoundary>
