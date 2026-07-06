@@ -19,7 +19,6 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, info: ErrorInfo) {
     // Hook for future telemetry; keep console-based to avoid noise in dev.
     if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
       console.error('[Kiyo] render error:', error, info.componentStack);
     }
   }
