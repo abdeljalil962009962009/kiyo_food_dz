@@ -518,20 +518,14 @@ export default function AdminControlCenterPage() {
   );
 }
 
-const MOCK_ANALYTICS: Analytics = {
-  revenue: { today: 45000, this_week: 312000, this_month: 1245000, this_year: 14890000, all_time: 14890000 },
-  commission: { today: 4500, this_month: 124500, all_time: 1489000 },
-  orders: { total: 342, today: 18, pending: 2, cancelled: 14, delivered: 326 },
-  restaurants: { total: 24, published: 18, pending: 1, suspended: 2, verified: 12 },
-  users: { total: 114, customers: 85, owners: 22, admins: 2, suspended: 5 },
-  settlements: { pending: 3, overdue: 0, paid_this_year: 412000 }
+const ZERO_ANALYTICS: Analytics = {
+  revenue: { today: 0, this_week: 0, this_month: 0, this_year: 0, all_time: 0 },
+  commission: { today: 0, this_month: 0, all_time: 0 },
+  orders: { total: 0, today: 0, pending: 0, cancelled: 0, delivered: 0 },
+  restaurants: { total: 0, published: 0, pending: 0, suspended: 0, verified: 0 },
+  users: { total: 0, customers: 0, owners: 0, admins: 0, suspended: 0 },
+  settlements: { pending: 0, overdue: 0, paid_this_year: 0 }
 };
-
-const MOCK_AUDIT_LOGS: AuditLog[] = [
-  { id: '1', actor_id: 'admin', action: 'restaurant_created', target_type: 'restaurant', target_id: '1', metadata: {}, created_at: new Date(Date.now() - 3600000).toISOString() },
-  { id: '2', actor_id: 'owner', action: 'login_success', target_type: 'user', target_id: '2', metadata: {}, created_at: new Date(Date.now() - 7200000).toISOString() },
-  { id: '3', actor_id: 'customer', action: 'order_created', target_type: 'order', target_id: '3', metadata: {}, created_at: new Date(Date.now() - 10800000).toISOString() }
-];
 
 // ===================== OVERVIEW =====================
 function OverviewTab() {
@@ -552,15 +546,17 @@ function OverviewTab() {
       ]);
       const fetchedAnalytics = a.data as Analytics;
       const fetchedAudit = (al.data as AuditLog[]) ?? [];
-      setAnalytics(fetchedAnalytics || MOCK_ANALYTICS);
-      setAudit(fetchedAudit.length > 0 ? fetchedAudit : MOCK_AUDIT_LOGS);
-    } catch {
-      setAnalytics(MOCK_ANALYTICS);
-      setAudit(MOCK_AUDIT_LOGS);
+      setAnalytics(fetchedAnalytics || ZERO_ANALYTICS);
+      setAudit(fetchedAudit);
+    } catch (err: unknown) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : t('error.genericBody'));
+      setAnalytics(ZERO_ANALYTICS);
+      setAudit([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { void load(); }, [load]);
 

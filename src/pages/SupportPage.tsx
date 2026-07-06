@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase, type SupportTicket } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../lib/i18n-react';
+import { type TranslationKey } from '../lib/i18n';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Spinner, ErrorState, FullScreenLoader } from '../components/feedback';
 import { AppShell } from '../components/AppShell';
@@ -14,72 +15,6 @@ type Message = {
   body: string;
   is_admin: boolean;
   created_at: string;
-};
-
-export const MOCK_SUPPORT_TICKETS: SupportTicket[] = [
-  {
-    id: 't-1',
-    requester_id: 'any',
-    subject: 'Delayed order delivery inquiry',
-    body: 'My last order is delayed by 30 minutes, can someone please check the delivery status?',
-    category: 'general',
-    priority: 'high',
-    status: 'in_progress',
-    order_id: 'o-40294723-86a0-4a81-bb0b-333333333302',
-    created_at: new Date(Date.now() - 10800000).toISOString(),
-    updated_at: new Date().toISOString()
-  },
-  {
-    id: 't-2',
-    requester_id: 'any',
-    subject: 'Refund request for cancelled order',
-    body: 'My order #o-9912 was cancelled but my card was charged. Need a refund.',
-    category: 'billing',
-    priority: 'urgent',
-    status: 'resolved',
-    order_id: null,
-    created_at: new Date(Date.now() - 172800000).toISOString(),
-    updated_at: new Date(Date.now() - 86400000).toISOString()
-  }
-];
-
-export const MOCK_SUPPORT_MESSAGES: Record<string, Message[]> = {
-  't-1': [
-    {
-      id: 'msg-1',
-      ticket_id: 't-1',
-      sender_id: 'any',
-      body: 'Hello, my order is delayed. Can you help me check the status?',
-      is_admin: false,
-      created_at: new Date(Date.now() - 10800000).toISOString()
-    },
-    {
-      id: 'msg-2',
-      ticket_id: 't-1',
-      sender_id: 'support',
-      body: 'Hello! I am looking into this right now. The driver is near Didouche Mourad St and will arrive in 5-10 minutes. Apologies for the delay!',
-      is_admin: true,
-      created_at: new Date(Date.now() - 9000000).toISOString()
-    }
-  ],
-  't-2': [
-    {
-      id: 'msg-3',
-      ticket_id: 't-2',
-      sender_id: 'any',
-      body: 'My order was cancelled. Please process the refund.',
-      is_admin: false,
-      created_at: new Date(Date.now() - 172800000).toISOString()
-    },
-    {
-      id: 'msg-4',
-      ticket_id: 't-2',
-      sender_id: 'support',
-      body: 'We have processed the refund to your credit card. It should appear in your account within 2-3 business days depending on your bank.',
-      is_admin: true,
-      created_at: new Date(Date.now() - 86400000).toISOString()
-    }
-  ]
 };
 
 const CATEGORIES = [
@@ -118,18 +53,14 @@ export function SupportPage() {
         .eq('requester_id', profile.id)
         .order('created_at', { ascending: false });
       if (e) throw e;
-      const fetched = (data as SupportTicket[]) ?? [];
-      if (fetched.length === 0) {
-        setTickets(MOCK_SUPPORT_TICKETS);
-      } else {
-        setTickets(fetched);
-      }
-    } catch {
-      setTickets(MOCK_SUPPORT_TICKETS);
+      setTickets((data as SupportTicket[]) ?? []);
+    } catch (err: unknown) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : t('error.genericBody'));
     } finally {
       setLoading(false);
     }
-  }, [profile]);
+  }, [profile, t]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -208,9 +139,9 @@ export function SupportPage() {
                     </div>
                     <p className="mt-0.5 truncate text-xs text-ink-500">{ticket.body}</p>
                     <div className="mt-1.5 flex items-center gap-2 text-[10px] text-ink-400">
-                      <span>{t(`support.category.${ticket.category}` as any)}</span>
+                      <span>{t(`support.category.${ticket.category}` as TranslationKey)}</span>
                       <span>·</span>
-                      <span>{t(`support.priority.${ticket.priority}` as any)} {t('support.prioritySuffix')}</span>
+                      <span>{t(`support.priority.${ticket.priority}` as TranslationKey)} {t('support.prioritySuffix')}</span>
                       <span>·</span>
                       <span>{new Date(ticket.created_at).toLocaleDateString()}</span>
                     </div>
@@ -286,7 +217,7 @@ function TicketForm({ userId, onCreated, onCancel }: { userId: string; onCreated
               onChange={(e) => setCategory(e.target.value)}
               className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none"
             >
-              {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{t(`support.category.${c.value}` as any)}</option>)}
+              {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{t(`support.category.${c.value}` as TranslationKey)}</option>)}
             </select>
           </div>
           <div>
@@ -296,7 +227,7 @@ function TicketForm({ userId, onCreated, onCancel }: { userId: string; onCreated
               onChange={(e) => setPriority(e.target.value)}
               className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none"
             >
-              {PRIORITIES.map((p) => <option key={p.value} value={p.value}>{t(`support.priority.${p.value}` as any)}</option>)}
+              {PRIORITIES.map((p) => <option key={p.value} value={p.value}>{t(`support.priority.${p.value}` as TranslationKey)}</option>)}
             </select>
           </div>
         </div>
@@ -352,14 +283,13 @@ function TicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () => vo
       if (ticketRes.error) throw ticketRes.error;
       setTicket(ticketRes.data as SupportTicket);
       setMessages((msgRes.data as Message[]) ?? []);
-    } catch {
-      const fallbackTicket = MOCK_SUPPORT_TICKETS.find(t => t.id === ticketId) || MOCK_SUPPORT_TICKETS[0];
-      setTicket(fallbackTicket);
-      setMessages(MOCK_SUPPORT_MESSAGES[ticketId] ?? MOCK_SUPPORT_MESSAGES[fallbackTicket.id] ?? []);
+    } catch (err: unknown) {
+      console.error(err);
+      setError(t('error.genericBody'));
     } finally {
       setLoading(false);
     }
-  }, [ticketId]);
+  }, [ticketId, t]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -413,8 +343,8 @@ function TicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () => vo
           </div>
           <p className="mt-2 text-sm text-ink-600">{ticket.body}</p>
           <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-ink-400">
-            <span className="rounded bg-ink-100 px-1.5 py-0.5">{t(`support.category.${ticket.category}` as any)}</span>
-            <span className="rounded bg-ink-100 px-1.5 py-0.5">{t(`support.priority.${ticket.priority}` as any)} {t('support.prioritySuffix')}</span>
+            <span className="rounded bg-ink-100 px-1.5 py-0.5">{t(`support.category.${ticket.category}` as TranslationKey)}</span>
+            <span className="rounded bg-ink-100 px-1.5 py-0.5">{t(`support.priority.${ticket.priority}` as TranslationKey)} {t('support.prioritySuffix')}</span>
             {ticket.order_id && (
               <span className="flex items-center gap-1 rounded bg-ink-100 px-1.5 py-0.5">
                 <Package className="h-3 w-3" /> {t('orders.id')}: {ticket.order_id.slice(0, 8)}

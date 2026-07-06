@@ -5,7 +5,7 @@ import {
   AlertCircle, Save, Wallet,
 } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
-import { supabase, type Restaurant, MOCK_RESTAURANTS } from '../lib/supabase';
+import { supabase, type Restaurant } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -60,25 +60,25 @@ export default function RestaurantSettingsPage() {
         .maybeSingle();
       if (re) throw re;
       
-      const activeRes = (r as Restaurant) ?? MOCK_RESTAURANTS[0];
+      if (!r) {
+        setError('No restaurant assigned to your account. Please contact the platform administrator to onboard your restaurant.');
+        return;
+      }
+
+      const activeRes = r as Restaurant;
       setRestaurant(activeRes);
       setHours(activeRes.opening_hours as OpeningHours || {});
       setDeliveryRadius(String(activeRes.max_delivery_km || 10));
       setMinOrder(String(activeRes.min_order_amount || 0));
       setEstimatedDeliveryMin(String(activeRes.estimated_delivery_min || 45));
       setCommissionRate(String(Number(activeRes.commission_rate ?? 0.07) * 100));
-    } catch {
-      const activeRes = MOCK_RESTAURANTS[0];
-      setRestaurant(activeRes);
-      setHours(activeRes.opening_hours as OpeningHours || {});
-      setDeliveryRadius(String(activeRes.max_delivery_km || 10));
-      setMinOrder(String(activeRes.min_order_amount || 0));
-      setEstimatedDeliveryMin(String(activeRes.estimated_delivery_min || 45));
-      setCommissionRate(String(Number(activeRes.commission_rate ?? 0.07) * 100));
+    } catch (err: unknown) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : t('error.genericBody'));
     } finally {
       setLoading(false);
     }
-  }, [profile]);
+  }, [profile, t]);
 
   useEffect(() => { void load(); }, [load]);
 

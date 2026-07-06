@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Store, Check, X, ChevronLeft, Plus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useT } from '../lib/i18n-react';
-import { supabase, type Restaurant, MOCK_RESTAURANTS } from '../lib/supabase';
+import { supabase, type Restaurant } from '../lib/supabase';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Skeleton, ErrorState, Spinner } from '../components/feedback';
@@ -26,36 +26,15 @@ export default function AdminRestaurantsPage() {
         .order('created_at', { ascending: false });
       if (e) throw e;
       const list = (data as Restaurant[]) ?? [];
-      if (list.length === 0) {
-        // Add a mock pending restaurant for admin approval demonstration
-        const mockPending: Restaurant = {
-          ...MOCK_RESTAURANTS[2],
-          id: 'f947e33a-86a0-4a81-bb0b-333333333334',
-          name: 'Sherazade Traditional Lounge',
-          status: 'pending',
-          cuisine: ['Algerian', 'Tea', 'Oriental']
-        };
-        setPending([mockPending]);
-        setActive(MOCK_RESTAURANTS);
-      } else {
-        setActive(list.filter((r) => r.status === 'published'));
-        setPending(list.filter((r) => r.status !== 'published' && r.status !== 'suspended'));
-      }
-    } catch {
-      // Robust fallback on database permission or network issues
-      const mockPending: Restaurant = {
-        ...MOCK_RESTAURANTS[2],
-        id: 'f947e33a-86a0-4a81-bb0b-333333333334',
-        name: 'Sherazade Traditional Lounge',
-        status: 'pending',
-        cuisine: ['Algerian', 'Tea', 'Oriental']
-      };
-      setPending([mockPending]);
-      setActive(MOCK_RESTAURANTS);
+      setActive(list.filter((r) => r.status === 'published'));
+      setPending(list.filter((r) => r.status !== 'published' && r.status !== 'suspended'));
+    } catch (err: unknown) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : t('error.genericBody'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { void load(); }, [load]);
 

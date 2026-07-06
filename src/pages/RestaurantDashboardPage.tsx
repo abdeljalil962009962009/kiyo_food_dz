@@ -12,86 +12,6 @@ import { Skeleton, ErrorState, Spinner } from '../components/feedback';
 import { StatusBadge, PriceTag, relativeTime } from '../components/ui';
 import { RestaurantAnalyticsPanel } from '../components/RestaurantAnalytics';
 
-const MOCK_RESTAURANT_DASHBOARD: Restaurant = {
-  id: 'f947e33a-86a0-4a81-bb0b-333333333331',
-  owner_id: 'any',
-  name: 'El Bahia Traditional Kitchen',
-  description: 'Authentic Algerian dishes, Tajines, and pastries made with fresh ingredients.',
-  image_url: 'https://images.unsplash.com/photo-1541518763669-27fef04b14ea?w=800&q=60&auto=format&fit=crop',
-  cuisine: ['Traditional', 'Algerian', 'Tajine'],
-  rating: 4.8,
-  review_count: 142,
-  wilaya_id: 31,
-  address: '12 Rue de la Soummam, Oran',
-  phone: '041 23 45 67',
-  operational_status: 'open',
-  status: 'published',
-  commission_rate: '10.00',
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString()
-};
-
-const MOCK_ORDERS_DASHBOARD: OrderRow[] = [
-  {
-    id: 'o-d-1',
-    customer_id: 'cust-1',
-    restaurant_id: 'f947e33a-86a0-4a81-bb0b-333333333331',
-    status: 'pending',
-    total: '1850',
-    delivery_address: '15 Boulevard Front de Mer, Oran',
-    delivery_phone: '0550 11 22 33',
-    notes: 'Extra spicy Harissa please',
-    created_at: new Date(Date.now() - 300000).toISOString(),
-    updated_at: new Date().toISOString()
-  },
-  {
-    id: 'o-d-2',
-    customer_id: 'cust-2',
-    restaurant_id: 'f947e33a-86a0-4a81-bb0b-333333333331',
-    status: 'preparing',
-    total: '2400',
-    delivery_address: '8 Rue des Jardins, Oran',
-    delivery_phone: '0661 44 55 66',
-    notes: null,
-    created_at: new Date(Date.now() - 1200000).toISOString(),
-    updated_at: new Date().toISOString()
-  },
-  {
-    id: 'o-d-3',
-    customer_id: 'cust-3',
-    restaurant_id: 'f947e33a-86a0-4a81-bb0b-333333333331',
-    status: 'delivered',
-    total: '950',
-    delivery_address: '3 Rue Pasteur, Oran',
-    delivery_phone: '0770 77 88 99',
-    notes: 'Leave at the reception',
-    created_at: new Date(Date.now() - 7200000).toISOString(),
-    updated_at: new Date().toISOString()
-  }
-];
-
-const MOCK_ITEMS_DASHBOARD: Record<string, OrderItemRow[]> = {
-  'o-d-1': [
-    { id: 'oi-d-1', order_id: 'o-d-1', menu_item_id: 'item-6', name: 'Royal Couscous', price: '1800', quantity: 1, notes: 'Extra spicy Harissa please', created_at: new Date().toISOString() }
-  ],
-  'o-d-2': [
-    { id: 'oi-d-2', order_id: 'o-d-2', menu_item_id: 'item-2', name: 'Margherita Pizza', price: '700', quantity: 2, notes: null, created_at: new Date().toISOString() },
-    { id: 'oi-d-3', order_id: 'o-d-2', menu_item_id: 'item-3', name: 'Casbah Special Burger', price: '950', quantity: 1, notes: null, created_at: new Date().toISOString() }
-  ],
-  'o-d-3': [
-    { id: 'oi-d-4', order_id: 'o-d-3', menu_item_id: 'item-4', name: 'Spicy Chicken Burger', price: '850', quantity: 1, notes: null, created_at: new Date().toISOString() }
-  ]
-};
-
-const MOCK_FINANCIALS_DASHBOARD = {
-  revenue_today: 4250,
-  revenue_month: 128400,
-  revenue_all: 584900,
-  commission_owed: 12840,
-  payout_pending: 115560,
-  orders_count: 78
-};
-
 export default function RestaurantDashboardPage() {
   const { t } = useT();
   const { profile } = useAuth();
@@ -123,7 +43,12 @@ export default function RestaurantDashboardPage() {
         .maybeSingle();
       if (re) throw re;
       
-      const activeRestaurant = (r as Restaurant) ?? MOCK_RESTAURANT_DASHBOARD;
+      if (!r) {
+        setError('No restaurant assigned to your account. Please contact the platform administrator to onboard your restaurant.');
+        return;
+      }
+
+      const activeRestaurant = r as Restaurant;
       setRestaurant(activeRestaurant);
 
       const { data: o } = await supabase
@@ -134,12 +59,18 @@ export default function RestaurantDashboardPage() {
         .limit(100);
       const list = (o as OrderRow[]) ?? [];
       
+      setOrders(list);
       if (list.length === 0) {
-        setOrders(MOCK_ORDERS_DASHBOARD);
-        setItemsMap(MOCK_ITEMS_DASHBOARD);
-        setFinancials(MOCK_FINANCIALS_DASHBOARD);
+        setItemsMap({});
+        setFinancials({
+          revenue_today: 0,
+          revenue_month: 0,
+          revenue_all: 0,
+          commission_owed: 0,
+          payout_pending: 0,
+          orders_count: 0
+        });
       } else {
-        setOrders(list);
         const itemsResults = await Promise.all(
           list.map((order) =>
             supabase.from('order_items').select('*').eq('order_id', order.id),
@@ -151,15 +82,13 @@ export default function RestaurantDashboardPage() {
         });
         setItemsMap(map);
       }
-    } catch {
-      setRestaurant(MOCK_RESTAURANT_DASHBOARD);
-      setOrders(MOCK_ORDERS_DASHBOARD);
-      setItemsMap(MOCK_ITEMS_DASHBOARD);
-      setFinancials(MOCK_FINANCIALS_DASHBOARD);
+    } catch (err: unknown) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : t('error.genericBody'));
     } finally {
       setLoading(false);
     }
-  }, [profile]);
+  }, [profile, t]);
 
   useEffect(() => { void load(); }, [load]);
 

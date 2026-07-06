@@ -4,7 +4,7 @@ import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Star, Clock, MapPin, Plus, ChevronLeft, ShoppingBag, Info, Truck, Heart } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
-import { supabase, type Restaurant, type MenuItem, type MenuCategory, MOCK_RESTAURANTS, MOCK_CATEGORIES, MOCK_MENU_ITEMS } from '../lib/supabase';
+import { supabase, type Restaurant, type MenuItem, type MenuCategory } from '../lib/supabase';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { AppShell } from '../components/AppShell';
@@ -60,11 +60,7 @@ export default function RestaurantDetailPage() {
       ]);
       const foundRes = r.data as Restaurant;
       if (!foundRes) {
-        const mockRes = MOCK_RESTAURANTS.find((r) => r.id === id) || MOCK_RESTAURANTS[0];
-        setRestaurant(mockRes);
-        setRestaurantName(mockRes.name);
-        setCategories(MOCK_CATEGORIES);
-        setMenuItems(MOCK_MENU_ITEMS);
+        setError('404');
       } else {
         setRestaurant(foundRes);
         setRestaurantName(foundRes.name);
@@ -73,7 +69,7 @@ export default function RestaurantDetailPage() {
       }
 
       // Check if favorite
-      if (user) {
+      if (user && foundRes) {
         const { data: fav } = await supabase
           .from('customer_favorites')
           .select('id')
@@ -82,12 +78,9 @@ export default function RestaurantDetailPage() {
           .maybeSingle();
         setIsFavorite(!!fav);
       }
-    } catch {
-      const mockRes = MOCK_RESTAURANTS.find((r) => r.id === id) || MOCK_RESTAURANTS[0];
-      setRestaurant(mockRes);
-      setRestaurantName(mockRes.name);
-      setCategories(MOCK_CATEGORIES);
-      setMenuItems(MOCK_MENU_ITEMS);
+    } catch (err: unknown) {
+      console.error(err);
+      setError('500');
     } finally {
       setLoading(false);
     }

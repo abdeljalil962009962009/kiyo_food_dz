@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ShoppingBag, Star } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
@@ -14,46 +14,6 @@ type OrderWithRestaurant = OrderRow & {
   restaurants: { id: string; name: string } | null;
 };
 
-const MOCK_ORDERS_FALLBACK: OrderWithRestaurant[] = [
-  {
-    id: 'o-40294723-86a0-4a81-bb0b-333333333301',
-    customer_id: 'any',
-    restaurant_id: 'f947e33a-86a0-4a81-bb0b-333333333331',
-    status: 'delivered',
-    total: '1550',
-    delivery_address: 'Rue de la Gare, Oran',
-    delivery_phone: '0555 12 34 56',
-    notes: 'Please put spicy sauce on the side',
-    created_at: new Date(Date.now() - 86400000).toISOString(),
-    updated_at: new Date().toISOString(),
-    restaurants: { id: 'f947e33a-86a0-4a81-bb0b-333333333331', name: 'El Bahia Traditional Kitchen' }
-  },
-  {
-    id: 'o-40294723-86a0-4a81-bb0b-333333333302',
-    customer_id: 'any',
-    restaurant_id: 'f947e33a-86a0-4a81-bb0b-333333333332',
-    status: 'preparing',
-    total: '2050',
-    delivery_address: 'Didouche Mourad St, Algiers',
-    delivery_phone: '0555 98 76 54',
-    notes: 'No onions in the burger, please.',
-    created_at: new Date(Date.now() - 1200000).toISOString(),
-    updated_at: new Date().toISOString(),
-    restaurants: { id: 'f947e33a-86a0-4a81-bb0b-333333333332', name: 'Casbah Burger & Grill' }
-  }
-];
-
-const MOCK_ITEMS_FALLBACK: Record<string, OrderItemRow[]> = {
-  'o-40294723-86a0-4a81-bb0b-333333333301': [
-    { id: 'oi-1', order_id: 'o-40294723-86a0-4a81-bb0b-333333333301', menu_item_id: 'item-1', name: 'Algerian Pizza (Carrée)', price: '850', quantity: 1, notes: null, created_at: new Date().toISOString() },
-    { id: 'oi-2', order_id: 'o-40294723-86a0-4a81-bb0b-333333333301', menu_item_id: 'item-2', name: 'Margherita Pizza', price: '700', quantity: 1, notes: null, created_at: new Date().toISOString() }
-  ],
-  'o-40294723-86a0-4a81-bb0b-333333333302': [
-    { id: 'oi-3', order_id: 'o-40294723-86a0-4a81-bb0b-333333333302', menu_item_id: 'item-3', name: 'Casbah Special Burger', price: '950', quantity: 2, notes: 'No onions', created_at: new Date().toISOString() },
-    { id: 'oi-4', order_id: 'o-40294723-86a0-4a81-bb0b-333333333302', menu_item_id: 'item-7', name: 'Hamoud Boualem (Cola)', price: '150', quantity: 1, notes: null, created_at: new Date().toISOString() }
-  ]
-};
-
 export default function OrdersPage() {
   const { t } = useT();
   const [orders, setOrders] = useState<OrderWithRestaurant[]>([]);
@@ -67,7 +27,7 @@ export default function OrdersPage() {
   } | null>(null);
   const [reviewedOrders, setReviewedOrders] = useState<Set<string>>(new Set());
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -79,14 +39,8 @@ export default function OrdersPage() {
       if (e) throw e;
       const list = (data as OrderWithRestaurant[]) ?? [];
       
-      if (list.length === 0) {
-        setOrders(MOCK_ORDERS_FALLBACK);
-        setItemsByOrder(MOCK_ITEMS_FALLBACK);
-        const reviewed = new Set<string>();
-        reviewed.add('o-40294723-86a0-4a81-bb0b-333333333301');
-        setReviewedOrders(reviewed);
-      } else {
-        setOrders(list);
+      setOrders(list);
+      if (list.length > 0) {
         const itemsQueries = list.map((o) =>
           supabase.from('order_items').select('*').eq('order_id', o.id),
         );
@@ -112,18 +66,15 @@ export default function OrdersPage() {
           setReviewedOrders(reviewed);
         }
       }
-    } catch {
-      setOrders(MOCK_ORDERS_FALLBACK);
-      setItemsByOrder(MOCK_ITEMS_FALLBACK);
-      const reviewed = new Set<string>();
-      reviewed.add('o-40294723-86a0-4a81-bb0b-333333333301');
-      setReviewedOrders(reviewed);
+    } catch (err: unknown) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : t('error.genericBody'));
     } finally {
       setLoading(false);
     }
-  };
+  }, [t]);
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [load]);
 
   useRealtime('orders', (payload) => {
     if (!payload.new?.id) return;

@@ -1,7 +1,7 @@
 import { Heart, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useT } from '../lib/i18n-react';
-import { supabase, MOCK_RESTAURANTS } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -32,28 +32,9 @@ export function FavoritesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const getMockFavorites = (): FavoriteRestaurant[] => {
-    return MOCK_RESTAURANTS.slice(0, 2).map((r, i) => ({
-      id: `fav-${i}`,
-      created_at: new Date().toISOString(),
-      restaurants: {
-        id: r.id,
-        name: r.name,
-        description: r.description,
-        image_url: r.image_url,
-        cuisine: r.cuisine,
-        rating: r.rating,
-        review_count: r.review_count,
-        wilaya_id: r.wilaya_id,
-        operational_status: r.operational_status
-      }
-    }));
-  };
-
   const loadFavorites = useCallback(async () => {
     if (!user) {
-      // For non-authenticated or preview mode, show mock favorites so they can see how it works
-      setFavorites(getMockFavorites());
+      setFavorites([]);
       setLoading(false);
       return;
     }
@@ -67,18 +48,14 @@ export function FavoritesPage() {
         .is('menu_item_id', null)
         .order('created_at', { ascending: false });
       if (e) throw e;
-      const fetched = (data as FavoriteRestaurant[]) ?? [];
-      if (fetched.length === 0) {
-        setFavorites(getMockFavorites());
-      } else {
-        setFavorites(fetched);
-      }
-    } catch {
-      setFavorites(getMockFavorites());
+      setFavorites((data as FavoriteRestaurant[]) ?? []);
+    } catch (err: unknown) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : t('error.genericBody'));
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, t]);
 
   useEffect(() => { void loadFavorites(); }, [loadFavorites]);
 

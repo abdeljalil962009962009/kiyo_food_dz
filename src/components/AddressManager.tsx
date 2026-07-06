@@ -3,6 +3,7 @@ import { MapPin, Home, Briefcase, Heart, Plus, Trash2, Check, X } from 'lucide-r
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../lib/i18n-react';
+import { type TranslationKey } from '../lib/i18n';
 
 import DeliveryMap from './DeliveryMap';
 
@@ -167,7 +168,7 @@ export function AddressManager() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-                      {t(`profile.addresses.${addr.label}` as any)}
+                      {t(`profile.addresses.${addr.label}` as TranslationKey)}
                     </span>
                     {addr.is_default && (
                       <span className="rounded bg-ember-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
@@ -225,7 +226,7 @@ export function AddressManager() {
                   }`}
                 >
                   <Icon className="h-3 w-3" />
-                  {t(`profile.addresses.${label}` as any)}
+                  {t(`profile.addresses.${label}` as TranslationKey)}
                 </button>
               );
             })}

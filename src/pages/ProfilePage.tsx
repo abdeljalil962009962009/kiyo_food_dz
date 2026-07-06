@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../lib/i18n-react';
+import { type TranslationKey } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -202,7 +203,7 @@ export default function ProfilePage() {
               <Row icon={UserIcon} label={t('auth.fullName')} value={profile?.full_name ?? '—'} />
               <Row icon={Mail} label={t('auth.email')} value={profile?.email ?? '—'} />
               <Row icon={Phone} label={t('profile.phone')} value={profile?.phone ?? '—'} />
-              <Row icon={Shield} label={t('dash.role')} value={t(`role.${profile?.role}` as any)} />
+              <Row icon={Shield} label={t('dash.role')} value={t(`role.${profile?.role}` as TranslationKey)} />
             </div>
           </div>
 
