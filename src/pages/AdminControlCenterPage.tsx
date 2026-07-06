@@ -998,13 +998,80 @@ function RestaurantsTab() {
   );
 }
 
+const DEFAULT_SETTINGS: Record<string, Record<string, unknown>> = {
+  delivery: {
+    price_per_km: 25,
+    min_fee: 50,
+    max_fee: 500,
+    free_delivery_threshold: 1500,
+    default_max_delivery_km: 10,
+  },
+  commission: {
+    default_rate: 0.07,
+    service_fee_rate: 0.01,
+  },
+  settlement: {
+    due_day: 15,
+    grace_days: 7,
+    penalty_rate: 0.02,
+  },
+  operational: {
+    maintenance_mode: false,
+    registration_open: true,
+    verification_required: true,
+    announcement_banner: '',
+  },
+  maintenance: {
+    enabled: false,
+    allow_admin_access: true,
+    message: 'We are performing scheduled maintenance. Please check back shortly.',
+  },
+  order_rules: {
+    cancellation_window_minutes: 5,
+    acceptance_timeout_minutes: 10,
+    auto_cancel_after_timeout: true,
+    busy_mode_threshold: 15,
+    auto_busy_mode: true,
+  },
+  features: {
+    chat_enabled: true,
+    reviews_enabled: true,
+    delivery_map_enabled: true,
+    promo_codes_enabled: true,
+    loyalty_points_enabled: true,
+  },
+  taxes_fees: {
+    vat_rate: 19,
+    transaction_fee_fixed: 20,
+    transaction_fee_percent: 1.5,
+  },
+  driver_rules: {
+    base_delivery_pay: 120,
+    per_km_delivery_pay: 15,
+    driver_commission_rate: 0.10,
+    auto_assign_drivers: true,
+  },
+  loyalty_referral: {
+    loyalty_enabled: true,
+    points_per_hundred: 5,
+    point_value_dzd: 1,
+    referral_enabled: true,
+    referrer_reward: 200,
+    referee_discount: 150,
+    min_order_value: 800,
+  }
+};
+
 // ===================== BUSINESS RULES =====================
 function RulesTab() {
   const { t } = useT();
   const { tx } = useAdminT();
-  const [settings, setSettings] = useState<Record<string, Record<string, unknown>>>({});
+  const [settings, setSettings] = useState<Record<string, Record<string, unknown>>>(() => 
+    JSON.parse(JSON.stringify(DEFAULT_SETTINGS))
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [savedKey, setSavedKey] = useState<string | null>(null);
 
@@ -1014,9 +1081,9 @@ function RulesTab() {
     try {
       const { data, error: e } = await supabase.from('platform_settings').select('*');
       if (e) throw e;
-      const map: Record<string, Record<string, unknown>> = {};
+      const map = JSON.parse(JSON.stringify(DEFAULT_SETTINGS)) as Record<string, Record<string, unknown>>;
       for (const row of (data ?? []) as Array<{ key: string; value: Record<string, unknown> }>) {
-        map[row.key] = row.value;
+        map[row.key] = { ...map[row.key], ...row.value };
       }
       setSettings(map);
     } catch {
@@ -1031,16 +1098,29 @@ function RulesTab() {
   const save = async (key: string) => {
     setSaving(true);
     setSavedKey(null);
+    setSaveError(null);
     try {
-      const { error: e } = await supabase.rpc('update_platform_setting', {
-        p_key: key,
-        p_value: settings[key],
-      });
-      if (e) throw e;
+      const payload = settings[key] || DEFAULT_SETTINGS[key] || {};
+      
+      // Try direct upsert first, falling back to RPC on failure
+      const { error: e } = await supabase
+        .from('platform_settings')
+        .upsert({ key, value: payload }, { onConflict: 'key' });
+        
+      if (e) {
+        // Fallback to RPC if direct upsert fails (e.g. RLS policies expect RPC)
+        const { error: rpcErr } = await supabase.rpc('update_platform_setting', {
+          p_key: key,
+          p_value: payload,
+        });
+        if (rpcErr) throw rpcErr;
+      }
+      
       setSavedKey(key);
       setTimeout(() => setSavedKey(null), 2000);
-    } catch {
-      setError(t('error.genericBody'));
+    } catch (err) {
+      console.error('[Kiyo] Save settings error:', err);
+      setSaveError(t('error.genericBody'));
     } finally {
       setSaving(false);
     }
@@ -1055,6 +1135,12 @@ function RulesTab() {
 
   return (
     <div className="space-y-6">
+      {saveError && (
+        <div className="rounded-lg bg-error-500/10 p-3 text-sm text-error-600 flex items-center justify-between">
+          <span>{saveError}</span>
+          <button onClick={() => setSaveError(null)} className="text-xs font-semibold underline hover:text-error-700">Dismiss</button>
+        </div>
+      )}
       {/* Delivery Rules */}
       <RulesCard title={tx('rules.deliveryTitle', 'Delivery Rules')} icon={Settings} onSave={() => save('delivery')} saving={saving} saved={savedKey === 'delivery'}>
         <RuleField label={tx('rules.delivery.pricePerKm', 'Price per km (DZD)')} value={settings.delivery?.price_per_km as number ?? 25}
