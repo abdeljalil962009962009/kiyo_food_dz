@@ -173,7 +173,17 @@ export default function CheckoutPage() {
         throw e;
       }
 
-      setPlacedOrderId((data as { order_id?: string })?.order_id ?? null);
+      const orderId = (data as { order_id?: string })?.order_id ?? null;
+      setPlacedOrderId(orderId);
+      if (orderId && mapLocation) {
+        await supabase
+          .from('orders')
+          .update({
+            delivery_latitude: mapLocation.lat,
+            delivery_longitude: mapLocation.lng,
+          })
+          .eq('id', orderId);
+      }
       setStep('success');
       clear();
     } catch {

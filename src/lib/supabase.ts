@@ -146,6 +146,9 @@ export type OrderRow = {
   total: string;
   delivery_address: string | null;
   delivery_phone: string | null;
+  delivery_latitude: number | null;
+  delivery_longitude: number | null;
+  driver_id: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;

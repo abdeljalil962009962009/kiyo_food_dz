@@ -9,9 +9,10 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Skeleton, ErrorState } from '../components/feedback';
 import { StatusBadge, PriceTag, relativeTime } from '../components/ui';
 import { ReviewModal } from '../components/ReviewModal';
+import { LiveOrderTracker } from '../components/LiveOrderTracker';
 
 type OrderWithRestaurant = OrderRow & {
-  restaurants: { id: string; name: string } | null;
+  restaurants: { id: string; name: string; latitude: number | null; longitude: number | null } | null;
 };
 
 export default function OrdersPage() {
@@ -33,7 +34,7 @@ export default function OrdersPage() {
     try {
       const { data, error: e } = await supabase
         .from('orders')
-        .select('*, restaurants(id, name)')
+        .select('*, restaurants(id, name, latitude, longitude)')
         .order('created_at', { ascending: false })
         .limit(50);
       if (e) throw e;
@@ -88,6 +89,10 @@ export default function OrdersPage() {
     });
   }, { enabled: !loading });
 
+  const activeOrder = orders.find((o) =>
+    ['pending', 'accepted', 'preparing', 'out_for_delivery'].includes(o.status)
+  );
+
   return (
     <AppShell>
       <h1 className="mb-5 font-display text-2xl font-extrabold tracking-tight text-ink-900">
@@ -113,8 +118,13 @@ export default function OrdersPage() {
             <Link to="/restaurants" className="kiyo-btn-primary">{t('market.browse')}</Link>
           </div>
         ) : (
-          <div className="space-y-3">
-            {orders.map((o) => {
+          <div className="space-y-6">
+            {activeOrder && (
+              <LiveOrderTracker order={activeOrder} onRefresh={load} />
+            )}
+
+            <div className="space-y-3">
+              {orders.map((o) => {
               const items = itemsByOrder[o.id] ?? [];
               const canReview = o.status === 'delivered' && o.restaurants;
               const isReviewed = reviewedOrders.has(o.id);
@@ -170,6 +180,7 @@ export default function OrdersPage() {
                 </div>
               );
             })}
+            </div>
           </div>
         )}
       </ErrorBoundary>
