@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS restaurants (
   is_active boolean NOT NULL DEFAULT true,
   is_vacation_mode boolean NOT NULL DEFAULT false,
   image_url text,
+  commission_rate numeric NOT NULL DEFAULT 0.07 CHECK (commission_rate >= 0 AND commission_rate <= 1.00),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -1081,7 +1082,9 @@ ALTER TABLE restaurants
   ADD COLUMN IF NOT EXISTS longitude double precision,
   ADD COLUMN IF NOT EXISTS max_delivery_km numeric NOT NULL DEFAULT 10
     CHECK (max_delivery_km >= 0 AND max_delivery_km <= 100),
-  ADD COLUMN IF NOT EXISTS min_order_amount numeric NOT NULL DEFAULT 0;
+  ADD COLUMN IF NOT EXISTS min_order_amount numeric NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS commission_rate numeric NOT NULL DEFAULT 0.07
+    CHECK (commission_rate >= 0 AND commission_rate <= 1.00);
 
 -- Constantine, Algeria city center as default (so the map opens sensibly)
 UPDATE restaurants

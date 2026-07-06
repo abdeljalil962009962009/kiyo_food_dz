@@ -359,6 +359,10 @@ export type TranslationKey =
   | 'restaurant.settings.saving'
   | 'restaurant.settings.saveSettings'
   | 'restaurant.settings.saved'
+  | 'restaurant.settings.commissionRate'
+  | 'restaurant.settings.commissionDesc'
+  | 'restaurant.settings.invalidCommissionRate'
+  | 'restaurant.settings.financialTitle'
   | 'restaurant.dash.today'
   | 'restaurant.dash.thisMonth'
   | 'restaurant.dash.commissionOwed'
@@ -788,6 +792,10 @@ const en: Dict = {
   'restaurant.settings.saving': 'Saving...',
   'restaurant.settings.saveSettings': 'Save Settings',
   'restaurant.settings.saved': 'Settings saved!',
+  'restaurant.settings.commissionRate': 'Profit Margin / Commission Rate (%)',
+  'restaurant.settings.commissionDesc': 'Set your restaurant commission percentage. This is stored directly inside your restaurant profile and used to calculate platform payout splits.',
+  'restaurant.settings.invalidCommissionRate': 'Please enter a valid commission rate percentage between 0 and 100.',
+  'restaurant.settings.financialTitle': 'Financial Settings',
   'restaurant.dash.today': 'Today',
   'restaurant.dash.thisMonth': 'This Month',
   'restaurant.dash.commissionOwed': 'Commission Owed',
@@ -1216,6 +1224,10 @@ const fr: Dict = {
   'restaurant.settings.saving': 'Enregistrement...',
   'restaurant.settings.saveSettings': 'Enregistrer les paramètres',
   'restaurant.settings.saved': 'Paramètres enregistrés !',
+  'restaurant.settings.commissionRate': 'Marge bénéficiaire / Taux de commission (%)',
+  'restaurant.settings.commissionDesc': 'Définissez le pourcentage de commission de votre restaurant. Ceci est stocké directement dans le profil de votre restaurant et utilisé pour diviser les versements de la plateforme.',
+  'restaurant.settings.invalidCommissionRate': 'Veuillez saisir un pourcentage de commission valide entre 0 et 100.',
+  'restaurant.settings.financialTitle': 'Paramètres Financiers',
   'restaurant.dash.today': 'Aujourd\'hui',
   'restaurant.dash.thisMonth': 'Ce mois-ci',
   'restaurant.dash.commissionOwed': 'Commission due',
@@ -1644,6 +1656,10 @@ const ar: Dict = {
   'restaurant.settings.saving': 'جاري الحفظ...',
   'restaurant.settings.saveSettings': 'حفظ الإعدادات',
   'restaurant.settings.saved': 'تم حفظ الإعدادات!',
+  'restaurant.settings.commissionRate': 'هامش الربح / معدل العمولة (%)',
+  'restaurant.settings.commissionDesc': 'قم بتعيين النسبة المئوية لعمولة مطعمك. يتم تخزين هذا مباشرة في ملف تعريف مطعمك واستخدامه لحساب نسب توزيع أرباح المنصة.',
+  'restaurant.settings.invalidCommissionRate': 'يرجى إدخال نسبة عمولة صالحة بين 0 و 100.',
+  'restaurant.settings.financialTitle': 'الإعدادات المالية',
   'restaurant.dash.today': 'اليوم',
   'restaurant.dash.thisMonth': 'هذا الشهر',
   'restaurant.dash.commissionOwed': 'العمولة المستحقة',

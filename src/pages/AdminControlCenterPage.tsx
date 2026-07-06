@@ -841,7 +841,7 @@ function UsersTab() {
                 </td>
                 <td className="px-4 py-3">
                   <span className="rounded-full bg-ink-100 px-2 py-0.5 text-xs font-medium text-ink-700">
-                    {t(('role.' + u.role) as any)}
+                    {t(('role.' + u.role) as Parameters<typeof t>[0])}
                   </span>
                 </td>
                 <td className="px-4 py-3">
@@ -2387,7 +2387,7 @@ type WilayaStats = {
 };
 
 function GeographyTab() {
-  const { t, currentLocale } = useT();
+  const { currentLocale } = useT();
   const { tx } = useAdminT();
   const [wilayaStats, setWilayaStats] = useState<WilayaStats[]>([]);
   const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);

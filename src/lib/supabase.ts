@@ -99,6 +99,7 @@ export type Restaurant = {
   longitude: number | null;
   max_delivery_km: number;
   min_order_amount: number;
+  commission_rate: number | string;
   is_verified: boolean;
   is_featured: boolean;
   featured_until: string | null;

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Clock, Truck, Settings, ChevronLeft,
-  AlertCircle, Save,
+  AlertCircle, Save, Wallet,
 } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
 import { supabase, type Restaurant, MOCK_RESTAURANTS } from '../lib/supabase';
@@ -33,6 +33,7 @@ export default function RestaurantSettingsPage() {
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Business hours state
   const [hours, setHours] = useState<OpeningHours>({});
@@ -41,6 +42,7 @@ export default function RestaurantSettingsPage() {
   const [deliveryRadius, setDeliveryRadius] = useState('10');
   const [minOrder, setMinOrder] = useState('0');
   const [estimatedDeliveryMin, setEstimatedDeliveryMin] = useState('45');
+  const [commissionRate, setCommissionRate] = useState('7');
 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -49,6 +51,7 @@ export default function RestaurantSettingsPage() {
     if (!profile) return;
     setLoading(true);
     setError(null);
+    setSaveError(null);
     try {
       const { data: r, error: re } = await supabase
         .from('restaurants')
@@ -63,6 +66,7 @@ export default function RestaurantSettingsPage() {
       setDeliveryRadius(String(activeRes.max_delivery_km || 10));
       setMinOrder(String(activeRes.min_order_amount || 0));
       setEstimatedDeliveryMin(String(activeRes.estimated_delivery_min || 45));
+      setCommissionRate(String(Number(activeRes.commission_rate ?? 0.07) * 100));
     } catch {
       const activeRes = MOCK_RESTAURANTS[0];
       setRestaurant(activeRes);
@@ -70,6 +74,7 @@ export default function RestaurantSettingsPage() {
       setDeliveryRadius(String(activeRes.max_delivery_km || 10));
       setMinOrder(String(activeRes.min_order_amount || 0));
       setEstimatedDeliveryMin(String(activeRes.estimated_delivery_min || 45));
+      setCommissionRate(String(Number(activeRes.commission_rate ?? 0.07) * 100));
     } finally {
       setLoading(false);
     }
@@ -81,6 +86,16 @@ export default function RestaurantSettingsPage() {
     if (!restaurant || saving) return;
     setSaving(true);
     setSaved(false);
+    setSaveError(null);
+
+    // Validate the new commission rate value
+    const rateNum = Number(commissionRate);
+    if (isNaN(rateNum) || rateNum < 0 || rateNum > 100) {
+      setSaveError(t('restaurant.settings.invalidCommissionRate'));
+      setSaving(false);
+      return;
+    }
+
     try {
       const { error: e } = await supabase
         .from('restaurants')
@@ -89,14 +104,16 @@ export default function RestaurantSettingsPage() {
           max_delivery_km: Number(deliveryRadius),
           min_order_amount: Number(minOrder),
           estimated_delivery_min: Number(estimatedDeliveryMin),
+          commission_rate: rateNum / 100,
           updated_at: new Date().toISOString(),
         })
         .eq('id', restaurant.id);
       if (e) throw e;
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    } catch {
-      // non-fatal
+    } catch (err: unknown) {
+      console.error(err);
+      setSaveError(err instanceof Error ? err.message : t('error.genericBody'));
     } finally {
       setSaving(false);
     }
@@ -251,6 +268,29 @@ export default function RestaurantSettingsPage() {
             </div>
           </div>
 
+          {/* Financial Settings */}
+          <div className="kiyo-card">
+            <div className="mb-4 flex items-center gap-2">
+              <Wallet className="h-5 w-5 text-emerald-600" />
+              <h2 className="font-display text-base font-bold text-ink-900">{t('restaurant.settings.financialTitle')}</h2>
+            </div>
+            <div>
+              <label className="kiyo-label">{t('restaurant.settings.commissionRate')}</label>
+              <input
+                type="number"
+                value={commissionRate}
+                onChange={(e) => setCommissionRate(e.target.value)}
+                min="0"
+                max="100"
+                step="0.1"
+                className="kiyo-input"
+              />
+              <p className="mt-1 text-xs text-ink-400">
+                {t('restaurant.settings.commissionDesc')}
+              </p>
+            </div>
+          </div>
+
           {/* Operational Status */}
           <div className="kiyo-card">
             <div className="mb-4 flex items-center gap-2">
@@ -289,6 +329,13 @@ export default function RestaurantSettingsPage() {
               {t('restaurant.settings.opStatusDesc')}
             </p>
           </div>
+
+          {saveError && (
+            <div className="flex items-start gap-2 rounded-lg bg-error-500/10 px-3 py-2.5 text-xs text-error-600">
+              <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+              <span className="font-medium">{saveError}</span>
+            </div>
+          )}
 
           {/* Save Button */}
           <div className="flex items-center justify-between">
