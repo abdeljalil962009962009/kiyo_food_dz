@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { Play, SkipForward, CheckCircle, Clock, Truck, RefreshCw } from 'lucide-react';
+import { Play, SkipForward, CheckCircle, Clock, Truck, RefreshCw, XCircle } from 'lucide-react';
 import { supabase, type OrderRow } from '../lib/supabase';
 import TrackingMap from './TrackingMap';
 
@@ -18,7 +18,36 @@ export function LiveOrderTracker({ order, onRefresh }: Props) {
   const [simStatus, setSimStatus] = useState<string>(order.status);
   const [simDriverLat, setSimDriverLat] = useState<number | null>(null);
   const [simDriverLng, setSimDriverLng] = useState<number | null>(null);
+  const [cancelling, setCancelling] = useState(false);
   const simTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleCancel = async () => {
+    if (!window.confirm('Voulez-vous vraiment annuler votre commande ?')) return;
+    setCancelling(true);
+    try {
+      // 1. Try updating status to 'cancelled' (in case RLS permits)
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({ status: 'cancelled' })
+        .eq('id', order.id);
+
+      if (updateError) {
+        // 2. Fallback: hard DELETE which is explicitly allowed by the orders_delete_customer_pending policy
+        const { error: deleteError } = await supabase
+          .from('orders')
+          .delete()
+          .eq('id', order.id);
+        
+        if (deleteError) throw deleteError;
+      }
+      onRefresh();
+    } catch (err) {
+      console.error('[Kiyo] Cancellation error:', err);
+      alert('Impossible d\'annuler cette commande. Le restaurant l\'a peut-être déjà acceptée ou préparée.');
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   // Fallback coords for Constantine center, Algeria if missing
   const restaurantLat = order.restaurants?.latitude ?? 36.3650;
@@ -135,13 +164,26 @@ export function LiveOrderTracker({ order, onRefresh }: Props) {
           <p className="text-xs text-ink-500">From {order.restaurants?.name}</p>
         </div>
         
-        {/* Real-time sync indicator */}
-        <div className="flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 border border-emerald-100 shadow-sm">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
-          <span>Live Engine Connected</span>
+        {/* Real-time sync indicator & Cancel action */}
+        <div className="flex flex-wrap items-center gap-2">
+          {simStatus === 'pending' && (
+            <button
+              onClick={handleCancel}
+              disabled={cancelling}
+              className="flex items-center gap-1.5 rounded-lg bg-rose-50 border border-rose-200 px-3 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-100 transition-colors shadow-sm disabled:opacity-50"
+            >
+              <XCircle className="h-3.5 w-3.5" />
+              {cancelling ? 'Annulation...' : 'Annuler la commande'}
+            </button>
+          )}
+
+          <div className="flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 border border-emerald-100 shadow-sm">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span>Live Engine Connected</span>
+          </div>
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ShoppingBag, Star } from 'lucide-react';
+import { ShoppingBag, Star, Trash } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
 import { supabase, type OrderRow, type OrderItemRow } from '../lib/supabase';
 import { useRealtime } from '../lib/useRealtime';
@@ -27,6 +27,31 @@ export default function OrdersPage() {
     restaurantName: string;
   } | null>(null);
   const [reviewedOrders, setReviewedOrders] = useState<Set<string>>(new Set());
+
+  const handleCancelOrder = async (orderId: string) => {
+    if (!window.confirm('Voulez-vous vraiment annuler votre commande ?')) return;
+    try {
+      // 1. Try updating status to 'cancelled' (in case RLS permits)
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({ status: 'cancelled' })
+        .eq('id', orderId);
+
+      if (updateError) {
+        // 2. Fallback: hard DELETE which is explicitly allowed by the orders_delete_customer_pending policy
+        const { error: deleteError } = await supabase
+          .from('orders')
+          .delete()
+          .eq('id', orderId);
+        
+        if (deleteError) throw deleteError;
+      }
+      void load();
+    } catch (err) {
+      console.error('[Kiyo] Cancellation error:', err);
+      alert('Impossible d\'annuler cette commande. Le restaurant l\'a peut-être déjà acceptée ou préparée.');
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -174,6 +199,19 @@ export default function OrdersPage() {
                       >
                         <Star className={`h-4 w-4 ${isReviewed ? 'fill-amber-400' : ''}`} />
                         {isReviewed ? t('orders.reviewed') : t('orders.leaveReview')}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Cancel button for pending orders */}
+                  {o.status === 'pending' && (
+                    <div className="mt-3 border-t border-ink-50 pt-3 flex justify-end">
+                      <button
+                        onClick={() => handleCancelOrder(o.id)}
+                        className="flex items-center gap-1 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-2.5 py-1.5 rounded-lg border border-rose-100 transition-colors shadow-sm"
+                      >
+                        <Trash className="h-3.5 w-3.5" />
+                        Annuler la commande
                       </button>
                     </div>
                   )}
