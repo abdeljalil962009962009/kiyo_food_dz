@@ -22,6 +22,7 @@ export default function ProfilePage() {
   const [savingLang, setSavingLang] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportMsg, setExportMsg] = useState<string | null>(null);
+  const [languageError, setLanguageError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -49,9 +50,18 @@ export default function ProfilePage() {
   const updateLang = async (lang: 'en' | 'fr' | 'ar') => {
     if (!profile || profile.preferred_language === lang) return;
     setSavingLang(true);
+    setLanguageError(null);
+    const previousLocale = locale;
     setLocale(lang);
     try {
-      await supabase.from('profiles').update({ preferred_language: lang }).eq('id', profile.id);
+      const { error } = await supabase
+        .from('profiles')
+        .update({ preferred_language: lang })
+        .eq('id', profile.id);
+      if (error) throw error;
+    } catch (err) {
+      setLocale(previousLocale);
+      setLanguageError(err instanceof Error ? err.message : t('error.genericBody'));
     } finally {
       setSavingLang(false);
     }
@@ -236,6 +246,9 @@ export default function ProfilePage() {
                 );
               })}
             </div>
+            {languageError && (
+              <p className="mt-3 text-xs text-error-600">{languageError}</p>
+            )}
           </div>
         </div>
 
