@@ -48,7 +48,7 @@ export function FavoritesPage() {
         .is('menu_item_id', null)
         .order('created_at', { ascending: false });
       if (e) throw e;
-      setFavorites((data as FavoriteRestaurant[]) ?? []);
+      setFavorites((data as unknown as FavoriteRestaurant[]) ?? []);
     } catch (err: unknown) {
       console.error(err);
       setError(err instanceof Error ? err.message : t('error.genericBody'));
@@ -104,8 +104,8 @@ export function FavoritesPage() {
                 <Link to={`/restaurant/${fav.restaurants.id}`} className="block">
                   {fav.restaurants.image_url && (
                     <RestaurantImage
-                      src={fav.restaurants.image_url}
-                      alt={fav.restaurants.name}
+                      url={fav.restaurants.image_url}
+                      name={fav.restaurants.name}
                       className="aspect-[16/9] w-full rounded-t-lg object-cover"
                     />
                   )}
@@ -156,3 +156,5 @@ export function FavoritesPage() {
     </AppShell>
   );
 }
+
+export default FavoritesPage;
