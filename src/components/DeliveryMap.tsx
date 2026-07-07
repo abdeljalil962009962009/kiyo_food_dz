@@ -3,6 +3,15 @@ import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-lea
 import L from 'leaflet';
 import { MapPin, Locate, Search, AlertTriangle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import {
+  formatDistanceKm,
+  haversineKm,
+  reverseGeocode,
+  searchAddresses,
+  watchCurrentPosition,
+  type GeoSearchResult,
+  type LiveGeoPoint,
+} from '../lib/geo';
 
 // Fix default marker icons under bundlers (Leaflet expects CDN assets by default).
 const blueIcon = L.divIcon({
@@ -17,28 +26,14 @@ const restaurantIcon = L.divIcon({
   iconSize: [22, 22],
   iconAnchor: [11, 11],
 });
+const liveLocationIcon = L.divIcon({
+  className: 'kiyo-map-pin-live',
+  html: '<div style="position:relative;width:24px;height:24px"><div style="position:absolute;inset:0;border-radius:999px;background:#2563eb;box-shadow:0 0 0 7px rgba(37,99,235,.16)"></div><div style="position:absolute;left:9px;top:-6px;width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-bottom:11px solid #2563eb;transform-origin:50% 16px"></div><div style="position:absolute;inset:7px;border-radius:999px;background:white"></div></div>',
+  iconSize: [24, 24],
+  iconAnchor: [12, 12],
+});
 
-// Default map center: approximate geographic center of Algeria
-// This is only used as a fallback when restaurant coordinates are not available
-// Restaurants should always have coordinates set during onboarding
 const ALGERIA_CENTER: [number, number] = [28.0, 2.0];
-
-
-/**
- * Haversine distance in km between two [lat,lng] points.
- * Used to check if a delivery address is inside the restaurant's max zone.
- */
-function haversineKm(a: [number, number], b: [number, number]): number {
-  const R = 6371;
-  const dLat = ((b[0] - a[0]) * Math.PI) / 180;
-  const dLng = ((b[1] - a[1]) * Math.PI) / 180;
-  const s =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((a[0] * Math.PI) / 180) *
-      Math.cos((b[0] * Math.PI) / 180) *
-      Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
-}
 
 type Props = {
   restaurantLat?: number | null;
@@ -48,13 +43,6 @@ type Props = {
   onLocationChange: (loc: { lat: number; lng: number; address: string }) => void;
 };
 
-/**
- * DeliveryMap — interactive Leaflet map.
- *
- * Handles GPS permission gracefully (try/catch around geolocation),
- * supports tap-to-drop-pin, and reverse-geocodes via OSM Nominatim (free,
- * no API key). Falls back to a sensible default if GPS is refused or fails.
- */
 export default function DeliveryMap({
   restaurantLat,
   restaurantLng,
@@ -66,115 +54,80 @@ export default function DeliveryMap({
   const [addressText, setAddressText] = useState(initialAddress ?? '');
   const [search, setSearch] = useState('');
   const [searching, setSearching] = useState(false);
-  void searching; // reserved for a future loading indicator
+  const [suggestions, setSuggestions] = useState<GeoSearchResult[]>([]);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
+  const [livePosition, setLivePosition] = useState<LiveGeoPoint | null>(null);
   const mapRef = useRef<L.Map | null>(null);
-  const lastGeocodeRef = useRef<number>(0);
+  const stopWatchingRef = useRef<(() => void) | null>(null);
 
   const distanceKm = useMemo(() => {
     if (!pin || !restaurantLat || !restaurantLng) return null;
-    return haversineKm(pin, [restaurantLat, restaurantLng]);
+    return haversineKm({ lat: pin[0], lng: pin[1] }, { lat: restaurantLat, lng: restaurantLng });
   }, [pin, restaurantLat, restaurantLng]);
 
   const outOfZone = !!distanceKm && !!maxDeliveryKm && distanceKm > maxDeliveryKm;
 
-  // Reverse-geocode a [lat,lng] to a readable address (free Nominatim).
-  // Rate-limited to max 1 request per second (Nominatim ToS).
-  const reverseGeocode = useCallback(async (lat: number, lng: number): Promise<string> => {
-    const now = Date.now();
-    const elapsed = now - lastGeocodeRef.current;
-    if (elapsed < 1100) {
-      await new Promise((r) => setTimeout(r, 1100 - elapsed));
-    }
-    lastGeocodeRef.current = Date.now();
+  const setLocation = useCallback(async (lat: number, lng: number, address?: string) => {
+    setPin([lat, lng]);
+    const resolvedAddress = address ?? (await reverseGeocode(lat, lng, document.documentElement.lang || 'fr')).displayName;
+    setAddressText(resolvedAddress);
+    onLocationChange({ lat, lng, address: resolvedAddress });
+  }, [onLocationChange]);
 
-    try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
-        { headers: { 'Accept-Language': 'en' } },
-      );
-      if (!res.ok) throw new Error('geocode failed');
-      const data = await res.json();
-      return data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-    } catch {
-      return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-    }
-  }, []);
-
-  // Forward-geocode a typed address to [lat,lng] (free Nominatim).
-  // Rate-limited to max 1 request per second (Nominatim ToS).
-  const forwardGeocode = useCallback(async (query: string): Promise<[number, number] | null> => {
-    const now = Date.now();
-    const elapsed = now - lastGeocodeRef.current;
-    if (elapsed < 1100) {
-      await new Promise((r) => setTimeout(r, 1100 - elapsed));
-    }
-    lastGeocodeRef.current = Date.now();
-
-    try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(query)}&limit=1`,
-        { headers: { 'Accept-Language': 'en' } },
-      );
-      if (!res.ok) return null;
-      const items = await res.json();
-      if (!Array.isArray(items) || items.length === 0) return null;
-      return [parseFloat(items[0].lat), parseFloat(items[0].lon)];
-    } catch {
-      return null;
-    }
-  }, []);
-
-  // Locate user via GPS. Gracefully handles permission denial or unsupported devices.
-  const useGps = () => {
-    if (!('geolocation' in navigator)) {
-      setPermissionDenied(true);
+  useEffect(() => {
+    const term = search.trim();
+    if (term.length < 2) {
+      setSuggestions([]);
       return;
     }
+    const timer = window.setTimeout(() => {
+      setSearching(true);
+      searchAddresses(term, document.documentElement.lang || 'fr')
+        .then(setSuggestions)
+        .finally(() => setSearching(false));
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => () => {
+    stopWatchingRef.current?.();
+  }, []);
+
+  const useGps = () => {
+    stopWatchingRef.current?.();
     setGpsLoading(true);
-    navigator.geolocation.getCurrentPosition(
+    stopWatchingRef.current = watchCurrentPosition(
       async (pos) => {
-        const { latitude, longitude } = pos.coords;
-        setPin([latitude, longitude]);
-        const addr = await reverseGeocode(latitude, longitude);
-        setAddressText(addr);
-        onLocationChange({ lat: latitude, lng: longitude, address: addr });
+        setLivePosition(pos);
+        await setLocation(pos.lat, pos.lng);
         setGpsLoading(false);
-        mapRef.current?.flyTo([latitude, longitude], 15);
+        mapRef.current?.flyTo([pos.lat, pos.lng], 16, { duration: 0.75 });
       },
       () => {
         setPermissionDenied(true);
         setGpsLoading(false);
       },
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 },
     );
   };
 
-  // Map click → drop pin → reverse geocode.
   function MapClickHandler() {
     useMapEvents({
       click: async (e) => {
         const { lat, lng } = e.latlng;
-        setPin([lat, lng]);
-        const addr = await reverseGeocode(lat, lng);
-        setAddressText(addr);
-        onLocationChange({ lat, lng, address: addr });
+        await setLocation(lat, lng);
       },
     });
     return null;
   }
 
-  // Fly to restaurant when its coords load.
   function RestaurantFlyTo() {
     const map = useMap();
     useEffect(() => {
       if (restaurantLat && restaurantLng) {
         map.setView([restaurantLat, restaurantLng], 13);
       }
-    // restaurantLat/restaurantLng are stable prop primitives passed from parent
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [map, restaurantLat, restaurantLng]);
+    }, [map]); // eslint-disable-line react-hooks/exhaustive-deps
     return null;
   }
 
@@ -182,13 +135,13 @@ export default function DeliveryMap({
     if (!search.trim()) return;
     setSearching(true);
     try {
-      const ll = await forwardGeocode(search.trim());
-      if (ll) {
-        setPin(ll);
-        const addr = await reverseGeocode(ll[0], ll[1]);
-        setAddressText(addr);
-        onLocationChange({ lat: ll[0], lng: ll[1], address: addr });
-        mapRef.current?.flyTo(ll, 15);
+      const [first] = suggestions.length > 0
+        ? suggestions
+        : await searchAddresses(search.trim(), document.documentElement.lang || 'fr', 1);
+      if (first) {
+        await setLocation(first.lat, first.lng, first.label);
+        setSuggestions([]);
+        mapRef.current?.flyTo([first.lat, first.lng], 15, { duration: 0.75 });
       }
     } finally {
       setSearching(false);
@@ -197,7 +150,6 @@ export default function DeliveryMap({
 
   return (
     <div className="space-y-3">
-      {/* Search bar */}
       <div className="flex gap-2">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
@@ -205,10 +157,29 @@ export default function DeliveryMap({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && doSearch()}
-            placeholder="Search address, neighborhood, city…"
+            placeholder="Search address, neighborhood, city..."
             className="kiyo-input pl-10"
             autoComplete="off"
           />
+          {suggestions.length > 0 && (
+            <div className="absolute z-[1000] mt-1 max-h-56 w-full overflow-auto rounded-xl border border-ink-100 bg-white py-1 shadow-xl">
+              {suggestions.map((item) => (
+                <button
+                  key={`${item.provider}-${item.placeId ?? item.label}`}
+                  type="button"
+                  onClick={async () => {
+                    await setLocation(item.lat, item.lng, item.label);
+                    setSearch(item.label);
+                    setSuggestions([]);
+                    mapRef.current?.flyTo([item.lat, item.lng], 15, { duration: 0.75 });
+                  }}
+                  className="block w-full px-3 py-2 text-left text-xs text-ink-700 hover:bg-ember-50"
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <button
           type="button"
@@ -218,17 +189,20 @@ export default function DeliveryMap({
           title="Use current location"
         >
           <Locate className="h-4 w-4" />
-          <span className="hidden sm:inline">{gpsLoading ? 'Locating…' : 'GPS'}</span>
+          <span className="hidden sm:inline">{gpsLoading ? 'Locating...' : 'GPS'}</span>
         </button>
       </div>
 
+      {searching && (
+        <p className="text-xs font-medium text-ink-400">Searching addresses...</p>
+      )}
+
       {permissionDenied && (
         <div className="rounded-lg bg-warning-500/10 px-3 py-2 text-xs text-warning-600">
-          Location permission denied — you can still search or tap the map to pick a delivery point.
+          Location is unavailable. You can still search or tap the map to pick a delivery point.
         </div>
       )}
 
-      {/* The map */}
       <div className="relative h-72 w-full overflow-hidden rounded-xl border border-ink-200 sm:h-80">
         <MapContainer
           center={restaurantLat && restaurantLng ? [restaurantLat, restaurantLng] : ALGERIA_CENTER}
@@ -244,16 +218,23 @@ export default function DeliveryMap({
           <MapClickHandler />
           <RestaurantFlyTo />
           {pin && <Marker position={pin} icon={blueIcon} />}
+          {livePosition && (
+            <>
+              <Marker position={[livePosition.lat, livePosition.lng]} icon={liveLocationIcon} />
+              {livePosition.accuracy && (
+                <Circle center={[livePosition.lat, livePosition.lng]} radius={livePosition.accuracy} kind="accuracy" />
+              )}
+            </>
+          )}
           {restaurantLat && restaurantLng && (
             <Marker position={[restaurantLat, restaurantLng]} icon={restaurantIcon} />
           )}
           {restaurantLat && restaurantLng && maxDeliveryKm && (
-            <Circle center={[restaurantLat, restaurantLng]} radius={maxDeliveryKm * 1000} />
+            <Circle center={[restaurantLat, restaurantLng]} radius={maxDeliveryKm * 1000} kind="delivery" />
           )}
         </MapContainer>
       </div>
 
-      {/* Address preview + out-of-zone warning */}
       {addressText && (
         <div className="rounded-lg bg-ink-50 px-3 py-2 text-xs">
           <div className="flex items-start gap-2">
@@ -262,8 +243,14 @@ export default function DeliveryMap({
               <p className="font-medium text-ink-900">{addressText}</p>
               {distanceKm !== null && (
                 <p className="mt-0.5 text-ink-500">
-                  Distance: {distanceKm.toFixed(1)} km
-                  {maxDeliveryKm ? ` · max ${maxDeliveryKm} km` : ''}
+                  Distance: {formatDistanceKm(distanceKm)}
+                  {maxDeliveryKm ? ` - max ${maxDeliveryKm} km` : ''}
+                </p>
+              )}
+              {livePosition?.accuracy && (
+                <p className="mt-0.5 text-ink-400">
+                  GPS accuracy: {Math.round(livePosition.accuracy)} m
+                  {livePosition.heading != null ? ` - heading ${Math.round(livePosition.heading)} deg` : ''}
                 </p>
               )}
             </div>
@@ -283,23 +270,21 @@ export default function DeliveryMap({
   );
 }
 
-// Avoid importing the full react-leaflet Circle separately (re-export from main)
-function Circle(props: { center: [number, number]; radius: number }) {
+function Circle(props: { center: [number, number]; radius: number; kind: 'delivery' | 'accuracy' }) {
   const map = useMap();
   useEffect(() => {
     const c = L.circle(props.center, {
       radius: props.radius,
-      color: '#ea580c',
-      fillColor: '#ea580c',
-      fillOpacity: 0.08,
+      color: props.kind === 'accuracy' ? '#2563eb' : '#ea580c',
+      fillColor: props.kind === 'accuracy' ? '#2563eb' : '#ea580c',
+      fillOpacity: props.kind === 'accuracy' ? 0.12 : 0.08,
       weight: 1,
     }).addTo(map);
     return () => { map.removeLayer(c); };
-  }, [map, props.center, props.radius]);
+  }, [map, props.center, props.kind, props.radius]);
   return null;
 }
 
-// Persist last-used delivery address to saved_addresses (no-op if not authed).
 export async function saveAddressIfNew(loc: { lat: number; lng: number; address: string }, label: 'home' | 'work' | 'family' | 'other' = 'other') {
   try {
     const { data: { user } } = await supabase.auth.getUser();
