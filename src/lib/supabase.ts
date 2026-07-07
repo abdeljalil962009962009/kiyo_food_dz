@@ -97,6 +97,16 @@ export type Restaurant = {
   estimated_delivery_min: number | null;
   latitude: number | null;
   longitude: number | null;
+  place_id: string | null;
+  country: string | null;
+  region: string | null;
+  province: string | null;
+  postal_code: string | null;
+  timezone: string | null;
+  geohash: string | null;
+  location_accuracy_m: number | null;
+  location_verified: boolean;
+  location_updated_at: string | null;
   max_delivery_km: number;
   min_order_amount: number;
   commission_rate: number | string;
@@ -148,6 +158,7 @@ export type OrderRow = {
   delivery_phone: string | null;
   delivery_latitude: number | null;
   delivery_longitude: number | null;
+  delivery_accuracy_m: number | null;
   driver_id: string | null;
   notes: string | null;
   created_at: string;
@@ -181,9 +192,38 @@ export type SavedAddress = {
   address: string;
   latitude: number;
   longitude: number;
+  place_id: string | null;
+  street: string | null;
+  neighborhood: string | null;
+  commune: string | null;
+  city: string | null;
+  province: string | null;
+  postal_code: string | null;
+  country: string | null;
+  geohash: string | null;
+  accuracy_m: number | null;
   is_default: boolean;
+  is_archived: boolean;
+  is_favorite: boolean;
+  last_used_at: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type DriverLocationEvent = {
+  id: string;
+  driver_id: string;
+  latitude: number;
+  longitude: number;
+  accuracy_m: number | null;
+  heading: number | null;
+  speed_mps: number | null;
+  distance_from_previous_m: number | null;
+  calculated_speed_mps: number | null;
+  suspicious: boolean;
+  suspicious_reason: string | null;
+  recorded_at: string;
+  created_at: string;
 };
 
 export type Review = {
@@ -289,5 +329,3 @@ export type PromoCode = {
   created_by: string | null;
   created_at: string;
 };
-
-
