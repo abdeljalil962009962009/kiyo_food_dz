@@ -60,8 +60,13 @@ export function FavoritesPage() {
   useEffect(() => { void loadFavorites(); }, [loadFavorites]);
 
   const removeFavorite = async (favoriteId: string) => {
+    const previous = favorites;
     setFavorites(prev => prev.filter(f => f.id !== favoriteId));
-    await supabase.from('customer_favorites').delete().eq('id', favoriteId);
+    const { error: e } = await supabase.from('customer_favorites').delete().eq('id', favoriteId);
+    if (e) {
+      setFavorites(previous);
+      setError(e.message);
+    }
   };
 
   if (loading) {
@@ -116,14 +121,14 @@ export function FavoritesPage() {
                       </h3>
                       {fav.restaurants.rating > 0 && (
                         <span className="flex items-center gap-1 text-xs font-medium text-amber-600">
-                          <span className="text-amber-500">★</span>
+                          <span className="text-amber-500">â˜…</span>
                           {fav.restaurants.rating.toFixed(1)}
                         </span>
                       )}
                     </div>
                     {fav.restaurants.cuisine && fav.restaurants.cuisine.length > 0 && (
                       <p className="mt-1 text-xs text-ink-400">
-                        {fav.restaurants.cuisine.slice(0, 3).join(' • ')}
+                        {fav.restaurants.cuisine.slice(0, 3).join(' â€¢ ')}
                       </p>
                     )}
                     <div className="mt-2 flex items-center gap-2">
