@@ -1,14 +1,18 @@
 {
   "name": "Kiyo Food",
-  "short_name": "Kiyo Food",
-  "description": "Commandez auprès des meilleurs restaurants avec Kiyo Food. Livraison rapide, prix transparents, paiement à la livraison.",
-  "start_url": "/",
+  "short_name": "Kiyo",
+  "description": "Order from verified restaurants in Algeria with transparent prices, saved addresses, and live delivery tracking.",
+  "id": "/",
+  "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "browser"],
   "background_color": "#141412",
   "theme_color": "#ea580c",
   "orientation": "portrait-primary",
   "categories": ["food", "delivery", "lifestyle"],
+  "lang": "fr-DZ",
+  "dir": "ltr",
   "icons": [
     {
       "src": "/icons/favicon-32x32.png",
@@ -28,10 +32,26 @@
       "purpose": "any"
     },
     {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Restaurants",
+      "short_name": "Restaurants",
+      "description": "Browse restaurants near you",
+      "url": "/restaurants?source=pwa-shortcut",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Orders",
+      "short_name": "Orders",
+      "description": "Track your orders",
+      "url": "/orders?source=pwa-shortcut",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
     }
   ]
 }
