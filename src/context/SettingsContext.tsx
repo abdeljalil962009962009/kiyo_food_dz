@@ -34,6 +34,7 @@ type PlatformSettings = {
 type SettingsContextValue = {
   settings: PlatformSettings | null;
   loading: boolean;
+  error: string | null;
   reload: () => Promise<void>;
   features: FeatureFlags;
   isMaintenance: boolean;
@@ -47,6 +48,22 @@ const DEFAULT_FEATURES: FeatureFlags = {
   maps: true,
   chat: true,
   loyalty: true,
+};
+
+const DEFAULT_SETTINGS: PlatformSettings = {
+  features: DEFAULT_FEATURES,
+  maintenance: {
+    enabled: false,
+    message: '',
+    allow_admin_access: true,
+  },
+  order_rules: {
+    cancellation_window_minutes: 5,
+    acceptance_timeout_minutes: 10,
+    auto_cancel_after_timeout: true,
+    busy_mode_threshold: 15,
+    auto_busy_mode: true,
+  },
 };
 
 function boolSetting(value: unknown, fallback: boolean) {
@@ -69,6 +86,7 @@ function normalizeFeatureFlags(value: unknown): FeatureFlags {
 const SettingsContext = createContext<SettingsContextValue>({
   settings: null,
   loading: true,
+  error: null,
   reload: async () => {},
   features: DEFAULT_FEATURES,
   isMaintenance: false,
@@ -78,22 +96,38 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const { profile } = useAuth();
   const [settings, setSettings] = useState<PlatformSettings | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
+    setError(null);
     try {
       const { data, error } = await supabase.from('platform_settings').select('key, value');
-      if (error || !data) return;
+      if (error) throw error;
+      if (!data) {
+        setSettings(DEFAULT_SETTINGS);
+        return;
+      }
+
       const obj: Record<string, unknown> = {};
       for (const row of data) {
-        try { obj[row.key] = typeof row.value === 'string' ? JSON.parse(row.value) : row.value; }
-        catch { obj[row.key] = row.value; }
+        try {
+          obj[row.key] = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+        } catch (err) {
+          console.error(`[Kiyo] Invalid platform setting JSON for ${row.key}:`, err);
+          obj[row.key] = row.value;
+        }
       }
+
       setSettings({
+        ...DEFAULT_SETTINGS,
         ...obj,
         features: normalizeFeatureFlags(obj.features),
       } as PlatformSettings);
-    } catch {
-      // non-fatal - use defaults
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Platform settings could not be loaded.';
+      console.error('[Kiyo] Platform settings load failed:', err);
+      setError(message);
+      setSettings(DEFAULT_SETTINGS);
     } finally {
       setLoading(false);
     }
@@ -107,7 +141,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const isMaintenance = maintenance?.enabled === true && !(maintenance.allow_admin_access && isAdmin);
 
   return (
-    <SettingsContext.Provider value={{ settings, loading, reload, features, isMaintenance }}>
+    <SettingsContext.Provider value={{ settings, loading, error, reload, features, isMaintenance }}>
       {children}
     </SettingsContext.Provider>
   );
