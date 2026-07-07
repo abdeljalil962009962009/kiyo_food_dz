@@ -285,11 +285,14 @@ function Circle(props: { center: [number, number]; radius: number; kind: 'delive
   return null;
 }
 
-export async function saveAddressIfNew(loc: { lat: number; lng: number; address: string }, label: 'home' | 'work' | 'family' | 'other' = 'other') {
+export async function saveAddressIfNew(
+  loc: { lat: number; lng: number; address: string },
+  label: 'home' | 'work' | 'family' | 'other' = 'other',
+): Promise<{ ok: true; skipped?: true } | { ok: false; error: string }> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    await supabase.from('saved_addresses').insert({
+    if (!user) return { ok: true, skipped: true };
+    const { error } = await supabase.from('saved_addresses').insert({
       customer_id: user.id,
       label,
       address: loc.address,
@@ -297,7 +300,13 @@ export async function saveAddressIfNew(loc: { lat: number; lng: number; address:
       longitude: loc.lng,
       is_default: false,
     });
-  } catch {
-    // non-fatal
+    if (error) throw error;
+    return { ok: true };
+  } catch (err) {
+    console.error('[Kiyo] Failed to save delivery address:', err);
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : 'Address could not be saved.',
+    };
   }
 }
