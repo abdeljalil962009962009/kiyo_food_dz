@@ -67,6 +67,8 @@ export default function DriverDashboardPage() {
   const [driver, setDriver] = useState<Driver | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [pendingDeliveries, setPendingDeliveries] = useState<Delivery[]>([]);
   const [activeDelivery, setActiveDelivery] = useState<Delivery | null>(null);
   const [gpsStatus, setGpsStatus] = useState<'idle' | 'watching' | 'error'>('idle');
@@ -83,6 +85,7 @@ export default function DriverDashboardPage() {
     setLoading(true);
     setError(null);
     try {
+      // Load driver profile
       const { data: d, error: de } = await supabase
         .from('drivers')
         .select('*')
@@ -91,6 +94,7 @@ export default function DriverDashboardPage() {
 
       if (de) throw de;
       if (!d) {
+        // Driver doesn't exist yet - show onboarding
         navigate('/driver/onboarding', { replace: true });
         return;
       }
@@ -102,6 +106,7 @@ export default function DriverDashboardPage() {
         return;
       }
 
+      // Load pending assignments
       const { data: pending } = await supabase
         .from('deliveries')
         .select('id, order_id, status, pickup_latitude, pickup_longitude, delivery_latitude, delivery_longitude, driver_notes, created_at, orders!inner(id, restaurant_id, total, delivery_address, restaurants!inner(id, name, address))')
@@ -112,11 +117,13 @@ export default function DriverDashboardPage() {
       const deliveries = (pending as unknown as Delivery[]) ?? [];
       setPendingDeliveries(deliveries);
 
+      // Find active delivery
       const active = deliveries.find(d =>
         ['driver_accepted', 'picking_up', 'picked_up', 'en_route', 'arrived'].includes(d.status)
       );
       setActiveDelivery(active ?? null);
 
+      // Load earnings
       const { data: earningsData } = await supabase
         .from('driver_earnings')
         .select('total, created_at, settlement_status')
@@ -218,47 +225,84 @@ export default function DriverDashboardPage() {
   const toggleOnline = async () => {
     if (!driver) return;
     const newStatus = !driver.is_online;
+    setActionError(null);
+    setPendingAction('online');
     setDriver(prev => prev ? { ...prev, is_online: newStatus } : null);
-    await supabase
+    const { error: e } = await supabase
       .from('drivers')
       .update({ is_online: newStatus, updated_at: new Date().toISOString() })
       .eq('id', driver.id);
+    if (e) {
+      setDriver(prev => prev ? { ...prev, is_online: !newStatus } : null);
+      setActionError(e.message);
+    }
+    setPendingAction(null);
   };
 
   const acceptDelivery = async (deliveryId: string) => {
+    setActionError(null);
+    setPendingAction(deliveryId);
     const { error: e } = await supabase
       .from('deliveries')
       .update({ status: 'driver_accepted', updated_at: new Date().toISOString() })
       .eq('id', deliveryId);
-    if (!e) void load();
+    if (e) {
+      setActionError(e.message);
+      setPendingAction(null);
+      return;
+    }
+    await load();
+    setPendingAction(null);
   };
 
   const declineDelivery = async (deliveryId: string) => {
+    setActionError(null);
+    setPendingAction(deliveryId);
     const { error: e } = await supabase
       .from('deliveries')
       .update({ status: 'driver_declined', updated_at: new Date().toISOString() })
       .eq('id', deliveryId);
-    if (!e) void load();
+    if (e) {
+      setActionError(e.message);
+      setPendingAction(null);
+      return;
+    }
+    await load();
+    setPendingAction(null);
   };
 
   const updateDeliveryStatus = async (deliveryId: string, newStatus: string) => {
+    setActionError(null);
+    setPendingAction(deliveryId);
     const update: Record<string, unknown> = { status: newStatus, updated_at: new Date().toISOString() };
     if (newStatus === 'picked_up') update.picked_up_at = new Date().toISOString();
     if (newStatus === 'delivered') {
       update.delivered_at = new Date().toISOString();
+      // Also update order status
       const delivery = activeDelivery || pendingDeliveries.find(d => d.id === deliveryId);
       if (delivery) {
-        await supabase
+        const { error: orderError } = await supabase
           .from('orders')
           .update({ status: 'delivered' })
           .eq('id', delivery.order_id);
+        if (orderError) {
+          setActionError(orderError.message);
+          setPendingAction(null);
+          return;
+        }
       }
     }
     const { error: e } = await supabase
       .from('deliveries')
       .update(update)
       .eq('id', deliveryId);
-    if (!e) void load();
+    if (e) {
+      setActionError(e.message);
+      setPendingAction(null);
+      return;
+    }
+    await load();
+    setPendingAction(null);
   };
 
   if (loading) {
@@ -320,6 +364,7 @@ export default function DriverDashboardPage() {
         </div>
         <button
           onClick={toggleOnline}
+          disabled={pendingAction === 'online'}
           className={`rounded-lg px-4 py-2.5 text-sm font-semibold transition-all ${
             driver?.is_online
               ? 'bg-sage-500 text-white hover:bg-sage-600'
@@ -331,6 +376,7 @@ export default function DriverDashboardPage() {
         </button>
       </div>
 
+      {/* Earnings summary */}
       <div className="mb-5 grid grid-cols-3 gap-3">
         <div className="kiyo-card p-3">
           <div className="text-xs font-medium text-ink-400">{t('driver.dash.today')}</div>
@@ -352,6 +398,7 @@ export default function DriverDashboardPage() {
         </div>
       </div>
 
+      {/* Stats */}
       <div className="mb-5 flex gap-4 text-sm text-ink-500">
         <span className="flex items-center gap-1">
           <Star className="h-4 w-4 text-amber-500" />
@@ -379,8 +426,15 @@ export default function DriverDashboardPage() {
           <span>{gpsNotice}</span>
         </div>
       )}
+      {actionError && (
+        <div className="mb-5 flex items-start gap-2 rounded-xl border border-error-100 bg-error-50 px-3 py-2 text-xs font-medium text-error-700">
+          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+          <span>{actionError}</span>
+        </div>
+      )}
 
       <ErrorBoundary variant="inline">
+        {/* Active delivery */}
         {activeDelivery && (
           <div className="mb-5 kiyo-card border-l-4 border-ember-500 p-4">
             <div className="mb-2 flex items-center justify-between">
@@ -401,10 +455,12 @@ export default function DriverDashboardPage() {
               {Number(activeDelivery.orders.total).toLocaleString()} DZD
             </p>
 
+            {/* Status buttons */}
             <div className="mt-3 flex flex-wrap gap-2">
               {activeDelivery.status === 'driver_accepted' && (
                 <button
                   onClick={() => updateDeliveryStatus(activeDelivery.id, 'picking_up')}
+                  disabled={pendingAction === activeDelivery.id}
                   className="kiyo-btn-primary text-xs"
                 >
                   <Navigation className="h-3 w-3" />
@@ -414,6 +470,7 @@ export default function DriverDashboardPage() {
               {activeDelivery.status === 'picking_up' && (
                 <button
                   onClick={() => updateDeliveryStatus(activeDelivery.id, 'picked_up')}
+                  disabled={pendingAction === activeDelivery.id}
                   className="kiyo-btn-primary text-xs"
                 >
                   <Check className="h-3 w-3" />
@@ -423,6 +480,7 @@ export default function DriverDashboardPage() {
               {activeDelivery.status === 'picked_up' && (
                 <button
                   onClick={() => updateDeliveryStatus(activeDelivery.id, 'en_route')}
+                  disabled={pendingAction === activeDelivery.id}
                   className="kiyo-btn-primary text-xs"
                 >
                   <Navigation className="h-3 w-3" />
@@ -432,6 +490,7 @@ export default function DriverDashboardPage() {
               {activeDelivery.status === 'en_route' && (
                 <button
                   onClick={() => updateDeliveryStatus(activeDelivery.id, 'arrived')}
+                  disabled={pendingAction === activeDelivery.id}
                   className="kiyo-btn-primary text-xs"
                 >
                   <MapPin className="h-3 w-3" />
@@ -441,6 +500,7 @@ export default function DriverDashboardPage() {
               {activeDelivery.status === 'arrived' && (
                 <button
                   onClick={() => updateDeliveryStatus(activeDelivery.id, 'delivered')}
+                  disabled={pendingAction === activeDelivery.id}
                   className="kiyo-btn-primary text-xs"
                 >
                   <Check className="h-3 w-3" />
@@ -451,6 +511,7 @@ export default function DriverDashboardPage() {
           </div>
         )}
 
+        {/* New delivery requests */}
         {!activeDelivery && pendingDeliveries.filter(d => d.status === 'assigned').length > 0 && driver?.is_online && (
           <div className="mb-5">
             <h2 className="mb-2 text-sm font-semibold text-ink-600">{t('driver.dash.newRequest')}</h2>
@@ -471,12 +532,14 @@ export default function DriverDashboardPage() {
                 <div className="mt-3 flex gap-2">
                   <button
                     onClick={() => acceptDelivery(delivery.id)}
+                    disabled={pendingAction === delivery.id}
                     className="kiyo-btn-primary flex-1 text-xs"
                   >
                     <Check className="h-3 w-3" /> {t('driver.dash.accept')}
                   </button>
                   <button
                     onClick={() => declineDelivery(delivery.id)}
+                    disabled={pendingAction === delivery.id}
                     className="rounded-lg border border-ink-200 px-3 py-2 text-xs font-medium text-ink-600 hover:bg-ink-50"
                   >
                     <X className="h-3 w-3" /> {t('driver.dash.decline')}
@@ -487,6 +550,7 @@ export default function DriverDashboardPage() {
           </div>
         )}
 
+        {/* Empty state */}
         {!activeDelivery && pendingDeliveries.filter(d => d.status === 'assigned').length === 0 && (
           <div className="kiyo-card p-8 text-center">
             <Package className="mx-auto h-10 w-10 text-ink-200" />
