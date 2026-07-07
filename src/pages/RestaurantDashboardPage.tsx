@@ -22,6 +22,8 @@ export default function RestaurantDashboardPage() {
   const [itemsMap, setItemsMap] = useState<Record<string, OrderItemRow[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [financialsError, setFinancialsError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [newOrderAlert, setNewOrderAlert] = useState<OrderRow | null>(null);
   const [financials, setFinancials] = useState<{
@@ -97,10 +99,11 @@ export default function RestaurantDashboardPage() {
     if (!restaurant) return;
     void (async () => {
       try {
+        setFinancialsError(null);
         const { data, error: e } = await supabase.rpc('get_restaurant_financials', {
           p_restaurant_id: restaurant.id,
         });
-        if (e) return;
+        if (e) throw e;
         const f = data as {
           revenue: { today: number; this_month: number; all_time: number };
           commission_owed: string; payout_pending: string; orders_count: number;
@@ -113,9 +116,12 @@ export default function RestaurantDashboardPage() {
           payout_pending: Number(f.payout_pending),
           orders_count: f.orders_count,
         });
-      } catch { /* non-fatal */ }
+      } catch (err) {
+        console.error('[Kiyo] Restaurant financials load failed:', err);
+        setFinancialsError(err instanceof Error ? err.message : t('error.genericBody'));
+      }
     })();
-  }, [restaurant]);
+  }, [restaurant, t]);
 
   // Play a notification sound when a new order arrives
   const playSound = useCallback(() => {
@@ -151,7 +157,7 @@ export default function RestaurantDashboardPage() {
           next[idx] = { ...prev[idx], ...payload.new } as OrderRow;
           return next;
         }
-        // New order → fetch its items then prepend.
+        // New order â†’ fetch its items then prepend.
         void supabase
           .from('order_items')
           .select('*')
@@ -166,7 +172,7 @@ export default function RestaurantDashboardPage() {
     { enabled: !!restaurant && !loading, filter: restaurant ? { restaurant_id: `eq.${restaurant.id}` } : undefined },
   );
 
-  // Detect new pending orders → show alert popup + play sound
+  // Detect new pending orders â†’ show alert popup + play sound
   const prevPendingCount = useRef(0);
   useEffect(() => {
     const pendingCount = orders.filter((o) => o.status === 'pending').length;
@@ -184,6 +190,7 @@ export default function RestaurantDashboardPage() {
     const current = orders.find((o) => o.id === orderId)?.status;
     if (!current || !canTransition(current, to)) return;
     setPendingAction(orderId);
+    setActionError(null);
     try {
       const { error: e } = await supabase
         .from('orders')
@@ -193,8 +200,9 @@ export default function RestaurantDashboardPage() {
       setOrders((prev) =>
         prev.map((o) => (o.id === orderId ? { ...o, status: to } : o)),
       );
-    } catch {
-      // Silently rollback; UI keeps current state. User can retry.
+    } catch (err) {
+      console.error('[Kiyo] Order status update failed:', err);
+      setActionError(err instanceof Error ? err.message : t('error.genericBody'));
     } finally {
       setPendingAction(null);
     }
@@ -237,7 +245,7 @@ export default function RestaurantDashboardPage() {
               restaurant.operational_status === 'busy' ? 'bg-warning-500' : 'bg-ink-300'
             }`} />
             {t(`restaurant.${restaurant.operational_status}`)}
-            {(restaurant.status !== 'published' && ' · awaiting approval')}
+            {(restaurant.status !== 'published' && ' Â· awaiting approval')}
           </p>
           <h1 className="mt-1 font-display text-2xl font-extrabold tracking-tight text-ink-900">
             {restaurant.name}
@@ -263,6 +271,16 @@ export default function RestaurantDashboardPage() {
       </div>
 
       {/* Financial overview */}
+      {actionError && (
+        <div className="mb-3 rounded-lg border border-error-100 bg-error-50 px-4 py-3 text-sm text-error-700">
+          {actionError}
+        </div>
+      )}
+      {financialsError && (
+        <div className="mb-3 rounded-lg border border-ember-200 bg-ember-50 px-4 py-3 text-sm text-ember-700">
+          Financial data could not be refreshed: {financialsError}
+        </div>
+      )}
       {financials && (
         <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="kiyo-card p-4">
@@ -354,7 +372,7 @@ export default function RestaurantDashboardPage() {
           <div className="min-w-0 flex-1">
             <p className="font-display text-sm font-bold text-ink-900">New order received!</p>
             <p className="text-xs text-ink-500">
-              #{newOrderAlert.id.slice(0, 8)} · {newOrderAlert.total} DZD
+              #{newOrderAlert.id.slice(0, 8)} Â· {newOrderAlert.total} DZD
             </p>
             <p className="mt-0.5 text-xs text-ink-400">
               {newOrderAlert.delivery_address}
@@ -437,10 +455,10 @@ function OrdersList({ orders, itemsMap, onAction, pendingAction }: {
                 {items.map((it) => (
                   <li key={it.id} className="flex justify-between py-1.5">
                     <span>
-                      <span className="font-semibold">{it.quantity}×</span> {it.name}
+                      <span className="font-semibold">{it.quantity}Ã—</span> {it.name}
                     </span>
                     {it.notes && (
-                      <span className="text-xs italic text-ink-400">“{it.notes}”</span>
+                      <span className="text-xs italic text-ink-400">â€œ{it.notes}â€</span>
                     )}
                   </li>
                 ))}
@@ -448,7 +466,7 @@ function OrdersList({ orders, itemsMap, onAction, pendingAction }: {
             )}
 
             {o.notes && (
-              <p className="mt-2 rounded bg-ink-50 px-2 py-1 text-xs text-ink-500">“{o.notes}”</p>
+              <p className="mt-2 rounded bg-ink-50 px-2 py-1 text-xs text-ink-500">â€œ{o.notes}â€</p>
             )}
 
             {next.length > 0 && (
@@ -491,14 +509,14 @@ function RealtimeIndicator({ status }: { status: string }) {
     return (
       <span className="flex items-center gap-1.5 rounded-lg bg-error-500/10 px-2.5 py-2 text-[11px] font-semibold text-error-600">
         <RefreshCw className="h-3 w-3" />
-        Reconnecting…
+        Reconnectingâ€¦
       </span>
     );
   }
   return (
     <span className="flex items-center gap-1.5 rounded-lg bg-ink-100 px-2.5 py-2 text-[11px] font-semibold text-ink-500">
       <Spinner className="h-3 w-3" />
-      Connecting…
+      Connectingâ€¦
     </span>
   );
 }

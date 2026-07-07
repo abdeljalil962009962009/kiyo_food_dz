@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Bike, Car, Navigation, Package, Star, Clock, Power, MapPin, Check, X
+  Bike, Car, Navigation, Package, Star, Clock, Power, MapPin, Check, X, AlertTriangle
 } from 'lucide-react';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -9,6 +9,7 @@ import { Skeleton } from '../components/feedback';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../lib/i18n-react';
+import { watchCurrentPosition, type LiveGeoPoint } from '../lib/geo';
 
 type Driver = {
   id: string;
@@ -20,8 +21,19 @@ type Driver = {
   is_active: boolean;
   current_latitude: number | null;
   current_longitude: number | null;
+  location_accuracy_m: number | null;
+  heading: number | null;
+  speed_mps: number | null;
+  last_location_at: string | null;
+  last_location_update: string | null;
   rating: number;
   delivery_count: number;
+};
+
+type LocationRpcResult = {
+  ok?: boolean;
+  suspicious?: boolean;
+  reason?: string;
 };
 
 type Delivery = {
@@ -55,11 +67,18 @@ export default function DriverDashboardPage() {
   const [driver, setDriver] = useState<Driver | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [pendingDeliveries, setPendingDeliveries] = useState<Delivery[]>([]);
   const [activeDelivery, setActiveDelivery] = useState<Delivery | null>(null);
+  const [gpsStatus, setGpsStatus] = useState<'idle' | 'watching' | 'error'>('idle');
+  const [gpsNotice, setGpsNotice] = useState<string | null>(null);
+  const [lastGpsPoint, setLastGpsPoint] = useState<LiveGeoPoint | null>(null);
   const [earnings, setEarnings] = useState<{ today: number; week: number; pending: number }>({
     today: 0, week: 0, pending: 0
   });
+  const lastLocationWriteRef = useRef(0);
+  const locationWriteInFlightRef = useRef(false);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -95,10 +114,11 @@ export default function DriverDashboardPage() {
         .in('status', ['assigned', 'driver_accepted', 'picking_up', 'picked_up', 'en_route', 'arrived'])
         .order('created_at', { ascending: true });
 
-      setPendingDeliveries((pending as Delivery[]) ?? []);
+      const deliveries = (pending as unknown as Delivery[]) ?? [];
+      setPendingDeliveries(deliveries);
 
       // Find active delivery
-      const active = (pending as Delivery[])?.find(d =>
+      const active = deliveries.find(d =>
         ['driver_accepted', 'picking_up', 'picked_up', 'en_route', 'arrived'].includes(d.status)
       );
       setActiveDelivery(active ?? null);
@@ -136,33 +156,124 @@ export default function DriverDashboardPage() {
 
   useEffect(() => { void load(); }, [load]);
 
+  useEffect(() => {
+    if (!driver?.id || !driver.is_online || !driver.is_verified) {
+      setGpsStatus('idle');
+      return;
+    }
+
+    setGpsStatus('watching');
+    setGpsNotice(null);
+    const stop = watchCurrentPosition(
+      async (point) => {
+        setLastGpsPoint(point);
+        const now = Date.now();
+        if (locationWriteInFlightRef.current || now - lastLocationWriteRef.current < 4000) {
+          return;
+        }
+
+        locationWriteInFlightRef.current = true;
+        lastLocationWriteRef.current = now;
+        try {
+          const { data, error: rpcError } = await supabase.rpc('update_driver_live_location', {
+            p_driver_id: driver.id,
+            p_lat: point.lat,
+            p_lng: point.lng,
+            p_accuracy_m: point.accuracy,
+            p_heading: point.heading,
+            p_speed_mps: point.speed,
+            p_recorded_at: new Date(point.timestamp).toISOString(),
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          } as any);
+
+          if (rpcError) throw rpcError;
+          const result = data as LocationRpcResult | null;
+          if (result?.suspicious) {
+            setGpsNotice(result.reason === 'low_accuracy'
+              ? 'GPS accuracy is weak. Move near a window or open area.'
+              : 'Location jump detected. Keep GPS enabled for reliable dispatch.');
+          } else {
+            setGpsNotice(null);
+          }
+
+          setDriver((prev) => prev ? {
+            ...prev,
+            current_latitude: point.lat,
+            current_longitude: point.lng,
+            location_accuracy_m: point.accuracy,
+            heading: point.heading,
+            speed_mps: point.speed,
+            last_location_at: new Date(point.timestamp).toISOString(),
+            last_location_update: new Date(point.timestamp).toISOString(),
+          } : prev);
+        } catch {
+          setGpsStatus('error');
+          setGpsNotice('Live GPS could not sync. Keep this page open and check location permission.');
+        } finally {
+          locationWriteInFlightRef.current = false;
+        }
+      },
+      () => {
+        setGpsStatus('error');
+        setGpsNotice('Location permission is required while online.');
+      },
+    );
+
+    return stop;
+  }, [driver?.id, driver?.is_online, driver?.is_verified]);
+
   const toggleOnline = async () => {
     if (!driver) return;
     const newStatus = !driver.is_online;
+    setActionError(null);
+    setPendingAction('online');
     setDriver(prev => prev ? { ...prev, is_online: newStatus } : null);
-    await supabase
+    const { error: e } = await supabase
       .from('drivers')
       .update({ is_online: newStatus, updated_at: new Date().toISOString() })
       .eq('id', driver.id);
+    if (e) {
+      setDriver(prev => prev ? { ...prev, is_online: !newStatus } : null);
+      setActionError(e.message);
+    }
+    setPendingAction(null);
   };
 
   const acceptDelivery = async (deliveryId: string) => {
+    setActionError(null);
+    setPendingAction(deliveryId);
     const { error: e } = await supabase
       .from('deliveries')
       .update({ status: 'driver_accepted', updated_at: new Date().toISOString() })
       .eq('id', deliveryId);
-    if (!e) void load();
+    if (e) {
+      setActionError(e.message);
+      setPendingAction(null);
+      return;
+    }
+    await load();
+    setPendingAction(null);
   };
 
   const declineDelivery = async (deliveryId: string) => {
+    setActionError(null);
+    setPendingAction(deliveryId);
     const { error: e } = await supabase
       .from('deliveries')
       .update({ status: 'driver_declined', updated_at: new Date().toISOString() })
       .eq('id', deliveryId);
-    if (!e) void load();
+    if (e) {
+      setActionError(e.message);
+      setPendingAction(null);
+      return;
+    }
+    await load();
+    setPendingAction(null);
   };
 
   const updateDeliveryStatus = async (deliveryId: string, newStatus: string) => {
+    setActionError(null);
+    setPendingAction(deliveryId);
     const update: Record<string, unknown> = { status: newStatus, updated_at: new Date().toISOString() };
     if (newStatus === 'picked_up') update.picked_up_at = new Date().toISOString();
     if (newStatus === 'delivered') {
@@ -170,17 +281,28 @@ export default function DriverDashboardPage() {
       // Also update order status
       const delivery = activeDelivery || pendingDeliveries.find(d => d.id === deliveryId);
       if (delivery) {
-        await supabase
+        const { error: orderError } = await supabase
           .from('orders')
           .update({ status: 'delivered' })
           .eq('id', delivery.order_id);
+        if (orderError) {
+          setActionError(orderError.message);
+          setPendingAction(null);
+          return;
+        }
       }
     }
     const { error: e } = await supabase
       .from('deliveries')
       .update(update)
       .eq('id', deliveryId);
-    if (!e) void load();
+    if (e) {
+      setActionError(e.message);
+      setPendingAction(null);
+      return;
+    }
+    await load();
+    setPendingAction(null);
   };
 
   if (loading) {
@@ -231,9 +353,18 @@ export default function DriverDashboardPage() {
           <p className="text-xs text-ink-400">
             {driver?.is_online ? t('driver.dash.onlineAccepting') : t('driver.dash.offline')}
           </p>
+          {driver?.is_online && (
+            <p className={`mt-1 text-xs font-medium ${
+              gpsStatus === 'watching' ? 'text-sage-600' : gpsStatus === 'error' ? 'text-error-600' : 'text-ink-400'
+            }`}>
+              GPS: {gpsStatus === 'watching' ? 'live' : gpsStatus}
+              {lastGpsPoint?.accuracy ? ` - ${Math.round(lastGpsPoint.accuracy)} m accuracy` : ''}
+            </p>
+          )}
         </div>
         <button
           onClick={toggleOnline}
+          disabled={pendingAction === 'online'}
           className={`rounded-lg px-4 py-2.5 text-sm font-semibold transition-all ${
             driver?.is_online
               ? 'bg-sage-500 text-white hover:bg-sage-600'
@@ -281,7 +412,26 @@ export default function DriverDashboardPage() {
           <VehicleIcon className="h-4 w-4" />
           {driver ? t(`driver.vehicle.${driver.vehicle_type}` as 'driver.vehicle.car') : ''}
         </span>
+        {driver?.current_latitude != null && driver.current_longitude != null && (
+          <span className="hidden items-center gap-1 sm:flex">
+            <MapPin className="h-4 w-4" />
+            {driver.current_latitude.toFixed(4)}, {driver.current_longitude.toFixed(4)}
+          </span>
+        )}
       </div>
+
+      {gpsNotice && (
+        <div className="mb-5 flex items-start gap-2 rounded-xl border border-warning-200 bg-warning-500/10 px-3 py-2 text-xs font-medium text-warning-700">
+          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+          <span>{gpsNotice}</span>
+        </div>
+      )}
+      {actionError && (
+        <div className="mb-5 flex items-start gap-2 rounded-xl border border-error-100 bg-error-50 px-3 py-2 text-xs font-medium text-error-700">
+          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+          <span>{actionError}</span>
+        </div>
+      )}
 
       <ErrorBoundary variant="inline">
         {/* Active delivery */}
@@ -310,6 +460,7 @@ export default function DriverDashboardPage() {
               {activeDelivery.status === 'driver_accepted' && (
                 <button
                   onClick={() => updateDeliveryStatus(activeDelivery.id, 'picking_up')}
+                  disabled={pendingAction === activeDelivery.id}
                   className="kiyo-btn-primary text-xs"
                 >
                   <Navigation className="h-3 w-3" />
@@ -319,6 +470,7 @@ export default function DriverDashboardPage() {
               {activeDelivery.status === 'picking_up' && (
                 <button
                   onClick={() => updateDeliveryStatus(activeDelivery.id, 'picked_up')}
+                  disabled={pendingAction === activeDelivery.id}
                   className="kiyo-btn-primary text-xs"
                 >
                   <Check className="h-3 w-3" />
@@ -328,6 +480,7 @@ export default function DriverDashboardPage() {
               {activeDelivery.status === 'picked_up' && (
                 <button
                   onClick={() => updateDeliveryStatus(activeDelivery.id, 'en_route')}
+                  disabled={pendingAction === activeDelivery.id}
                   className="kiyo-btn-primary text-xs"
                 >
                   <Navigation className="h-3 w-3" />
@@ -337,6 +490,7 @@ export default function DriverDashboardPage() {
               {activeDelivery.status === 'en_route' && (
                 <button
                   onClick={() => updateDeliveryStatus(activeDelivery.id, 'arrived')}
+                  disabled={pendingAction === activeDelivery.id}
                   className="kiyo-btn-primary text-xs"
                 >
                   <MapPin className="h-3 w-3" />
@@ -346,6 +500,7 @@ export default function DriverDashboardPage() {
               {activeDelivery.status === 'arrived' && (
                 <button
                   onClick={() => updateDeliveryStatus(activeDelivery.id, 'delivered')}
+                  disabled={pendingAction === activeDelivery.id}
                   className="kiyo-btn-primary text-xs"
                 >
                   <Check className="h-3 w-3" />
@@ -377,12 +532,14 @@ export default function DriverDashboardPage() {
                 <div className="mt-3 flex gap-2">
                   <button
                     onClick={() => acceptDelivery(delivery.id)}
+                    disabled={pendingAction === delivery.id}
                     className="kiyo-btn-primary flex-1 text-xs"
                   >
                     <Check className="h-3 w-3" /> {t('driver.dash.accept')}
                   </button>
                   <button
                     onClick={() => declineDelivery(delivery.id)}
+                    disabled={pendingAction === delivery.id}
                     className="rounded-lg border border-ink-200 px-3 py-2 text-xs font-medium text-ink-600 hover:bg-ink-50"
                   >
                     <X className="h-3 w-3" /> {t('driver.dash.decline')}

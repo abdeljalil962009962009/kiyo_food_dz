@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Utensils, AlertCircle } from 'lucide-react';
+import { ChevronLeft, Utensils, AlertCircle, MapPin, ShieldCheck } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
 import { supabase, type Profile } from '../lib/supabase';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Field } from '../components/Field';
 import { Spinner, ErrorState } from '../components/feedback';
+import DeliveryMap from '../components/DeliveryMap';
 
 const PLACEHOLDER_IMG =
   'https://images.unsplash.com/photo-1552566626-52f8b828add9?w=800&q=60&auto=format&fit=crop';
@@ -14,15 +15,10 @@ const PLACEHOLDER_IMG =
 /**
  * Admin-only restaurant creation page.
  *
- * Lifecycle rule (your spec): "The platform owner is the ONLY person who can
- * create a new restaurant." The restaurants_insert_admin_only RLS policy
- * enforces this server-side. The created row starts at status='pending_approval'
- * so the admin can review before publishing.
- *
- * The new restaurant is attached to an existing restaurant_owner user. For a
- * true invitation-email flow (temporary password, email+link), Phase 4 will
- * add an Edge Function — but the structural RLS guard is already in place:
- * a non-super-admin attempting the insert here gets rejected at the DB.
+ * Lifecycle rule: the platform owner is the only person who can create a new
+ * restaurant. The restaurants_insert_admin_only RLS policy enforces this
+ * server-side. The created row starts at status='pending_approval' so the
+ * admin can review before publishing.
  */
 export default function RestaurantOnboardingPage() {
   const { t } = useT();
@@ -38,6 +34,7 @@ export default function RestaurantOnboardingPage() {
   const [address, setAddress] = useState('');
   const [cuisine, setCuisine] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [location, setLocation] = useState<{ lat: number; lng: number; address: string } | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +52,7 @@ export default function RestaurantOnboardingPage() {
         if (e) throw e;
         setOwners((data as Profile[]) ?? []);
       } catch {
-        // ignore — admin-only RLS will surface as empty
+        // Admin-only RLS can surface as an empty list.
       } finally {
         setOwnersLoading(false);
       }
@@ -78,22 +75,26 @@ export default function RestaurantOnboardingPage() {
           description: desc.trim() || null,
           phone: phone.trim() || null,
           address: address.trim() || null,
+          latitude: location?.lat ?? null,
+          longitude: location?.lng ?? null,
+          location_accuracy_m: null,
+          location_verified: Boolean(location),
+          location_updated_at: location ? new Date().toISOString() : null,
           cuisine: cuisine.split(',').map((s) => s.trim()).filter(Boolean),
           image_url: imageUrl.trim() || PLACEHOLDER_IMG,
-          status: 'pending_approval', // admin review before publish
+          status: 'pending_approval',
           operational_status: 'closed',
         })
         .select('id')
         .maybeSingle();
       if (e) throw e;
-      // Audit-log via the log_activity() RPC (already audit-logged by RLS
-      // context, but explicit record is clearer).
+
       if (data) {
         void supabase.rpc('log_activity', {
           p_action: 'restaurant_created',
           p_target_type: 'restaurant',
           p_target_id: data.id,
-          p_metadata: { name, owner_id: ownerId },
+          p_metadata: { name, owner_id: ownerId, latitude: location?.lat, longitude: location?.lng },
         }).then(() => { /* non-fatal */ }, () => { /* non-fatal */ });
       }
       navigate('/admin/restaurants', { replace: true });
@@ -152,7 +153,7 @@ export default function RestaurantOnboardingPage() {
                   value={ownerId} onChange={(e) => setOwnerId(e.target.value)}
                   required
                 >
-                  <option value="">—</option>
+                  <option value="">-</option>
                   {owners.map((o) => (
                     <option key={o.id} value={o.id}>
                       {o.full_name ?? o.email} ({o.email})
@@ -178,6 +179,34 @@ export default function RestaurantOnboardingPage() {
               name="r-addr" label={t('restaurant.address')} value={address}
               onChange={(e) => setAddress(e.target.value)}
             />
+            <div className="rounded-xl border border-ink-100 bg-ink-50/50 p-3">
+              <div className="mb-3 flex items-start gap-2">
+                <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0 text-ember-600" />
+                <div>
+                  <p className="text-sm font-bold text-ink-900">Restaurant location</p>
+                  <p className="text-xs text-ink-500">
+                    Use GPS or place the pin exactly on the restaurant entrance before publishing.
+                  </p>
+                </div>
+              </div>
+              <DeliveryMap
+                initialAddress={address}
+                onLocationChange={(loc) => {
+                  setLocation(loc);
+                  if (!address.trim() || address === location?.address) {
+                    setAddress(loc.address);
+                  }
+                }}
+              />
+              {location && (
+                <div className="mt-3 flex items-start gap-2 rounded-lg bg-sage-50 px-3 py-2 text-xs font-medium text-sage-700">
+                  <ShieldCheck className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                  <span>
+                    Coordinates saved: {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
+                  </span>
+                </div>
+              )}
+            </div>
             <Field
               name="r-cuisine" label={t('restaurant.cuisine')} value={cuisine}
               onChange={(e) => setCuisine(e.target.value)}
@@ -216,5 +245,4 @@ export default function RestaurantOnboardingPage() {
   );
 }
 
-// keep ErrorState import referenced (used in fallback paths)
 void ErrorState;

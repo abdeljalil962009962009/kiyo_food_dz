@@ -1,6 +1,8 @@
-// Kiyo Food Service Worker for PWA offline support
-const CACHE_NAME = 'kiyo-food-v1';
-const STATIC_ASSETS = [
+const APP_CACHE = 'kiyo-app-v2';
+const STATIC_CACHE = 'kiyo-static-v2';
+const MAP_CACHE = 'kiyo-map-tiles-v2';
+
+const APP_SHELL = [
   '/',
   '/index.html',
   '/favicon.svg',
@@ -13,99 +15,108 @@ const STATIC_ASSETS = [
   '/site.webmanifest',
 ];
 
-// Install - cache core assets
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS);
+const isSupabaseRequest = (url) => url.hostname.includes('supabase.co');
+const isMapTileRequest = (url) =>
+  url.hostname.includes('tile.openstreetmap') || url.hostname.includes('basemaps');
+
+async function cachePut(cacheName, request, response) {
+  if (!response || !response.ok || response.type === 'opaque') return;
+  const cache = await caches.open(cacheName);
+  await cache.put(request, response.clone());
+}
+
+async function networkFirst(request, cacheName, fallbackUrl) {
+  try {
+    const response = await fetch(request);
+    await cachePut(cacheName, request, response);
+    return response;
+  } catch {
+    const cached = await caches.match(request);
+    if (cached) return cached;
+    if (fallbackUrl) {
+      const fallback = await caches.match(fallbackUrl);
+      if (fallback) return fallback;
+    }
+    throw new Error('offline');
+  }
+}
+
+async function staleWhileRevalidate(request, cacheName) {
+  const cache = await caches.open(cacheName);
+  const cached = await cache.match(request);
+  const refresh = fetch(request)
+    .then((response) => {
+      if (response.ok && response.type !== 'opaque') {
+        cache.put(request, response.clone());
+      }
+      return response;
     })
-  );
+    .catch(() => cached);
+  return cached || refresh;
+}
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(caches.open(APP_CACHE).then((cache) => cache.addAll(APP_SHELL)));
   self.skipWaiting();
 });
 
-// Activate - clean up old caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
-      );
-    })
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => ![APP_CACHE, STATIC_CACHE, MAP_CACHE].includes(key))
+            .map((key) => caches.delete(key)),
+        ),
+      ),
   );
   self.clients.claim();
 });
 
-// Fetch - network first, fall back to cache for API calls
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-  const url = new URL(request.url);
-
-  // Skip non-GET requests
   if (request.method !== 'GET') return;
 
-  // Skip Supabase API calls - no offline caching for dynamic data
-  if (url.hostname.includes('supabase.co')) {
+  const url = new URL(request.url);
+  if (isSupabaseRequest(url)) return;
+
+  if (request.mode === 'navigate') {
+    event.respondWith(networkFirst(request, APP_CACHE, '/index.html'));
     return;
   }
 
-  // Skip map tiles
-  if (url.hostname.includes('tile.openstreetmap') || url.hostname.includes('basemaps')) {
-    event.respondWith(
-      caches.open('map-tiles').then((cache) => {
-        return cache.match(request).then((response) => {
-          const fetchPromise = fetch(request).then((networkResponse) => {
-            if (networkResponse.ok) {
-              cache.put(request, networkResponse.clone());
-            }
-            return networkResponse;
-          });
-          return response || fetchPromise;
-        });
-      })
-    );
+  if (isMapTileRequest(url)) {
+    event.respondWith(staleWhileRevalidate(request, MAP_CACHE));
     return;
   }
 
-  // For static assets and navigation - cache first, then network
-  if (request.mode === 'navigate' || url.origin === location.origin) {
-    event.respondWith(
-      caches.match(request).then((cachedResponse) => {
-        const fetchPromise = fetch(request)
-          .then((networkResponse) => {
-            if (networkResponse.ok) {
-              const cache = caches.open(CACHE_NAME);
-              cache.then((c) => c.put(request, networkResponse.clone()));
-            }
-            return networkResponse;
-          })
-          .catch(() => {
-            // Network failed, return cached version or offline page
-            return cachedResponse || caches.match('/');
-          });
-
-        return cachedResponse || fetchPromise;
-      })
-    );
+  if (url.origin === self.location.origin) {
+    event.respondWith(staleWhileRevalidate(request, STATIC_CACHE));
   }
 });
 
-// Handle push notifications (future)
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener('push', (event) => {
-  if (event.data) {
-    const data = event.data.json();
-    const options = {
-      body: data.body,
+  if (!event.data) return;
+  const data = event.data.json();
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'Kiyo Food', {
+      body: data.body || '',
       icon: '/icons/icon-192x192.png',
       badge: '/icons/favicon-32x32.png',
       data: data.data || {},
-    };
-    event.waitUntil(self.registration.showNotification(data.title || 'Kiyo Food', options));
-  }
+    }),
+  );
 });
 
-// Handle notification click
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = event.notification.data?.url || '/';
-  event.waitUntil(clients.openWindow(url));
+  event.waitUntil(self.clients.openWindow(event.notification.data?.url || '/'));
 });

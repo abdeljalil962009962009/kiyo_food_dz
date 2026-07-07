@@ -74,12 +74,18 @@ export default function RestaurantMenuPage() {
       setItems((prev) =>
         prev.map((i) => (i.id === item.id ? { ...i, is_available: item.is_available } : i)),
       );
+      setError(e.message);
     }
   };
 
   const deleteItem = async (item: MenuItem) => {
+    const previous = items;
     setItems((prev) => prev.filter((i) => i.id !== item.id));
-    await supabase.from('menu_items').delete().eq('id', item.id);
+    const { error: e } = await supabase.from('menu_items').delete().eq('id', item.id);
+    if (e) {
+      setItems(previous);
+      setError(e.message);
+    }
   };
 
   if (loading) {
@@ -157,7 +163,11 @@ export default function RestaurantMenuPage() {
                   <button
                     onClick={async () => {
                       if (!confirm(`Delete category "${cat.name}"? Items will be uncategorised.`)) return;
-                      await supabase.from('menu_categories').delete().eq('id', cat.id);
+                      const { error: e } = await supabase.from('menu_categories').delete().eq('id', cat.id);
+                      if (e) {
+                        setError(e.message);
+                        return;
+                      }
                       setCategories((prev) => prev.filter((c) => c.id !== cat.id));
                     }}
                     className="text-ink-400 hover:text-error-600"
@@ -345,7 +355,7 @@ function ItemFormModal({ restaurantId, categories, item, onClose, onSaved }: {
               id="i-cat" className="kiyo-input"
               value={categoryId} onChange={(e) => setCategoryId(e.target.value)}
             >
-              <option value="">—</option>
+              <option value="">â€”</option>
               {categories.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
             </select>
           </div>
@@ -366,15 +376,22 @@ function CategoryFormModal({ restaurantId, onClose, onSaved }: {
   const { t } = useT();
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (saving || name.trim().length < 2) return;
     setSaving(true);
+    setError(null);
     const { error: e2 } = await supabase
       .from('menu_categories')
       .insert({ restaurant_id: restaurantId, name: name.trim() });
-    if (!e2) onSaved();
+    if (e2) {
+      setError(e2.message);
+      setSaving(false);
+      return;
+    }
+    onSaved();
     setSaving(false);
   };
 
@@ -383,6 +400,7 @@ function CategoryFormModal({ restaurantId, onClose, onSaved }: {
       <form onSubmit={submit} className="space-y-3">
         <Field name="c-name" label={t('restaurant.categoryName')} value={name}
           onChange={(e) => setName(e.target.value)} required autoFocus />
+        {error && <p className="text-xs text-error-600">{error}</p>}
         <button type="submit" disabled={saving} className="kiyo-btn-primary w-full">
           {saving && <Spinner className="h-4 w-4" />}
           {t('common.save')}

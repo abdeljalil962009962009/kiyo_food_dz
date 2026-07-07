@@ -144,7 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (saved && ['en', 'fr', 'ar'].includes(saved)) {
       setLocaleState(saved);
     } else {
-      // No saved preference — use browser language if it matches one of ours,
+      // No saved preference - use browser language if it matches one of ours,
       // otherwise fall back to French (platform default per spec).
       const nav = (navigator.language || 'fr').slice(0, 2).toLowerCase();
       if (nav === 'ar') setLocaleState('ar');
@@ -159,7 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setLocale = useCallback((l: Locale) => {
     setLocaleState(l);
     localStorage.setItem('kiyo-locale', l);
-    // Fire-and-forget profile sync — non-blocking, ignores failures.
+    // Fire-and-forget profile sync - non-blocking, ignores failures.
     supabase
       .from('profiles')
       .update({ preferred_language: l })
@@ -244,39 +244,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (cancelled) return;
       const s = data.session;
       if (!s?.user) {
-        const isBypass = localStorage.getItem('kiyo-admin-bypass') === 'true';
-        if (isBypass) {
-          const mockUser = {
-            id: 'admin-fallback-id',
-            email: 'sameraldjaber@gmail.com',
-            app_metadata: {},
-            user_metadata: { role: 'super_admin', full_name: 'Samera Admin' },
-            aud: 'authenticated',
-            created_at: new Date().toISOString()
-          } as unknown as User;
-          const mockProfile: Profile = {
-            id: 'admin-fallback-id',
-            email: 'sameraldjaber@gmail.com',
-            full_name: 'Samera Admin',
-            phone: null,
-            role: 'super_admin',
-            preferred_language: locale,
-            selected_wilaya_id: null,
-            failed_login_attempts: 0,
-            locked_until: null,
-            is_suspended: false,
-            suspended_reason: null,
-            suspended_at: null,
-            last_login_at: new Date().toISOString(),
-            last_login_ip: null,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          };
-          setUser(mockUser);
-          setProfile(mockProfile);
-          setState('authenticated');
-          return;
-        }
+        localStorage.removeItem('kiyo-admin-bypass');
         setState('unauthenticated');
         return;
       }
@@ -343,81 +311,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (email, password) => {
       clearError();
       const lowerEmail = email.trim().toLowerCase();
-      const isAdminEmail = lowerEmail === 'sameraldjaber@gmail.com' || lowerEmail === 'sameraldja@gmail.com';
       try {
         const { error: e } = await supabase.auth.signInWithPassword({ email, password });
-        if (e) {
-          if (isAdminEmail) {
-            console.warn('Admin bypass sign-in activated');
-            const mockUser = {
-              id: 'admin-fallback-id',
-              email: 'sameraldjaber@gmail.com',
-              app_metadata: {},
-              user_metadata: { role: 'super_admin', full_name: 'Samera Admin' },
-              aud: 'authenticated',
-              created_at: new Date().toISOString()
-            } as unknown as User;
-            const mockProfile: Profile = {
-              id: 'admin-fallback-id',
-              email: 'sameraldjaber@gmail.com',
-              full_name: 'Samera Admin',
-              phone: null,
-              role: 'super_admin',
-              preferred_language: locale,
-              selected_wilaya_id: null,
-              failed_login_attempts: 0,
-              locked_until: null,
-              is_suspended: false,
-              suspended_reason: null,
-              suspended_at: null,
-              last_login_at: new Date().toISOString(),
-              last_login_ip: null,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            };
-            setUser(mockUser);
-            setProfile(mockProfile);
-            setState('authenticated');
-            localStorage.setItem('kiyo-admin-bypass', 'true');
-            return { ok: true };
-          }
-          throw e;
-        }
+        if (e) throw e;
         return { ok: true };
       } catch (err) {
-        if (isAdminEmail) {
-          console.warn('Admin error bypass activated:', err);
-          const mockUser = {
-            id: 'admin-fallback-id',
-            email: 'sameraldjaber@gmail.com',
-            app_metadata: {},
-            user_metadata: { role: 'super_admin', full_name: 'Samera Admin' },
-            aud: 'authenticated',
-            created_at: new Date().toISOString()
-          } as unknown as User;
-          const mockProfile: Profile = {
-            id: 'admin-fallback-id',
-            email: 'sameraldjaber@gmail.com',
-            full_name: 'Samera Admin',
-            phone: null,
-            role: 'super_admin',
-            preferred_language: locale,
-            selected_wilaya_id: null,
-            failed_login_attempts: 0,
-            locked_until: null,
-            is_suspended: false,
-            suspended_reason: null,
-            suspended_at: null,
-            last_login_at: new Date().toISOString(),
-            last_login_ip: null,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          };
-          setUser(mockUser);
-          setProfile(mockProfile);
-          setState('authenticated');
-          localStorage.setItem('kiyo-admin-bypass', 'true');
-          return { ok: true };
+        localStorage.removeItem('kiyo-admin-bypass');
+        if (lowerEmail.endsWith('@kiyo.food')) {
+          console.warn('[Kiyo] Staff sign-in failed. Verify Supabase Auth credentials and profile role.', err);
         }
         const code = mapSupabaseError(err);
         setError({ code, message: describeAuthError(code, locale) });
@@ -472,7 +373,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           `width=${width},height=${height},left=${left},top=${top}`
         );
         if (!popup) {
-          alert('Veuillez autoriser les fenêtres contextuelles (popups) pour vous connecter.');
+          alert('Veuillez autoriser les fenetres contextuelles (popups) pour vous connecter.');
         }
       }
     } catch (err) {
@@ -503,7 +404,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           `width=${width},height=${height},left=${left},top=${top}`
         );
         if (!popup) {
-          alert('Veuillez autoriser les fenêtres contextuelles (popups) pour vous connecter.');
+          alert('Veuillez autoriser les fenetres contextuelles (popups) pour vous connecter.');
         }
       }
     } catch (err) {

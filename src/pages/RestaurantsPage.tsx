@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Star, Clock, MapPin } from 'lucide-react';
+import { Search, Star, Clock, MapPin, Locate } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
 import { supabase, type Restaurant } from '../lib/supabase';
 import { useWilaya, getWilayaName } from '../context/WilayaContext';
@@ -9,15 +9,24 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { ErrorState } from '../components/feedback';
 import { RestaurantImage } from '../components/ui';
 import { WilayaSelector } from '../components/WilayaSelector';
+import { haversineKm, formatDistanceKm } from '../lib/geo';
+import { useSettings } from '../context/SettingsContext';
+
+type RestaurantWithDistance = Restaurant & {
+  distance_km?: number | null;
+};
 
 export default function RestaurantsPage() {
   const { t } = useT();
   const { selectedWilaya, loading: wilayaLoading, locale } = useWilaya();
-  const [items, setItems] = useState<Restaurant[]>([]);
+  const { features } = useSettings();
+  const [items, setItems] = useState<RestaurantWithDistance[]>([]);
   const [loading, setLoading] = useState(true);
+  const [locating, setLocating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'open' | 'top'>('all');
+  const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -34,7 +43,13 @@ export default function RestaurantsPage() {
 
       const { data, error: e } = await q.order('rating', { ascending: false }).limit(50);
       if (e) throw e;
-      setItems((data as Restaurant[]) ?? []);
+      const restaurants = ((data as RestaurantWithDistance[]) ?? []).map((restaurant) => ({
+        ...restaurant,
+        distance_km: currentLocation && restaurant.latitude != null && restaurant.longitude != null
+          ? haversineKm(currentLocation, { lat: restaurant.latitude, lng: restaurant.longitude })
+          : null,
+      }));
+      setItems(restaurants);
     } catch (err: unknown) {
       console.error(err);
       setError(t('error.genericBody'));
@@ -48,12 +63,28 @@ export default function RestaurantsPage() {
       void load();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedWilaya?.id, wilayaLoading]);
+  }, [selectedWilaya?.id, wilayaLoading, currentLocation?.lat, currentLocation?.lng]);
+
+  const locateRestaurants = () => {
+    if (!('geolocation' in navigator)) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCurrentLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setLocating(false);
+      },
+      () => setLocating(false),
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 },
+    );
+  };
 
   const filtered = useMemo(() => {
     let list = items;
     if (filter === 'open') list = list.filter((r) => r.operational_status === 'open');
     if (filter === 'top') list = list.filter((r) => r.rating >= 4).sort((a, b) => b.rating - a.rating);
+    if (currentLocation) {
+      list = [...list].sort((a, b) => (a.distance_km ?? Number.MAX_VALUE) - (b.distance_km ?? Number.MAX_VALUE));
+    }
     if (query.trim()) {
       const q = query.toLowerCase();
       list = list.filter(
@@ -63,7 +94,7 @@ export default function RestaurantsPage() {
       );
     }
     return list;
-  }, [items, filter, query]);
+  }, [items, filter, query, currentLocation]);
 
   return (
     <AppShell>
@@ -91,6 +122,20 @@ export default function RestaurantsPage() {
           />
         </div>
         <div className="flex gap-2">
+          {features.maps && (
+            <button
+              type="button"
+              onClick={locateRestaurants}
+              disabled={locating}
+              className={`inline-flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
+                currentLocation ? 'bg-ember-600 text-white' : 'bg-white text-ink-600 hover:bg-ink-100'
+              } disabled:cursor-not-allowed disabled:opacity-60`}
+              title="Show restaurants near me"
+            >
+              <Locate className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{locating ? '...' : 'Near me'}</span>
+            </button>
+          )}
           {[
             { id: 'all', label: t('nav.restaurants') },
             { id: 'open', label: t('market.openNow') },
@@ -153,6 +198,12 @@ export default function RestaurantsPage() {
                           {r.estimated_delivery_min}m
                         </span>
                       )}
+                      {r.distance_km != null && (
+                        <span className="flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur">
+                          <MapPin className="h-3 w-3" />
+                          {formatDistanceKm(r.distance_km)}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -167,7 +218,7 @@ export default function RestaurantsPage() {
                     )}
                   </div>
                   {r.cuisine && r.cuisine.length > 0 && (
-                    <p className="mt-1 text-xs text-ink-400">{r.cuisine.slice(0, 3).join(' · ')}</p>
+                    <p className="mt-1 text-xs text-ink-400">{r.cuisine.slice(0, 3).join(' / ')}</p>
                   )}
                   {r.description && (
                     <p className="mt-2 line-clamp-2 text-sm text-ink-500">{r.description}</p>

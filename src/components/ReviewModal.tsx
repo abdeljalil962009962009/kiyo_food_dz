@@ -118,7 +118,7 @@ export function ReviewModal({ orderId, restaurantId, restaurantName, onClose, on
             disabled={loading || rating === 0}
             className="kiyo-btn-primary flex-1"
           >
-            {loading ? <Spinner size="sm" /> : 'Submit Review'}
+            {loading ? <Spinner className="h-4 w-4" /> : 'Submit Review'}
           </button>
         </div>
       </div>
