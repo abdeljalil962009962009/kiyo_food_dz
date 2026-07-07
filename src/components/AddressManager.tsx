@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { MapPin, Home, Briefcase, Heart, Plus, Trash2, Check, X } from 'lucide-react';
+import { MapPin, Home, Briefcase, Heart, Plus, Trash2, Check, X, Archive, Copy, Star } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../lib/i18n-react';
@@ -14,6 +14,9 @@ type SavedAddress = {
   latitude: number;
   longitude: number;
   is_default: boolean;
+  is_favorite?: boolean;
+  is_archived?: boolean;
+  last_used_at?: string | null;
   created_at: string;
 };
 
@@ -54,7 +57,10 @@ export function AddressManager() {
         .from('saved_addresses')
         .select('*')
         .eq('customer_id', user!.id)
+        .or('is_archived.is.null,is_archived.eq.false')
         .order('is_default', { ascending: false })
+        .order('is_favorite', { ascending: false })
+        .order('last_used_at', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -79,6 +85,7 @@ export function AddressManager() {
           latitude: newLocation.lat,
           longitude: newLocation.lng,
           is_default: addresses.length === 0,
+          last_used_at: new Date().toISOString(),
         });
 
       if (error) throw error;
@@ -94,7 +101,6 @@ export function AddressManager() {
     if (!user) return;
 
     try {
-      // Clear default from all, then set the new one
       await supabase
         .from('saved_addresses')
         .update({ is_default: false })
@@ -102,7 +108,56 @@ export function AddressManager() {
 
       await supabase
         .from('saved_addresses')
-        .update({ is_default: true })
+        .update({ is_default: true, last_used_at: new Date().toISOString() })
+        .eq('id', id);
+
+      await loadAddresses();
+    } catch {
+      // Non-fatal
+    }
+  };
+
+  const toggleFavorite = async (addr: SavedAddress) => {
+    try {
+      await supabase
+        .from('saved_addresses')
+        .update({ is_favorite: !addr.is_favorite })
+        .eq('id', addr.id);
+
+      await loadAddresses();
+    } catch {
+      // Non-fatal
+    }
+  };
+
+  const duplicateAddress = async (addr: SavedAddress) => {
+    if (!user) return;
+    try {
+      const { error } = await supabase
+        .from('saved_addresses')
+        .insert({
+          customer_id: user.id,
+          label: addr.label,
+          address: addr.address,
+          latitude: addr.latitude,
+          longitude: addr.longitude,
+          is_default: false,
+          is_favorite: false,
+          last_used_at: null,
+        });
+
+      if (error) throw error;
+      await loadAddresses();
+    } catch {
+      // Non-fatal
+    }
+  };
+
+  const archiveAddress = async (id: string) => {
+    try {
+      await supabase
+        .from('saved_addresses')
+        .update({ is_archived: true, is_default: false })
         .eq('id', id);
 
       await loadAddresses();
@@ -175,10 +230,34 @@ export function AddressManager() {
                         {t('profile.addresses.default')}
                       </span>
                     )}
+                    {addr.is_favorite && (
+                      <span className="inline-flex items-center rounded bg-sage-100 px-1.5 py-0.5 text-[10px] font-semibold text-sage-700">
+                        <Star className="h-3 w-3 fill-sage-500 text-sage-500" />
+                      </span>
+                    )}
                   </div>
                   <p className="mt-0.5 text-sm text-ink-700">{addr.address}</p>
+                  {addr.last_used_at && (
+                    <p className="mt-1 text-[10px] font-medium text-ink-400">
+                      {new Date(addr.last_used_at).toLocaleDateString()}
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => toggleFavorite(addr)}
+                    className="rounded p-1.5 text-ink-400 hover:bg-sage-50 hover:text-sage-600"
+                    title="Favorite"
+                  >
+                    <Star className={`h-4 w-4 ${addr.is_favorite ? 'fill-sage-500 text-sage-500' : ''}`} />
+                  </button>
+                  <button
+                    onClick={() => duplicateAddress(addr)}
+                    className="rounded p-1.5 text-ink-400 hover:bg-ink-50 hover:text-ink-600"
+                    title="Duplicate"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </button>
                   {!addr.is_default && (
                     <button
                       onClick={() => setDefault(addr.id)}
@@ -188,6 +267,13 @@ export function AddressManager() {
                       <Check className="h-4 w-4" />
                     </button>
                   )}
+                  <button
+                    onClick={() => archiveAddress(addr.id)}
+                    className="rounded p-1.5 text-ink-400 hover:bg-ink-50 hover:text-ink-600"
+                    title="Archive"
+                  >
+                    <Archive className="h-4 w-4" />
+                  </button>
                   <button
                     onClick={() => deleteAddress(addr.id)}
                     className="rounded p-1.5 text-ink-400 hover:bg-error-50 hover:text-error-600"
