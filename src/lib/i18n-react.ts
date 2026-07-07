@@ -6,7 +6,7 @@ import { translate, type TranslationKey, type Locale } from './i18n';
 export function useT() {
   const { locale } = useAuth();
   const t = useCallback((key: TranslationKey) => translate(locale, key), [locale]);
-  return { t, locale } as const;
+  return { t, locale, currentLocale: locale } as const;
 }
 
 export type { Locale, TranslationKey };
