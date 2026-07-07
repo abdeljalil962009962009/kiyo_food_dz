@@ -30,10 +30,12 @@ const COMPONENT_LABELS: Record<string, string> = {
 export function PlatformHealthPanel() {
   const [health, setHealth] = useState<HealthComponent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const loadHealth = async () => {
     setLoading(true);
+    setError(null);
     try {
       const { data, error } = await supabase
         .from('platform_health')
@@ -43,14 +45,15 @@ export function PlatformHealthPanel() {
       if (error) throw error;
       setHealth((data as HealthComponent[]) ?? []);
       setLastUpdated(new Date());
-    } catch {
-      // If health table doesn't exist yet, show defaults
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Platform health could not be loaded.';
+      setError(message);
       setHealth([
-        { component: 'database', status: 'operational', last_check: new Date().toISOString(), latency_ms: null, error_message: null, details: {} },
-        { component: 'auth', status: 'operational', last_check: new Date().toISOString(), latency_ms: null, error_message: null, details: {} },
-        { component: 'storage', status: 'operational', last_check: new Date().toISOString(), latency_ms: null, error_message: null, details: {} },
-        { component: 'realtime', status: 'operational', last_check: new Date().toISOString(), latency_ms: null, error_message: null, details: {} },
-        { component: 'maps', status: 'operational', last_check: new Date().toISOString(), latency_ms: null, error_message: null, details: {} },
+        { component: 'database', status: 'degraded', last_check: new Date().toISOString(), latency_ms: null, error_message: message, details: {} },
+        { component: 'auth', status: 'degraded', last_check: new Date().toISOString(), latency_ms: null, error_message: 'Health status unavailable', details: {} },
+        { component: 'storage', status: 'degraded', last_check: new Date().toISOString(), latency_ms: null, error_message: 'Health status unavailable', details: {} },
+        { component: 'realtime', status: 'degraded', last_check: new Date().toISOString(), latency_ms: null, error_message: 'Health status unavailable', details: {} },
+        { component: 'maps', status: 'degraded', last_check: new Date().toISOString(), latency_ms: null, error_message: 'Health status unavailable', details: {} },
       ]);
     } finally {
       setLoading(false);
@@ -98,6 +101,11 @@ export function PlatformHealthPanel() {
             : 'Major Outage'}
         </span>
       </div>
+      {error && (
+        <div className="mb-4 rounded-lg border border-warning-200 bg-warning-500/10 px-3 py-2 text-xs font-medium text-warning-700">
+          Live health data is unavailable: {error}
+        </div>
+      )}
 
       {/* Component Status Grid */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
