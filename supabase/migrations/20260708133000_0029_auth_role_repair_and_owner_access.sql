@@ -41,10 +41,15 @@ BEGIN
       INSERT INTO public.audit_logs (actor_id, action, target_type, target_id, metadata)
       VALUES (
         v_owner_id,
-        'owner_access_repaired',
+        'role_changed',
         'profile',
         v_owner_id,
-        jsonb_build_object('email', v_owner_email, 'migration', '0029_auth_role_repair_and_owner_access')
+        jsonb_build_object(
+          'email', v_owner_email,
+          'role', 'super_admin',
+          'reason', 'owner_access_repaired',
+          'migration', '0029_auth_role_repair_and_owner_access'
+        )
       );
     END IF;
   END IF;
