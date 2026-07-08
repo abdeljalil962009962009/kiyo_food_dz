@@ -275,8 +275,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(u);
         clearError();
         void establishProfile(u);
-        if (event === 'PASSWORD_RECOVERY' && window.location.pathname !== '/auth/reset') {
-          window.location.assign('/auth/reset');
+        if (
+          event === 'PASSWORD_RECOVERY'
+          && !['/reset-password', '/auth/reset'].includes(window.location.pathname)
+        ) {
+          window.location.assign('/reset-password');
         }
       }
     });
@@ -425,7 +428,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearError();
       try {
         const { error: e } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
-          redirectTo: window.location.origin + '/auth/reset',
+          redirectTo: window.location.origin + '/reset-password',
         });
         if (e) throw e;
         return { ok: true };

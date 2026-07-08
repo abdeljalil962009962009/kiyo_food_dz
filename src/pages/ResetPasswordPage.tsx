@@ -9,6 +9,23 @@ import { Spinner } from '../components/feedback';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { AuthLayout } from './LoginPage';
 
+const RECOVERY_SESSION_ATTEMPTS = 8;
+const RECOVERY_SESSION_DELAY_MS = 300;
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function hasRecoveryParams() {
+  const search = new URLSearchParams(window.location.search);
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  return (
+    search.has('code')
+    || search.get('type') === 'recovery'
+    || hash.get('type') === 'recovery'
+    || hash.has('access_token')
+    || hash.has('refresh_token')
+  );
+}
+
 export default function ResetPasswordPage() {
   const { t } = useT();
   const navigate = useNavigate();
@@ -25,21 +42,28 @@ export default function ResetPasswordPage() {
 
     const verifyRecoverySession = async () => {
       try {
-        const current = await supabase.auth.getSession();
-        if (cancelled) return;
-        if (current.data.session) {
-          setRecoveryState('ready');
-          return;
-        }
-
         const code = new URLSearchParams(window.location.search).get('code');
         if (code) {
           const exchanged = await supabase.auth.exchangeCodeForSession(code);
           if (cancelled) return;
           if (!exchanged.error && exchanged.data.session) {
             setRecoveryState('ready');
+            window.history.replaceState({}, document.title, '/reset-password');
             return;
           }
+        }
+
+        for (let attempt = 0; attempt < RECOVERY_SESSION_ATTEMPTS; attempt += 1) {
+          const current = await supabase.auth.getSession();
+          if (cancelled) return;
+          if (current.data.session) {
+            setRecoveryState('ready');
+            if (hasRecoveryParams()) {
+              window.history.replaceState({}, document.title, '/reset-password');
+            }
+            return;
+          }
+          await wait(RECOVERY_SESSION_DELAY_MS);
         }
 
         setRecoveryState('invalid');
@@ -147,7 +171,7 @@ export default function ResetPasswordPage() {
           </h2>
           <p className="mt-1 text-sm text-ink-600">{t('auth.resetInvalidBody')}</p>
           <button
-            onClick={() => navigate('/auth/forgot', { replace: true })}
+            onClick={() => navigate('/forgot-password', { replace: true })}
             className="kiyo-btn-primary mt-5 w-full"
           >
             {t('auth.resetPasswordCta')}

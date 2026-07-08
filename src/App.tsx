@@ -69,6 +69,8 @@ const router = createBrowserRouter([
   { path: '/login', element: withSuspense(<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>) },
   { path: '/signup', element: withSuspense(<PublicOnlyRoute><SignupPage /></PublicOnlyRoute>) },
   { path: '/auth/callback', element: withSuspense(<AuthCallbackPage />) },
+  { path: '/forgot-password', element: withSuspense(<ForgotPasswordPage />) },
+  { path: '/reset-password', element: withSuspense(<ResetPasswordPage />) },
   { path: '/auth/forgot', element: withSuspense(<ForgotPasswordPage />) },
   { path: '/auth/reset', element: withSuspense(<ResetPasswordPage />) },
   { path: '/legal/terms', element: withSuspense(<TermsOfUsePage />) },
