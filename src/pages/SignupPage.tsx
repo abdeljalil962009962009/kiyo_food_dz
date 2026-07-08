@@ -105,11 +105,8 @@ export default function SignupPage() {
             <div className="flex gap-2">
               <Store className="mt-0.5 h-4 w-4 flex-shrink-0 text-ember-600" />
               <div>
-                <p className="font-semibold text-ink-900">Restaurant accounts are verified after signup.</p>
-                <p className="mt-1">
-                  Create a customer account first. Restaurant owner access is granted through onboarding and admin approval,
-                  so the platform cannot be abused by choosing a staff role during public signup.
-                </p>
+                <p className="font-semibold text-ink-900">{t('auth.restaurantAccessTitle')}</p>
+                <p className="mt-1">{t('auth.restaurantAccessBody')}</p>
               </div>
             </div>
           </div>

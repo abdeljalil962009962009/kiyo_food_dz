@@ -59,6 +59,8 @@ export type TranslationKey =
   | 'auth.error.passwordMismatch'
   | 'auth.error.acceptTerms'
   | 'auth.error.invalidEmail'
+  | 'auth.restaurantAccessTitle'
+  | 'auth.restaurantAccessBody'
   // nav
   | 'nav.home'
   | 'nav.dashboard'
@@ -135,6 +137,11 @@ export type TranslationKey =
   | 'restaurant.onboard.prompt'
   | 'restaurant.onboard.existingOwnerHelp'
   | 'restaurant.onboard.noOwners'
+  | 'restaurant.onboard.invalidName'
+  | 'restaurant.onboard.ownerRequired'
+  | 'restaurant.onboard.locationTitle'
+  | 'restaurant.onboard.locationHelp'
+  | 'restaurant.onboard.coordinatesSaved'
   | 'restaurant.onboard.pendingNotice'
   | 'restaurant.phone'
   | 'restaurant.address'
@@ -408,7 +415,6 @@ export type TranslationKey =
   | 'driver.vehicle.car'
   | 'driver.vehicle.car.desc'
   | 'common.continue'
-  | 'common.back'
   | 'common.to'
   | 'common.closed'
   | 'day.0'
@@ -502,6 +508,8 @@ const en: Dict = {
   'auth.error.passwordMismatch': 'Passwords do not match.',
   'auth.error.acceptTerms': 'Please accept the Terms and Privacy Policy.',
   'auth.error.invalidEmail': 'Please enter a valid email address.',
+  'auth.restaurantAccessTitle': 'Restaurant accounts are verified after signup.',
+  'auth.restaurantAccessBody': 'Create a customer account first. Restaurant owner access is granted through onboarding and admin approval, so public signup cannot be abused to choose a staff role.',
   'nav.home': 'Home',
   'nav.dashboard': 'Dashboard',
   'nav.favorites': 'Favorites',
@@ -572,6 +580,11 @@ const en: Dict = {
   'restaurant.onboard.prompt': 'List your restaurant on Kiyo Food in minutes.',
   'restaurant.onboard.existingOwnerHelp': '(existing restaurant owner)',
   'restaurant.onboard.noOwners': 'No restaurant-owner accounts exist yet. Have the owner sign up first (they will choose "Sell on Kiyo" on the signup form), then return here to create their restaurant.',
+  'restaurant.onboard.invalidName': 'Restaurant name must contain at least 2 characters.',
+  'restaurant.onboard.ownerRequired': 'Select a verified restaurant owner before creating a restaurant.',
+  'restaurant.onboard.locationTitle': 'Restaurant location',
+  'restaurant.onboard.locationHelp': 'Use GPS or place the pin exactly on the restaurant entrance before publishing.',
+  'restaurant.onboard.coordinatesSaved': 'Coordinates saved',
   'restaurant.onboard.pendingNotice': 'Created as pending_approval. Review and publish from the admin restaurants page.',
   'restaurant.phone': 'Phone',
   'restaurant.address': 'Address',
@@ -841,7 +854,6 @@ const en: Dict = {
   'driver.vehicle.car': 'Car',
   'driver.vehicle.car.desc': 'Ideal for longer distances',
   'common.continue': 'Continue',
-  'common.back': 'Back',
   'common.to': 'to',
   'common.closed': 'Closed',
   'day.0': 'Sunday',
@@ -934,6 +946,8 @@ const fr: Dict = {
   'auth.error.passwordMismatch': 'Les mots de passe ne correspondent pas.',
   'auth.error.acceptTerms': "Veuillez accepter les conditions et la politique de confidentialité.",
   'auth.error.invalidEmail': 'Veuillez saisir une adresse e-mail valide.',
+  'auth.restaurantAccessTitle': 'Les comptes restaurant sont vérifiés après l’inscription.',
+  'auth.restaurantAccessBody': 'Créez d’abord un compte client. L’accès propriétaire de restaurant est accordé via l’onboarding et l’approbation admin, afin que l’inscription publique ne permette pas de choisir un rôle interne.',
   'nav.home': 'Accueil',
   'nav.dashboard': 'Tableau de bord',
   'nav.favorites': 'Favoris',
@@ -1004,6 +1018,11 @@ const fr: Dict = {
   'restaurant.onboard.prompt': 'Inscrivez votre restaurant sur Kiyo Food.',
   'restaurant.onboard.existingOwnerHelp': '(propriétaire de restaurant existant)',
   'restaurant.onboard.noOwners': 'Aucun compte de propriétaire de restaurant n\'existe encore. Demandez d\'abord au propriétaire de s\'inscrire (il choisira "Vendre sur Kiyo" sur le formulaire d\'inscription), puis revenez ici pour créer son restaurant.',
+  'restaurant.onboard.invalidName': 'Le nom du restaurant doit contenir au moins 2 caractères.',
+  'restaurant.onboard.ownerRequired': 'Sélectionnez un propriétaire de restaurant vérifié avant de créer un restaurant.',
+  'restaurant.onboard.locationTitle': 'Emplacement du restaurant',
+  'restaurant.onboard.locationHelp': 'Utilisez le GPS ou placez l’épingle exactement sur l’entrée du restaurant avant publication.',
+  'restaurant.onboard.coordinatesSaved': 'Coordonnées enregistrées',
   'restaurant.onboard.pendingNotice': 'Créé en tant que "en attente d\'approbation". Examinez et publiez depuis la page de gestion des restaurants.',
   'restaurant.phone': 'Téléphone',
   'restaurant.address': 'Adresse',
@@ -1273,7 +1292,6 @@ const fr: Dict = {
   'driver.vehicle.car': 'Voiture',
   'driver.vehicle.car.desc': 'Idéal pour les plus longues distances',
   'common.continue': 'Continuer',
-  'common.back': 'Retour',
   'common.to': 'à',
   'common.closed': 'Fermé',
   'day.0': 'Dimanche',
@@ -1366,6 +1384,8 @@ const ar: Dict = {
   'auth.error.passwordMismatch': 'كلمتا المرور غير متطابقتين.',
   'auth.error.acceptTerms': 'يرجى قبول الشروط وسياسة الخصوصية.',
   'auth.error.invalidEmail': 'يرجى إدخال بريد إلكتروني صالح.',
+  'auth.restaurantAccessTitle': 'يتم التحقق من حسابات المطاعم بعد التسجيل.',
+  'auth.restaurantAccessBody': 'أنشئ حساب عميل أولاً. يتم منح صلاحية مالك المطعم عبر الإعداد وموافقة الإدارة، حتى لا يمكن إساءة استخدام التسجيل العام لاختيار دور داخلي.',
   'nav.home': 'الرئيسية',
   'nav.dashboard': 'لوحة التحكم',
   'nav.favorites': 'المفضلة',
@@ -1436,6 +1456,11 @@ const ar: Dict = {
   'restaurant.onboard.prompt': 'سجّل مطعمك على كيو بدقائق.',
   'restaurant.onboard.existingOwnerHelp': '(مالك مطعم حالي)',
   'restaurant.onboard.noOwners': 'لا توجد حسابات لمالكي المطاعم بعد. اطلب من المالك التسجيل أولاً (سيختار "البيع على كيو" في نموذج التسجيل)، ثم عد إلى هنا لإنشاء مطعمه.',
+  'restaurant.onboard.invalidName': 'يجب أن يحتوي اسم المطعم على حرفين على الأقل.',
+  'restaurant.onboard.ownerRequired': 'اختر مالك مطعم موثّق قبل إنشاء المطعم.',
+  'restaurant.onboard.locationTitle': 'موقع المطعم',
+  'restaurant.onboard.locationHelp': 'استخدم GPS أو ضع الدبوس بدقة على مدخل المطعم قبل النشر.',
+  'restaurant.onboard.coordinatesSaved': 'تم حفظ الإحداثيات',
   'restaurant.onboard.pendingNotice': 'يتم إنشاؤه كـ "قيد المراجعة". قم بمراجعته ونشره من صفحة إدارة المطاعم.',
   'restaurant.phone': 'الهاتف',
   'restaurant.address': 'العنوان',
@@ -1705,7 +1730,6 @@ const ar: Dict = {
   'driver.vehicle.car': 'سيارة',
   'driver.vehicle.car.desc': 'مثالية للمسافات الأطول',
   'common.continue': 'متابعة',
-  'common.back': 'عودة',
   'common.to': 'إلى',
   'common.closed': 'مغلق',
   'day.0': 'الأحد',

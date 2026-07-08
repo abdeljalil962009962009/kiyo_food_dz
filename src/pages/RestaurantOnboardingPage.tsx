@@ -67,8 +67,8 @@ export default function RestaurantOnboardingPage() {
     e.preventDefault();
     if (submitting) return;
     setError(null);
-    if (name.trim().length < 2) return setError('Restaurant name must contain at least 2 characters.');
-    if (!ownerId) return setError('Select a verified restaurant owner before creating a restaurant.');
+    if (name.trim().length < 2) return setError(t('restaurant.onboard.invalidName'));
+    if (!ownerId) return setError(t('restaurant.onboard.ownerRequired'));
     setSubmitting(true);
     try {
       const { data, error: e } = await supabase
@@ -195,9 +195,9 @@ export default function RestaurantOnboardingPage() {
               <div className="mb-3 flex items-start gap-2">
                 <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0 text-ember-600" />
                 <div>
-                  <p className="text-sm font-bold text-ink-900">Restaurant location</p>
+                  <p className="text-sm font-bold text-ink-900">{t('restaurant.onboard.locationTitle')}</p>
                   <p className="text-xs text-ink-500">
-                    Use GPS or place the pin exactly on the restaurant entrance before publishing.
+                    {t('restaurant.onboard.locationHelp')}
                   </p>
                 </div>
               </div>
@@ -214,7 +214,7 @@ export default function RestaurantOnboardingPage() {
                 <div className="mt-3 flex items-start gap-2 rounded-lg bg-sage-50 px-3 py-2 text-xs font-medium text-sage-700">
                   <ShieldCheck className="mt-0.5 h-4 w-4 flex-shrink-0" />
                   <span>
-                    Coordinates saved: {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
+                    {t('restaurant.onboard.coordinatesSaved')}: {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
                   </span>
                 </div>
               )}
