@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, type FormEvent } from 'react';
-import { Mail, Lock, AlertCircle, Database, Copy, Check, ExternalLink, Download, X, AlertTriangle } from 'lucide-react';
+import { Mail, Lock, AlertCircle, Database, Check, ExternalLink, X, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../lib/i18n-react';
 import { Logo } from '../components/Logo';
@@ -140,42 +140,6 @@ export default function LoginPage() {
 // Shared split-screen layout for auth pages.
 export function AuthLayout({ children }: { children: React.ReactNode }) {
   const [showHelper, setShowHelper] = useState(false);
-  const [sqlContent, setSqlContent] = useState<string | null>(null);
-  const [loadingSql, setLoadingSql] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [fetchError, setFetchError] = useState<string | null>(null);
-  const [copyError, setCopyError] = useState<string | null>(null);
-
-  const fetchSql = async () => {
-    if (sqlContent) return;
-    setLoadingSql(true);
-    setFetchError(null);
-    try {
-      const res = await fetch('/supabase_schema.sql');
-      if (!res.ok) throw new Error('Failed to load local supabase_schema.sql');
-      const text = await res.text();
-      setSqlContent(text);
-    } catch (err: unknown) {
-      console.error(err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch the SQL script.';
-      setFetchError(errorMessage);
-    } finally {
-      setLoadingSql(false);
-    }
-  };
-
-  const copyToClipboard = async () => {
-    if (!sqlContent) return;
-    setCopyError(null);
-    try {
-      await navigator.clipboard.writeText(sqlContent);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Copy failed:', err);
-      setCopyError('Failed to copy. Please manually select the SQL text or download the file.');
-    }
-  };
 
   const showBanner = typeof window !== 'undefined' && window.location.search.includes('setup=true');
 
@@ -187,18 +151,15 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-2">
             <Database className="h-4 w-4 text-ink-950 animate-pulse flex-shrink-0" />
             <span>
-              <strong>First time setup?</strong> Paste our unified 1-click database schema into Supabase SQL Editor.
+              <strong>Production setup?</strong> Configure Vercel env vars and apply Supabase migrations in order.
             </span>
           </div>
           <button
             type="button"
-            onClick={() => {
-              setShowHelper(true);
-              fetchSql();
-            }}
+            onClick={() => setShowHelper(true)}
             className="bg-ink-950 text-white rounded px-2.5 py-1 text-[11px] font-bold hover:bg-ink-900 transition-colors flex items-center gap-1.5 whitespace-nowrap"
           >
-            <Database className="h-3 w-3" /> Setup Database
+            <Database className="h-3 w-3" /> Setup guide
           </button>
         </div>
       )}
@@ -244,9 +205,9 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
                 </div>
                 <div>
                   <h3 className="font-display font-extrabold text-ink-900 text-lg">
-                    Supabase Database 1-Click Setup
+                    Production setup guide
                   </h3>
-                  <p className="text-xs text-ink-500">Initialize your schema to prevent signup and authentication errors</p>
+                  <p className="text-xs text-ink-500">Use migrations and environment variables, not copied legacy schema snippets.</p>
                 </div>
               </div>
               <button
@@ -264,14 +225,15 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
                 <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
                 <div>
                   <strong className="font-semibold block">Why is this required?</strong>
-                  Without database tables, Supabase cannot create user profiles during signup. Pasting the schema below in your Supabase SQL Editor will build all the required tables, triggers, and indices instantly.
+                  Kiyo Food needs the production Supabase URL, anon key, and ordered database migrations before launch.
+                  This prevents signup, checkout, owner controls, maps, and delivery logic from running against a wrong or incomplete database.
                 </div>
               </div>
 
               {/* Steps */}
               <div className="space-y-3">
                 <h4 className="font-display font-bold text-sm text-ink-900 uppercase tracking-wider">
-                  How to initialize:
+                  Production steps:
                 </h4>
                 <ol className="list-decimal list-inside text-sm text-ink-700 space-y-2 pl-1">
                   <li>
@@ -285,85 +247,25 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
                       Supabase Dashboard <ExternalLink className="h-3 w-3" />
                     </a>
                   </li>
-                  <li>Click on the <strong>SQL Editor</strong> tab in the left sidebar (looks like a code icon <code>&gt;_</code>)</li>
-                  <li>Click <strong>New Query</strong> at the top</li>
-                  <li>Copy the database schema using the button below, paste it into the editor, and click <strong>Run</strong>!</li>
+                  <li>Apply every file in <code>supabase/migrations</code> in filename order.</li>
+                  <li>Set <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> in Vercel.</li>
+                  <li>Redeploy from GitHub <code>main</code> and confirm Vercel shows <strong>Ready</strong>.</li>
+                  <li>Create the owner account, then assign <code>super_admin</code> through the protected database/admin workflow.</li>
                 </ol>
               </div>
 
-              {/* Actions & Code Box */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-xs font-bold text-ink-500 uppercase tracking-wider">Unified SQL Script (187KB)</span>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={copyToClipboard}
-                      disabled={loadingSql || !sqlContent}
-                      className="kiyo-btn-primary py-1.5 px-3 text-xs flex items-center gap-1.5"
-                    >
-                      {copied ? (
-                        <>
-                          <Check className="h-3.5 w-3.5" /> Copied!
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="h-3.5 w-3.5" /> Copy Script
-                        </>
-                      )}
-                    </button>
-                    <a
-                      href="/supabase_schema.sql"
-                      download="supabase_schema.sql"
-                      className="kiyo-btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5"
-                    >
-                      <Download className="h-3.5 w-3.5" /> Download .sql
-                    </a>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {[
+                  'Vercel env vars are set for Production.',
+                  'All Supabase migrations are applied in order.',
+                  'RLS policies are enabled and verified.',
+                  'Owner role is granted through RBAC, not signup metadata.',
+                ].map((item) => (
+                  <div key={item} className="flex gap-2 rounded-xl border border-ink-100 bg-ink-50 px-3 py-2 text-xs text-ink-700">
+                    <Check className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-sage-600" />
+                    <span>{item}</span>
                   </div>
-                </div>
-                {copyError && (
-                  <div className="rounded-lg border border-error-200 bg-error-50 px-3 py-2 text-xs text-error-700">
-                    {copyError}
-                  </div>
-                )}
-
-                <div className="relative rounded-xl border border-ink-200 bg-ink-950 p-4 font-mono text-xs text-ink-200 overflow-hidden h-48 flex flex-col justify-between">
-                  {loadingSql ? (
-                    <div className="absolute inset-0 bg-ink-950/80 flex flex-col items-center justify-center gap-3">
-                      <svg className="animate-spin h-6 w-6 text-amber-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      <span className="text-xs text-ink-400">Loading full SQL schema...</span>
-                    </div>
-                  ) : fetchError ? (
-                    <div className="absolute inset-0 bg-ink-950/80 p-4 flex flex-col items-center justify-center gap-2 text-center">
-                      <AlertTriangle className="h-6 w-6 text-error-500" />
-                      <span className="text-xs text-error-400">{fetchError}</span>
-                      <button
-                        type="button"
-                        onClick={fetchSql}
-                        className="text-xs text-amber-500 hover:underline mt-1"
-                      >
-                        Retry Loading
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="overflow-y-auto flex-1 pr-2 scrollbar-thin select-all">
-                        {sqlContent ? (
-                          sqlContent.substring(0, 1500) + '\n\n... [remaining 180+ KB schema content] ...'
-                        ) : (
-                          '-- Click Load Schema or Download button to fetch content'
-                        )}
-                      </div>
-                      <div className="border-t border-ink-800 pt-2 mt-2 flex items-center justify-between text-[10px] text-ink-400">
-                        <span>Includes tables, enums, triggers, and full multi-wilaya setup</span>
-                        <span className="font-bold text-amber-500">Fully Optimized</span>
-                      </div>
-                    </>
-                  )}
-                </div>
+                ))}
               </div>
             </div>
 
