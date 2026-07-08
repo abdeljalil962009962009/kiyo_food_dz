@@ -1,8 +1,26 @@
 import type { ReactNode } from 'react';
 
-export function Spinner({ className = '' }: { className?: string }) {
+const SPINNER_SIZE_CLASS: Record<'sm' | 'md' | 'lg', string> = {
+  sm: 'h-3 w-3',
+  md: 'h-4 w-4',
+  lg: 'h-6 w-6',
+};
+
+export function Spinner({
+  className = '',
+  size,
+}: {
+  className?: string;
+  size?: 'sm' | 'md' | 'lg';
+}) {
+  const sizeClass = size ? SPINNER_SIZE_CLASS[size] : '';
   return (
-    <svg className={`animate-spin ${className}`} viewBox="0 0 24 24" fill="none" aria-hidden>
+    <svg
+      className={`animate-spin ${sizeClass} ${className}`.trim()}
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+    >
       <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.2" strokeWidth="4" />
       <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
     </svg>

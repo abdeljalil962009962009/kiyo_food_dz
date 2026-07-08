@@ -127,7 +127,7 @@ export default function DeliveryMap({
       if (restaurantLat && restaurantLng) {
         map.setView([restaurantLat, restaurantLng], 13);
       }
-    }, [map]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [map]);
     return null;
   }
 
