@@ -373,7 +373,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           `width=${width},height=${height},left=${left},top=${top}`
         );
         if (!popup) {
-          alert('Veuillez autoriser les fenetres contextuelles (popups) pour vous connecter.');
+          setError({
+            code: 'unknown',
+            message: 'Veuillez autoriser les fenetres contextuelles (popups) pour vous connecter.',
+          });
         }
       }
     } catch (err) {
@@ -404,7 +407,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           `width=${width},height=${height},left=${left},top=${top}`
         );
         if (!popup) {
-          alert('Veuillez autoriser les fenetres contextuelles (popups) pour vous connecter.');
+          setError({
+            code: 'unknown',
+            message: 'Veuillez autoriser les fenetres contextuelles (popups) pour vous connecter.',
+          });
         }
       }
     } catch (err) {

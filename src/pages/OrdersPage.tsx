@@ -10,6 +10,7 @@ import { Skeleton, ErrorState } from '../components/feedback';
 import { StatusBadge, PriceTag, relativeTime } from '../components/ui';
 import { ReviewModal } from '../components/ReviewModal';
 import { LiveOrderTracker } from '../components/LiveOrderTracker';
+import { requestCustomerCancellation } from '../lib/orderActions';
 
 type OrderWithRestaurant = OrderRow & {
   restaurants: { id: string; name: string; latitude: number | null; longitude: number | null } | null;
@@ -27,29 +28,32 @@ export default function OrdersPage() {
     restaurantName: string;
   } | null>(null);
   const [reviewedOrders, setReviewedOrders] = useState<Set<string>>(new Set());
+  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
+  const [cancellationMessage, setCancellationMessage] = useState<string | null>(null);
+  const [cancellationError, setCancellationError] = useState<string | null>(null);
 
-  const handleCancelOrder = async (orderId: string) => {
+  const handleCancelOrder = async (order: OrderWithRestaurant) => {
     if (!window.confirm('Voulez-vous vraiment annuler votre commande ?')) return;
+    setCancellingOrderId(order.id);
+    setCancellationMessage(null);
+    setCancellationError(null);
     try {
-      // 1. Try updating status to 'cancelled' (in case RLS permits)
-      const { error: updateError } = await supabase
-        .from('orders')
-        .update({ status: 'cancelled' })
-        .eq('id', orderId);
-
-      if (updateError) {
-        // 2. Fallback: hard DELETE which is explicitly allowed by the orders_delete_customer_pending policy
-        const { error: deleteError } = await supabase
-          .from('orders')
-          .delete()
-          .eq('id', orderId);
-        
-        if (deleteError) throw deleteError;
+      const result = await requestCustomerCancellation(order);
+      if (result.status === 'failed') {
+        setCancellationError(result.message);
+        return;
       }
+      setCancellationMessage(
+        result.status === 'cancelled'
+          ? 'Commande annulee.'
+          : 'La commande ne peut plus etre annulee automatiquement. Une demande urgente a ete envoyee au support.',
+      );
       void load();
     } catch (err) {
       console.error('[Kiyo] Cancellation error:', err);
-      alert('Impossible d\'annuler cette commande. Le restaurant l\'a peut-être déjà acceptée ou préparée.');
+      setCancellationError(err instanceof Error ? err.message : t('error.genericBody'));
+    } finally {
+      setCancellingOrderId(null);
     }
   };
 
@@ -147,6 +151,16 @@ export default function OrdersPage() {
             {activeOrder && (
               <LiveOrderTracker order={activeOrder} onRefresh={load} />
             )}
+            {cancellationMessage && (
+              <div className="rounded-lg border border-sage-200 bg-sage-50 px-4 py-3 text-sm text-sage-700">
+                {cancellationMessage}
+              </div>
+            )}
+            {cancellationError && (
+              <div className="rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-700">
+                {cancellationError}
+              </div>
+            )}
 
             <div className="space-y-3">
               {orders.map((o) => {
@@ -207,11 +221,12 @@ export default function OrdersPage() {
                   {o.status === 'pending' && (
                     <div className="mt-3 border-t border-ink-50 pt-3 flex justify-end">
                       <button
-                        onClick={() => handleCancelOrder(o.id)}
-                        className="flex items-center gap-1 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-2.5 py-1.5 rounded-lg border border-rose-100 transition-colors shadow-sm"
+                        onClick={() => handleCancelOrder(o)}
+                        disabled={cancellingOrderId === o.id}
+                        className="flex items-center gap-1 rounded-lg border border-rose-100 px-2.5 py-1.5 text-xs font-bold text-rose-600 shadow-sm transition-colors hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <Trash className="h-3.5 w-3.5" />
-                        Annuler la commande
+                        {cancellingOrderId === o.id ? 'Annulation...' : 'Annuler la commande'}
                       </button>
                     </div>
                   )}

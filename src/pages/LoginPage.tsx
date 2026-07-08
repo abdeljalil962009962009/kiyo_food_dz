@@ -144,6 +144,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
   const [loadingSql, setLoadingSql] = useState(false);
   const [copied, setCopied] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [copyError, setCopyError] = useState<string | null>(null);
 
   const fetchSql = async () => {
     if (sqlContent) return;
@@ -165,13 +166,14 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
 
   const copyToClipboard = async () => {
     if (!sqlContent) return;
+    setCopyError(null);
     try {
       await navigator.clipboard.writeText(sqlContent);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('Copy failed:', err);
-      alert('Failed to copy. Please manually select the text or download the file.');
+      setCopyError('Failed to copy. Please manually select the SQL text or download the file.');
     }
   };
 
@@ -319,6 +321,11 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
                     </a>
                   </div>
                 </div>
+                {copyError && (
+                  <div className="rounded-lg border border-error-200 bg-error-50 px-3 py-2 text-xs text-error-700">
+                    {copyError}
+                  </div>
+                )}
 
                 <div className="relative rounded-xl border border-ink-200 bg-ink-950 p-4 font-mono text-xs text-ink-200 overflow-hidden h-48 flex flex-col justify-between">
                   {loadingSql ? (
