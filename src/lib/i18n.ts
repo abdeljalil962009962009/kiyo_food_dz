@@ -167,6 +167,25 @@ export type TranslationKey =
   | 'restaurant.manageMenu'
   | 'restaurant.waitingOrders'
   | 'restaurant.noOrders'
+  | 'restaurant.apply.nav'
+  | 'restaurant.apply.title'
+  | 'restaurant.apply.subtitle'
+  | 'restaurant.apply.name'
+  | 'restaurant.apply.legalName'
+  | 'restaurant.apply.openingHours'
+  | 'restaurant.apply.openingHoursPlaceholder'
+  | 'restaurant.apply.logo'
+  | 'restaurant.apply.cover'
+  | 'restaurant.apply.submit'
+  | 'restaurant.apply.submitting'
+  | 'restaurant.apply.successTitle'
+  | 'restaurant.apply.successBody'
+  | 'restaurant.apply.errorName'
+  | 'restaurant.apply.errorPhone'
+  | 'restaurant.apply.errorAddress'
+  | 'restaurant.apply.errorLocation'
+  | 'restaurant.apply.errorDelivery'
+  | 'restaurant.apply.errorMinOrder'
   // cart + checkout
   | 'cart.title'
   | 'cart.empty'
@@ -619,6 +638,25 @@ const en: Dict = {
   'restaurant.manageMenu': 'Manage menu',
   'restaurant.waitingOrders': 'Incoming orders',
   'restaurant.noOrders': 'No new orders right now.',
+  'restaurant.apply.nav': 'Apply as restaurant',
+  'restaurant.apply.title': 'Restaurant application',
+  'restaurant.apply.subtitle': 'Submit your restaurant for owner review. It stays pending until Kiyo Food approves it.',
+  'restaurant.apply.name': 'Restaurant name',
+  'restaurant.apply.legalName': 'Legal business name',
+  'restaurant.apply.openingHours': 'Opening hours',
+  'restaurant.apply.openingHoursPlaceholder': 'Example: Sunday to Thursday 11:00-23:00, Friday 15:00-23:30',
+  'restaurant.apply.logo': 'Restaurant logo',
+  'restaurant.apply.cover': 'Restaurant cover image',
+  'restaurant.apply.submit': 'Submit application',
+  'restaurant.apply.submitting': 'Submitting...',
+  'restaurant.apply.successTitle': 'Application submitted',
+  'restaurant.apply.successBody': 'Your restaurant is now pending review. Kiyo Food will approve it or send a clear rejection reason so you can edit and resubmit.',
+  'restaurant.apply.errorName': 'Enter a valid restaurant name.',
+  'restaurant.apply.errorPhone': 'Enter a valid restaurant phone number.',
+  'restaurant.apply.errorAddress': 'Enter a valid restaurant address.',
+  'restaurant.apply.errorLocation': 'Pin the restaurant location on the map.',
+  'restaurant.apply.errorDelivery': 'Enter a delivery radius between 1 and 100 km.',
+  'restaurant.apply.errorMinOrder': 'Minimum order amount cannot be negative.',
   'cart.title': 'Your cart',
   'cart.empty': 'Your cart is empty',
   'cart.emptyBody': 'Browse restaurants and add items to get started.',
@@ -1066,6 +1104,25 @@ const fr: Dict = {
   'restaurant.manageMenu': 'Gérer le menu',
   'restaurant.waitingOrders': 'Commandes entrantes',
   'restaurant.noOrders': 'Aucune nouvelle commande.',
+  'restaurant.apply.nav': 'Devenir restaurant',
+  'restaurant.apply.title': 'Candidature restaurant',
+  'restaurant.apply.subtitle': 'Soumettez votre restaurant pour validation. Il reste en attente jusqu’à l’approbation de Kiyo Food.',
+  'restaurant.apply.name': 'Nom du restaurant',
+  'restaurant.apply.legalName': 'Nom légal de l’entreprise',
+  'restaurant.apply.openingHours': 'Heures d’ouverture',
+  'restaurant.apply.openingHoursPlaceholder': 'Exemple : dimanche à jeudi 11:00-23:00, vendredi 15:00-23:30',
+  'restaurant.apply.logo': 'Logo du restaurant',
+  'restaurant.apply.cover': 'Image de couverture',
+  'restaurant.apply.submit': 'Soumettre la candidature',
+  'restaurant.apply.submitting': 'Envoi...',
+  'restaurant.apply.successTitle': 'Candidature envoyée',
+  'restaurant.apply.successBody': 'Votre restaurant est en attente de validation. Kiyo Food l’approuvera ou enverra une raison claire de rejet pour modification et renvoi.',
+  'restaurant.apply.errorName': 'Saisissez un nom de restaurant valide.',
+  'restaurant.apply.errorPhone': 'Saisissez un numéro de téléphone valide.',
+  'restaurant.apply.errorAddress': 'Saisissez une adresse de restaurant valide.',
+  'restaurant.apply.errorLocation': 'Placez le restaurant sur la carte.',
+  'restaurant.apply.errorDelivery': 'Saisissez un rayon de livraison entre 1 et 100 km.',
+  'restaurant.apply.errorMinOrder': 'Le minimum de commande ne peut pas être négatif.',
   'cart.title': 'Votre panier',
   'cart.empty': 'Votre panier est vide',
   'cart.emptyBody': 'Parcourez les restaurants pour ajouter des plats.',
@@ -1513,6 +1570,25 @@ const ar: Dict = {
   'restaurant.manageMenu': 'إدارة القائمة',
   'restaurant.waitingOrders': 'الطلبات الواردة',
   'restaurant.noOrders': 'لا توجد طلبات جديدة.',
+  'restaurant.apply.nav': 'طلب الانضمام كمطعم',
+  'restaurant.apply.title': 'طلب مطعم',
+  'restaurant.apply.subtitle': 'أرسل بيانات مطعمك للمراجعة. سيبقى قيد الانتظار حتى توافق كيو فود عليه.',
+  'restaurant.apply.name': 'اسم المطعم',
+  'restaurant.apply.legalName': 'الاسم القانوني للنشاط',
+  'restaurant.apply.openingHours': 'ساعات العمل',
+  'restaurant.apply.openingHoursPlaceholder': 'مثال: من الأحد إلى الخميس 11:00-23:00، الجمعة 15:00-23:30',
+  'restaurant.apply.logo': 'شعار المطعم',
+  'restaurant.apply.cover': 'صورة غلاف المطعم',
+  'restaurant.apply.submit': 'إرسال الطلب',
+  'restaurant.apply.submitting': 'جارٍ الإرسال...',
+  'restaurant.apply.successTitle': 'تم إرسال الطلب',
+  'restaurant.apply.successBody': 'مطعمك الآن قيد المراجعة. ستوافق كيو فود عليه أو ترسل سبب رفض واضحاً لتعديله وإعادة إرساله.',
+  'restaurant.apply.errorName': 'أدخل اسم مطعم صالحاً.',
+  'restaurant.apply.errorPhone': 'أدخل رقم هاتف صالحاً للمطعم.',
+  'restaurant.apply.errorAddress': 'أدخل عنوان مطعم صالحاً.',
+  'restaurant.apply.errorLocation': 'حدد موقع المطعم على الخريطة.',
+  'restaurant.apply.errorDelivery': 'أدخل نطاق توصيل بين 1 و100 كم.',
+  'restaurant.apply.errorMinOrder': 'لا يمكن أن يكون الحد الأدنى للطلب سالباً.',
   'cart.title': 'سلتك',
   'cart.empty': 'سلتك فارغة',
   'cart.emptyBody': 'تصفح المطاعم وأضف أطباقاً.',

@@ -38,6 +38,7 @@ const CartPage = lazy(() => import('./pages/CartPage'));
 const CheckoutPage = lazy(() => import('./pages/CheckoutPage'));
 const OrdersPage = lazy(() => import('./pages/OrdersPage'));
 const RestaurantOnboardingPage = lazy(() => import('./pages/RestaurantOnboardingPage'));
+const RestaurantApplicationPage = lazy(() => import('./pages/RestaurantApplicationPage'));
 const RestaurantDashboardPage = lazy(() => import('./pages/RestaurantDashboardPage'));
 const RestaurantMenuPage = lazy(() => import('./pages/RestaurantMenuPage'));
 const RestaurantSettingsPage = lazy(() => import('./pages/RestaurantSettingsPage'));
@@ -85,6 +86,7 @@ const router = createBrowserRouter([
   { path: '/orders', element: withSuspense(<ProtectedRoute><OrdersPage /></ProtectedRoute>) },
   { path: '/favorites', element: withSuspense(<ProtectedRoute><FavoritesPage /></ProtectedRoute>) },
   { path: '/support', element: withSuspense(<ProtectedRoute><SupportPage /></ProtectedRoute>) },
+  { path: '/restaurant/apply', element: withSuspense(<ProtectedRoute><RestaurantApplicationPage /></ProtectedRoute>) },
   { path: '/restaurant/onboarding', element: withSuspense(<ProtectedRoute><RoleRoute role="super_admin"><RestaurantOnboardingPage /></RoleRoute></ProtectedRoute>) },
   { path: '/restaurant', element: withSuspense(<ProtectedRoute><RoleRoute role={['restaurant_owner','super_admin']}><RestaurantDashboardPage /></RoleRoute></ProtectedRoute>) },
   { path: '/restaurant/menu', element: withSuspense(<ProtectedRoute><RoleRoute role={['restaurant_owner','super_admin']}><RestaurantMenuPage /></RoleRoute></ProtectedRoute>) },

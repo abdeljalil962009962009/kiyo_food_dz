@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ChevronRight, ShieldCheck } from 'lucide-react';
+import { ChevronRight, Heart, ShieldCheck, ShoppingBag, Store, Utensils } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../lib/i18n-react';
 import { AppShell } from '../components/AppShell';
@@ -22,7 +22,12 @@ function CustomerDashboard() {
         subtitle={t('dash.customer.subtitle')}
         name={profile?.full_name ?? profile?.email ?? ''}
       />
-      <ComingSoon />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <DashboardAction to="/restaurants" icon={ShoppingBag} title={t('market.browse')} subtitle={t('dash.customer.subtitle')} />
+        <DashboardAction to="/orders" icon={Utensils} title={t('orders.title')} subtitle={t('orders.empty')} />
+        <DashboardAction to="/favorites" icon={Heart} title={t('nav.favorites')} subtitle={t('favorites.subtitle')} />
+        <DashboardAction to="/restaurant/apply" icon={Store} title={t('restaurant.apply.nav')} subtitle={t('restaurant.apply.subtitle')} />
+      </div>
     </AppShell>
   );
 }
@@ -38,7 +43,10 @@ function RestaurantDashboard() {
         name={profile?.full_name ?? profile?.email ?? ''}
         badge={t('role.restaurant_owner')}
       />
-      <ComingSoon />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <DashboardAction to="/restaurant" icon={Store} title={t('restaurant.dashboard')} subtitle={t('dash.restaurant.subtitle')} />
+        <DashboardAction to="/restaurant/menu" icon={Utensils} title={t('restaurant.manageMenu')} subtitle={t('restaurant.noMenu')} />
+      </div>
     </AppShell>
   );
 }
@@ -114,17 +122,24 @@ function Hero({
   );
 }
 
-function ComingSoon() {
-  const { t } = useT();
+function DashboardAction({
+  to, icon: Icon, title, subtitle,
+}: { to: string; icon: typeof ShoppingBag; title: string; subtitle: string }) {
   return (
-    <div className="kiyo-card flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
-      <div
-        className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-ember-500/15 to-sage-500/15"
-        aria-hidden
-      >
-        <span className="h-3 w-3 animate-pulse-soft rounded-full bg-ember-500" />
+    <Link
+      to={to}
+      className="kiyo-card group flex items-center justify-between p-5 transition-shadow hover:shadow-card-lg"
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-ink-900 text-white">
+          <Icon className="h-5 w-5" />
+        </span>
+        <div className="min-w-0">
+          <div className="truncate font-display text-base font-bold text-ink-900">{title}</div>
+          <div className="line-clamp-2 text-xs text-ink-400">{subtitle}</div>
+        </div>
       </div>
-      <p className="max-w-sm text-sm text-ink-500">{t('dash.comingSoon')}</p>
-    </div>
+      <ChevronRight className="h-5 w-5 flex-shrink-0 text-ink-300 transition-transform group-hover:translate-x-0.5" />
+    </Link>
   );
 }

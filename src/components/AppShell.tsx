@@ -38,6 +38,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     { to: '/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard },
     ...(role === 'customer' ? [
       { to: '/restaurants', label: t('market.browse'), icon: ShoppingBag },
+      { to: '/restaurant/apply', label: t('restaurant.apply.nav'), icon: Store },
       { to: '/favorites', label: t('nav.favorites'), icon: Heart },
       { to: '/orders', label: t('orders.title'), icon: Utensils },
       { to: '/support', label: t('nav.support'), icon: MessageCircle },
