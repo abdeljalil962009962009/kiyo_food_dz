@@ -53,12 +53,13 @@ export default function RestaurantDashboardPage() {
       const activeRestaurant = r as Restaurant;
       setRestaurant(activeRestaurant);
 
-      const { data: o } = await supabase
+      const { data: o, error: oe } = await supabase
         .from('orders')
         .select('*')
         .eq('restaurant_id', activeRestaurant.id)
         .order('created_at', { ascending: false })
         .limit(100);
+      if (oe) throw oe;
       const list = (o as OrderRow[]) ?? [];
       
       setOrders(list);
@@ -80,6 +81,7 @@ export default function RestaurantDashboardPage() {
         );
         const map: Record<string, OrderItemRow[]> = {};
         list.forEach((order, i) => {
+          if (itemsResults[i].error) throw itemsResults[i].error;
           map[order.id] = (itemsResults[i].data as OrderItemRow[]) ?? [];
         });
         setItemsMap(map);
@@ -163,7 +165,11 @@ export default function RestaurantDashboardPage() {
           .select('*')
           .eq('order_id', payload.new.id as string)
           .then(({ data, error: e }) => {
-            if (e) return;
+            if (e) {
+              console.error('[Kiyo] Realtime order items load failed:', e);
+              setActionError(e.message ?? t('error.genericBody'));
+              return;
+            }
             setItemsMap((m) => ({ ...m, [payload.new.id as string]: (data as OrderItemRow[]) ?? [] }));
           });
         return [payload.new as OrderRow, ...prev];
