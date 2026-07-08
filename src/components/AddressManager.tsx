@@ -35,7 +35,7 @@ const LABEL_COLORS = {
 };
 
 export function AddressManager() {
-  const { t } = useT();
+  const { t, locale } = useT();
   const { user } = useAuth();
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [loading, setLoading] = useState(true);
@@ -281,7 +281,7 @@ export function AddressManager() {
                   <p className="mt-0.5 text-sm text-ink-700">{addr.address}</p>
                   {addr.last_used_at && (
                     <p className="mt-1 text-[10px] font-medium text-ink-400">
-                      {new Date(addr.last_used_at).toLocaleDateString()}
+                      {new Date(addr.last_used_at).toLocaleDateString(locale)}
                     </p>
                   )}
                 </div>
@@ -290,7 +290,8 @@ export function AddressManager() {
                     onClick={() => toggleFavorite(addr)}
                     disabled={busyAddressId === addr.id}
                     className="rounded p-1.5 text-ink-400 hover:bg-sage-50 hover:text-sage-600"
-                    title="Favorite"
+                    title={t('profile.addresses.favorite')}
+                    aria-label={t('profile.addresses.favorite')}
                   >
                     <Star className={`h-4 w-4 ${addr.is_favorite ? 'fill-sage-500 text-sage-500' : ''}`} />
                   </button>
@@ -298,7 +299,8 @@ export function AddressManager() {
                     onClick={() => duplicateAddress(addr)}
                     disabled={busyAddressId === addr.id}
                     className="rounded p-1.5 text-ink-400 hover:bg-ink-50 hover:text-ink-600"
-                    title="Duplicate"
+                    title={t('profile.addresses.duplicate')}
+                    aria-label={t('profile.addresses.duplicate')}
                   >
                     <Copy className="h-4 w-4" />
                   </button>
@@ -308,6 +310,7 @@ export function AddressManager() {
                       disabled={busyAddressId === addr.id}
                       className="rounded p-1.5 text-ink-400 hover:bg-ink-50 hover:text-ink-600"
                       title={t('profile.addresses.setAsDefault')}
+                      aria-label={t('profile.addresses.setAsDefault')}
                     >
                       <Check className="h-4 w-4" />
                     </button>
@@ -316,7 +319,8 @@ export function AddressManager() {
                     onClick={() => archiveAddress(addr.id)}
                     disabled={busyAddressId === addr.id}
                     className="rounded p-1.5 text-ink-400 hover:bg-ink-50 hover:text-ink-600"
-                    title="Archive"
+                    title={t('profile.addresses.archive')}
+                    aria-label={t('profile.addresses.archive')}
                   >
                     <Archive className="h-4 w-4" />
                   </button>
@@ -325,6 +329,7 @@ export function AddressManager() {
                     disabled={busyAddressId === addr.id}
                     className="rounded p-1.5 text-ink-400 hover:bg-error-50 hover:text-error-600"
                     title={t('profile.addresses.delete')}
+                    aria-label={t('profile.addresses.delete')}
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>

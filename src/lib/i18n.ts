@@ -299,6 +299,9 @@ export type TranslationKey =
   | 'profile.addresses.other'
   | 'profile.addresses.default'
   | 'profile.addresses.setAsDefault'
+  | 'profile.addresses.favorite'
+  | 'profile.addresses.duplicate'
+  | 'profile.addresses.archive'
   | 'profile.addresses.delete'
   | 'profile.addresses.none'
   | 'profile.addresses.signinToManage'
@@ -738,6 +741,9 @@ const en: Dict = {
   'profile.addresses.other': 'Other',
   'profile.addresses.default': 'Default',
   'profile.addresses.setAsDefault': 'Set as default',
+  'profile.addresses.favorite': 'Favorite',
+  'profile.addresses.duplicate': 'Duplicate',
+  'profile.addresses.archive': 'Archive',
   'profile.addresses.delete': 'Delete',
   'profile.addresses.none': 'No saved addresses yet. Add your home, work, or favorite delivery spots.',
   'profile.addresses.signinToManage': 'Sign in to manage your saved addresses.',
@@ -1176,6 +1182,9 @@ const fr: Dict = {
   'profile.addresses.other': 'Autre',
   'profile.addresses.default': 'Par défaut',
   'profile.addresses.setAsDefault': 'Définir par défaut',
+  'profile.addresses.favorite': 'Favori',
+  'profile.addresses.duplicate': 'Dupliquer',
+  'profile.addresses.archive': 'Archiver',
   'profile.addresses.delete': 'Supprimer',
   'profile.addresses.none': 'Aucune adresse enregistrée. Ajoutez votre maison, travail ou lieu de livraison.',
   'profile.addresses.signinToManage': 'Connectez-vous pour gérer vos adresses enregistrées.',
@@ -1614,6 +1623,9 @@ const ar: Dict = {
   'profile.addresses.other': 'أخرى',
   'profile.addresses.default': 'الافتراضي',
   'profile.addresses.setAsDefault': 'تعيين كافتراضي',
+  'profile.addresses.favorite': 'المفضلة',
+  'profile.addresses.duplicate': 'نسخ',
+  'profile.addresses.archive': 'أرشفة',
   'profile.addresses.delete': 'حذف',
   'profile.addresses.none': 'لا توجد عناوين محفوظة بعد. أضف منزلك أو عملك أو أماكن التوصيل المفضلة.',
   'profile.addresses.signinToManage': 'سجل الدخول لإدارة عناوينك المحفوظة.',
