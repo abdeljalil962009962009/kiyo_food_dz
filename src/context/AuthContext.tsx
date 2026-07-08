@@ -11,12 +11,13 @@ import type { Profile } from '../lib/supabase';
 export type AuthErrorCode =
   | 'invalidCredentials' | 'emailTaken' | 'weakPassword'
   | 'tooManyAttempts' | 'network' | 'timeout' | 'unknown'
-  | 'passwordMismatch' | 'acceptTerms' | 'invalidEmail';
+  | 'passwordMismatch' | 'acceptTerms' | 'invalidEmail' | 'emailNotConfirmed';
 
 function mapSupabaseError(err: unknown): AuthErrorCode {
   const msg = (err as { message?: string })?.message ?? '';
   const lc = msg.toLowerCase();
   if (lc.includes('invalid login') || lc.includes('invalid credentials')) return 'invalidCredentials';
+  if (lc.includes('email not confirmed') || lc.includes('not confirmed')) return 'emailNotConfirmed';
   if (lc.includes('already registered') || lc.includes('already been registered') || lc.includes('user already registered')) return 'emailTaken';
   if (lc.includes('password should be') || lc.includes('weak') || lc.includes('at least 6')) return 'weakPassword';
   if (lc.includes('rate limit') || lc.includes('too many') || lc.includes('for security purposes')) return 'tooManyAttempts';
@@ -37,6 +38,7 @@ function describeAuthError(code: AuthErrorCode, locale: Locale): string {
     passwordMismatch: 'auth.error.passwordMismatch',
     acceptTerms: 'auth.error.acceptTerms',
     invalidEmail: 'auth.error.invalidEmail',
+    emailNotConfirmed: 'auth.error.emailNotConfirmed',
   };
   return translate(locale, map[code]);
 }
@@ -80,14 +82,15 @@ async function ensureProfileExists(client: SupabaseClient, user: User): Promise<
   const meta = user.user_metadata ?? {};
   const insert = {
     id: user.id,
-    email: user.email ?? '',
+    email: (user.email ?? '').trim().toLowerCase(),
     full_name: (meta.full_name as string) ?? (meta.name as string) ?? null,
     role: 'customer' as const,
   };
 
-  const { error } = await client.from('profiles').upsert(insert, { onConflict: 'id' }).maybeSingle();
+  const { error } = await client.from('profiles').insert(insert);
 
   if (error) {
+    if (error.code === '23505') return true;
     // FK constraint violation means the user ID doesn't exist in auth.users
     // This happens when a session is stale (user was deleted during auth reset)
     if (error.code === '23503' || error.message?.includes('violates foreign key constraint')) {
@@ -114,7 +117,7 @@ type AuthContextValue = {
   locale: Locale;
   setLocale: (l: Locale) => void;
   signInWithPassword: (email: string, password: string) => Promise<{ ok: boolean }>;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ ok: boolean }>;
+  signUp: (email: string, password: string, fullName: string) => Promise<{ ok: boolean; needsEmailConfirmation?: boolean }>;
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ ok: boolean }>;
@@ -309,7 +312,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearError();
       const lowerEmail = email.trim().toLowerCase();
       try {
-        const { error: e } = await supabase.auth.signInWithPassword({ email, password });
+        const { error: e } = await supabase.auth.signInWithPassword({ email: lowerEmail, password });
         if (e) throw e;
         return { ok: true };
       } catch (err) {
@@ -329,16 +332,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (email, password, fullName) => {
       clearError();
       try {
-        const { error: e } = await supabase.auth.signUp({
-          email,
+        const normalizedEmail = email.trim().toLowerCase();
+        const { data, error: e } = await supabase.auth.signUp({
+          email: normalizedEmail,
           password,
-          options: { data: { full_name: fullName } },
+          options: {
+            data: { full_name: fullName.trim() },
+            emailRedirectTo: window.location.origin + '/auth/callback',
+          },
         });
         if (e) throw e;
-        // On email-password signup with email confirmation OFF, Supabase
-        // immediately fires SIGNED_IN via onAuthStateChange, which runs
-        // establishProfile(). Nothing more to do here.
-        return { ok: true };
+        return { ok: true, needsEmailConfirmation: Boolean(data.user && !data.session) };
       } catch (err) {
         const code = mapSupabaseError(err);
         setError({ code, message: describeAuthError(code, locale) });
@@ -372,7 +376,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!popup) {
           setError({
             code: 'unknown',
-            message: 'Veuillez autoriser les fenetres contextuelles (popups) pour vous connecter.',
+            message: translate(locale, 'auth.error.popupBlocked'),
           });
         }
       }
@@ -406,7 +410,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!popup) {
           setError({
             code: 'unknown',
-            message: 'Veuillez autoriser les fenetres contextuelles (popups) pour vous connecter.',
+            message: translate(locale, 'auth.error.popupBlocked'),
           });
         }
       }
@@ -420,7 +424,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (email) => {
       clearError();
       try {
-        const { error: e } = await supabase.auth.resetPasswordForEmail(email, {
+        const { error: e } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
           redirectTo: window.location.origin + '/auth/reset',
         });
         if (e) throw e;

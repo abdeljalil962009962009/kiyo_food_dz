@@ -59,6 +59,12 @@ export type TranslationKey =
   | 'auth.error.passwordMismatch'
   | 'auth.error.acceptTerms'
   | 'auth.error.invalidEmail'
+  | 'auth.error.emailNotConfirmed'
+  | 'auth.error.popupBlocked'
+  | 'auth.signupCheckEmailTitle'
+  | 'auth.signupCheckEmailBody'
+  | 'auth.resetInvalidTitle'
+  | 'auth.resetInvalidBody'
   | 'auth.restaurantAccessTitle'
   | 'auth.restaurantAccessBody'
   // nav
@@ -511,6 +517,12 @@ const en: Dict = {
   'auth.error.passwordMismatch': 'Passwords do not match.',
   'auth.error.acceptTerms': 'Please accept the Terms and Privacy Policy.',
   'auth.error.invalidEmail': 'Please enter a valid email address.',
+  'auth.error.emailNotConfirmed': 'Confirm your email before signing in. Check your inbox for the Kiyo Food confirmation email.',
+  'auth.error.popupBlocked': 'Allow popups for Kiyo Food to continue with this login provider.',
+  'auth.signupCheckEmailTitle': 'Confirm your email',
+  'auth.signupCheckEmailBody': 'Your account was created. Open the confirmation email from Kiyo Food, then come back and sign in.',
+  'auth.resetInvalidTitle': 'Reset link expired',
+  'auth.resetInvalidBody': 'Request a new password reset link. For security, reset links can expire or be used only once.',
   'auth.restaurantAccessTitle': 'Restaurant accounts are verified after signup.',
   'auth.restaurantAccessBody': 'Create a customer account first. Restaurant owner access is granted through onboarding and admin approval, so public signup cannot be abused to choose a staff role.',
   'nav.home': 'Home',
@@ -952,6 +964,12 @@ const fr: Dict = {
   'auth.error.passwordMismatch': 'Les mots de passe ne correspondent pas.',
   'auth.error.acceptTerms': "Veuillez accepter les conditions et la politique de confidentialité.",
   'auth.error.invalidEmail': 'Veuillez saisir une adresse e-mail valide.',
+  'auth.error.emailNotConfirmed': 'Confirmez votre e-mail avant de vous connecter. Vérifiez votre boîte de réception pour l’e-mail de confirmation Kiyo Food.',
+  'auth.error.popupBlocked': 'Autorisez les popups pour Kiyo Food afin de continuer avec ce fournisseur de connexion.',
+  'auth.signupCheckEmailTitle': 'Confirmez votre e-mail',
+  'auth.signupCheckEmailBody': 'Votre compte a été créé. Ouvrez l’e-mail de confirmation de Kiyo Food, puis revenez vous connecter.',
+  'auth.resetInvalidTitle': 'Lien de réinitialisation expiré',
+  'auth.resetInvalidBody': 'Demandez un nouveau lien de réinitialisation. Par sécurité, les liens peuvent expirer ou être utilisés une seule fois.',
   'auth.restaurantAccessTitle': 'Les comptes restaurant sont vérifiés après l’inscription.',
   'auth.restaurantAccessBody': 'Créez d’abord un compte client. L’accès propriétaire de restaurant est accordé via l’onboarding et l’approbation admin, afin que l’inscription publique ne permette pas de choisir un rôle interne.',
   'nav.home': 'Accueil',
@@ -1393,6 +1411,12 @@ const ar: Dict = {
   'auth.error.passwordMismatch': 'كلمتا المرور غير متطابقتين.',
   'auth.error.acceptTerms': 'يرجى قبول الشروط وسياسة الخصوصية.',
   'auth.error.invalidEmail': 'يرجى إدخال بريد إلكتروني صالح.',
+  'auth.error.emailNotConfirmed': 'أكد بريدك الإلكتروني قبل تسجيل الدخول. تحقق من بريدك للعثور على رسالة تأكيد كيو فود.',
+  'auth.error.popupBlocked': 'اسمح بالنوافذ المنبثقة لكيو فود للمتابعة مع مزود تسجيل الدخول هذا.',
+  'auth.signupCheckEmailTitle': 'أكد بريدك الإلكتروني',
+  'auth.signupCheckEmailBody': 'تم إنشاء حسابك. افتح رسالة التأكيد من كيو فود، ثم عد لتسجيل الدخول.',
+  'auth.resetInvalidTitle': 'انتهت صلاحية رابط إعادة التعيين',
+  'auth.resetInvalidBody': 'اطلب رابط إعادة تعيين جديد. لأسباب أمنية قد تنتهي صلاحية الروابط أو تُستخدم مرة واحدة فقط.',
   'auth.restaurantAccessTitle': 'يتم التحقق من حسابات المطاعم بعد التسجيل.',
   'auth.restaurantAccessBody': 'أنشئ حساب عميل أولاً. يتم منح صلاحية مالك المطعم عبر الإعداد وموافقة الإدارة، حتى لا يمكن إساءة استخدام التسجيل العام لاختيار دور داخلي.',
   'nav.home': 'الرئيسية',

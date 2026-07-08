@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Lock, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -18,6 +18,51 @@ export default function ResetPasswordPage() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [recoveryState, setRecoveryState] = useState<'checking' | 'ready' | 'invalid'>('checking');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const verifyRecoverySession = async () => {
+      try {
+        const current = await supabase.auth.getSession();
+        if (cancelled) return;
+        if (current.data.session) {
+          setRecoveryState('ready');
+          return;
+        }
+
+        const code = new URLSearchParams(window.location.search).get('code');
+        if (code) {
+          const exchanged = await supabase.auth.exchangeCodeForSession(code);
+          if (cancelled) return;
+          if (!exchanged.error && exchanged.data.session) {
+            setRecoveryState('ready');
+            return;
+          }
+        }
+
+        setRecoveryState('invalid');
+      } catch (err) {
+        console.error('Failed to verify password recovery session', err);
+        if (!cancelled) setRecoveryState('invalid');
+      }
+    };
+
+    void verifyRecoverySession();
+
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (cancelled) return;
+      if ((event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') && session) {
+        setRecoveryState('ready');
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      data.subscription.unsubscribe();
+    };
+  }, []);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -26,7 +71,7 @@ export default function ResetPasswordPage() {
     setLocalError(null);
 
     // Basic password validation
-    if (password.length < 6) {
+    if (password.length < 8) {
       setLocalError(t('auth.error.weakPassword'));
       return;
     }
@@ -48,7 +93,8 @@ export default function ResetPasswordPage() {
 
       setSuccess(true);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'An error occurred while resetting your password.';
+      console.error('Failed to update password from recovery session', err);
+      const message = err instanceof Error ? err.message : t('auth.error.unknown');
       setLocalError(message);
     } finally {
       setSubmitting(false);
@@ -74,6 +120,37 @@ export default function ResetPasswordPage() {
             className="kiyo-btn-primary mt-5 w-full"
           >
             {t('auth.backToLogin')}
+          </button>
+        </div>
+      </AuthLayout>
+    );
+  }
+
+  if (recoveryState === 'checking') {
+    return (
+      <AuthLayout>
+        <div className="rounded-2xl border border-ink-100 bg-white p-6 text-center">
+          <Spinner className="mx-auto h-6 w-6 text-ember-600" />
+          <p className="mt-3 text-sm text-ink-500">{t('auth.sessionRestoring')}</p>
+        </div>
+      </AuthLayout>
+    );
+  }
+
+  if (recoveryState === 'invalid') {
+    return (
+      <AuthLayout>
+        <div className="rounded-2xl border border-error-500/20 bg-error-500/10 p-6 text-center">
+          <AlertCircle className="mx-auto h-10 w-10 text-error-600" />
+          <h2 className="mt-3 font-display text-lg font-bold text-ink-900">
+            {t('auth.resetInvalidTitle')}
+          </h2>
+          <p className="mt-1 text-sm text-ink-600">{t('auth.resetInvalidBody')}</p>
+          <button
+            onClick={() => navigate('/auth/forgot', { replace: true })}
+            className="kiyo-btn-primary mt-5 w-full"
+          >
+            {t('auth.resetPasswordCta')}
           </button>
         </div>
       </AuthLayout>

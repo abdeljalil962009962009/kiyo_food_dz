@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, type FormEvent } from 'react';
-import { Mail, Lock, User as UserIcon, AlertCircle, Store } from 'lucide-react';
+import { Mail, Lock, User as UserIcon, AlertCircle, Store, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../lib/i18n-react';
 import { Logo } from '../components/Logo';
@@ -21,6 +21,7 @@ export default function SignupPage() {
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -34,10 +35,13 @@ export default function SignupPage() {
     if (!acceptTerms) return setLocalError(t('auth.error.acceptTerms'));
 
     setSubmitting(true);
-    const { ok } = await signUp(email.trim(), password, fullName.trim());
+    const { ok, needsEmailConfirmation: shouldConfirmEmail } = await signUp(email.trim(), password, fullName.trim());
     setSubmitting(false);
     if (ok) {
-      // AuthProvider will receive SIGNED_IN and establish the profile.
+      if (shouldConfirmEmail) {
+        setNeedsEmailConfirmation(true);
+        return;
+      }
       navigate('/dashboard', { replace: true });
     }
   };
@@ -54,8 +58,23 @@ export default function SignupPage() {
         <p className="mt-1 text-sm text-ink-500">{t('brand.tagline')}</p>
       </div>
 
-      <ErrorBoundary variant="inline">
-        <form onSubmit={submit} className="space-y-4" noValidate>
+      {needsEmailConfirmation ? (
+        <div className="rounded-2xl border border-sage-200 bg-sage-50 p-6 text-center">
+          <CheckCircle2 className="mx-auto h-10 w-10 text-sage-500" />
+          <h2 className="mt-3 font-display text-lg font-bold text-ink-900">
+            {t('auth.signupCheckEmailTitle')}
+          </h2>
+          <p className="mt-1 text-sm text-ink-600">{t('auth.signupCheckEmailBody')}</p>
+          <button
+            onClick={() => navigate('/login', { replace: true })}
+            className="kiyo-btn-primary mt-5 w-full"
+          >
+            {t('auth.backToLogin')}
+          </button>
+        </div>
+      ) : (
+        <ErrorBoundary variant="inline">
+          <form onSubmit={submit} className="space-y-4" noValidate>
           <Field
             name="fullName"
             type="text"
@@ -146,8 +165,9 @@ export default function SignupPage() {
               </>
             ) : t('auth.createAccount')}
           </button>
-        </form>
-      </ErrorBoundary>
+          </form>
+        </ErrorBoundary>
+      )}
 
       <p className="mt-6 text-center text-sm text-ink-500">
         {t('auth.haveAccount')}{' '}
