@@ -27,6 +27,18 @@ type Tab = 'overview' | 'financials' | 'settlements' | 'users' | 'restaurants' |
 
 const DZD = (n: number) => new Intl.NumberFormat('fr-DZ', { style: 'currency', currency: 'DZD', maximumFractionDigits: 0 }).format(n);
 
+const adminErrorMessage = (err: unknown, fallback: string) => {
+  if (err && typeof err === 'object') {
+    const maybe = err as { message?: unknown; details?: unknown; hint?: unknown };
+    const message = typeof maybe.message === 'string' ? maybe.message : '';
+    const details = typeof maybe.details === 'string' ? maybe.details : '';
+    const hint = typeof maybe.hint === 'string' ? maybe.hint : '';
+    const combined = [message, details, hint].filter(Boolean).join(' ');
+    if (combined) return combined;
+  }
+  return fallback;
+};
+
 const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
   en: {
     'overview': 'Overview',
@@ -651,8 +663,9 @@ function FinancialsTab() {
         agg.set(row.restaurant_id, existing);
       }
       setLedger(Array.from(agg.entries()).map(([id, v]) => ({ restaurant_id: id, ...v })));
-    } catch {
-      setError(t('error.genericBody'));
+    } catch (err) {
+      console.error('[Kiyo] Load platform settings error:', err);
+      setError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
       setLoading(false);
     }
@@ -763,8 +776,8 @@ function UsersTab() {
         .order('created_at', { ascending: false });
       if (e) throw e;
       setUsers((data as Profile[]) ?? []);
-    } catch {
-      setError(t('error.genericBody'));
+    } catch (err) {
+      setError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
       setLoading(false);
     }
@@ -774,6 +787,7 @@ function UsersTab() {
 
   const toggleSuspend = async (user: Profile) => {
     setActingId(user.id);
+    setError(null);
     try {
       const { error: e } = await supabase.rpc('set_user_suspended', {
         p_user_id: user.id,
@@ -782,6 +796,8 @@ function UsersTab() {
       });
       if (e) throw e;
       setUsers((prev) => prev.map((u) => u.id === user.id ? { ...u, is_suspended: !u.is_suspended } : u));
+    } catch (err) {
+      setError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
       setActingId(null);
     }
@@ -895,8 +911,8 @@ function RestaurantsTab() {
         .order('created_at', { ascending: false });
       if (e) throw e;
       setRestaurants((data as Restaurant[]) ?? []);
-    } catch {
-      setError(t('error.genericBody'));
+    } catch (err) {
+      setError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
       setLoading(false);
     }
@@ -906,6 +922,7 @@ function RestaurantsTab() {
 
   const updateRestaurant = async (r: Restaurant, updates: { status?: string; is_verified?: boolean; is_featured?: boolean }) => {
     setActingId(r.id);
+    setError(null);
     try {
       const { error: e } = await supabase.rpc('update_restaurant_admin', {
         p_restaurant_id: r.id,
@@ -915,6 +932,8 @@ function RestaurantsTab() {
       });
       if (e) throw e;
       setRestaurants((prev) => prev.map((x) => x.id === r.id ? { ...x, ...updates } as Restaurant : x));
+    } catch (err) {
+      setError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
       setActingId(null);
     }
@@ -1086,8 +1105,8 @@ function RulesTab() {
         map[row.key] = { ...map[row.key], ...row.value };
       }
       setSettings(map);
-    } catch {
-      setError(t('error.genericBody'));
+    } catch (err) {
+      setError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
       setLoading(false);
     }
@@ -1102,25 +1121,17 @@ function RulesTab() {
     try {
       const payload = settings[key] || DEFAULT_SETTINGS[key] || {};
       
-      // Try direct upsert first, falling back to RPC on failure
-      const { error: e } = await supabase
-        .from('platform_settings')
-        .upsert({ key, value: payload }, { onConflict: 'key' });
-        
-      if (e) {
-        // Fallback to RPC if direct upsert fails (e.g. RLS policies expect RPC)
-        const { error: rpcErr } = await supabase.rpc('update_platform_setting', {
-          p_key: key,
-          p_value: payload,
-        });
-        if (rpcErr) throw rpcErr;
-      }
+      const { error: rpcErr } = await supabase.rpc('update_platform_setting', {
+        p_key: key,
+        p_value: payload,
+      });
+      if (rpcErr) throw rpcErr;
       
       setSavedKey(key);
       setTimeout(() => setSavedKey(null), 2000);
     } catch (err) {
       console.error('[Kiyo] Save settings error:', err);
-      setSaveError(t('error.genericBody'));
+      setSaveError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
       setSaving(false);
     }
@@ -1336,8 +1347,8 @@ function AnalyticsTab() {
       const { data, error: e } = await supabase.rpc('get_platform_analytics');
       if (e) throw e;
       setAnalytics(data as Analytics);
-    } catch {
-      setError(t('error.genericBody'));
+    } catch (err) {
+      setError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
       setLoading(false);
     }
@@ -1412,8 +1423,8 @@ function SettlementsTab() {
       const { data, error: e } = await supabase.rpc('get_settlement_overview');
       if (e) throw e;
       setOverview(data as typeof overview);
-    } catch {
-      setError(t('error.genericBody'));
+    } catch (err) {
+      setError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
       setLoading(false);
     }
@@ -1423,12 +1434,15 @@ function SettlementsTab() {
 
   const markPaid = async (id: string) => {
     setActingId(id);
+    setError(null);
     try {
       const { error: e } = await supabase.rpc('mark_settlement_paid', {
         p_settlement_id: id, p_amount: null, p_notes: 'Marked as paid by admin',
       });
       if (e) throw e;
       void load();
+    } catch (err) {
+      setError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
       setActingId(null);
     }
@@ -1589,12 +1603,16 @@ function MarketingTab() {
         supabase.from('subscription_plans').select('*').order('plan_type, name'),
       ]);
       if (promosRes.error) throw promosRes.error;
+      if (campaignsRes.error) throw campaignsRes.error;
+      if (flagsRes.error) throw flagsRes.error;
+      if (plansRes.error) throw plansRes.error;
       setPromos((promosRes.data as PromoCode[]) ?? []);
       setCampaigns((campaignsRes.data as MarketingCampaign[]) ?? []);
       setFlags((flagsRes.data as FeatureFlag[]) ?? []);
       setPlans((plansRes.data as SubscriptionPlan[]) ?? []);
-    } catch {
-      setError(t('error.genericBody'));
+    } catch (err) {
+      console.error('[Kiyo] Load marketing controls error:', err);
+      setError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
       setLoading(false);
     }
@@ -1617,8 +1635,9 @@ function MarketingTab() {
       setShowForm(false);
       setNewPromo({ code: '', description: '', discount_type: 'percentage', discount_value: '10', min_order: '0', max_discount: '', valid_until: '' });
       void load();
-    } catch {
-      setError(t('error.genericBody'));
+    } catch (err) {
+      console.error('[Kiyo] Create promo code error:', err);
+      setError(adminErrorMessage(err, t('error.genericBody')));
     }
   };
 
@@ -1627,7 +1646,10 @@ function MarketingTab() {
       const { error: e } = await supabase.from('promo_codes').update({ is_active: !p.is_active }).eq('id', p.id);
       if (e) throw e;
       setPromos((prev) => prev.map((x) => x.id === p.id ? { ...x, is_active: !x.is_active } : x));
-    } catch { /* non-fatal */ }
+    } catch (err) {
+      console.error('[Kiyo] Toggle promo code error:', err);
+      setError(adminErrorMessage(err, t('error.genericBody')));
+    }
   };
 
   const createCampaign = async () => {
@@ -1642,8 +1664,9 @@ function MarketingTab() {
       setShowCampaignForm(false);
       setNewCampaign({ name: '', type: 'push', audience: 'all', content: '' });
       void load();
-    } catch {
-      setError(t('error.genericBody'));
+    } catch (err) {
+      console.error('[Kiyo] Create campaign error:', err);
+      setError(adminErrorMessage(err, t('error.genericBody')));
     }
   };
 
@@ -1652,7 +1675,10 @@ function MarketingTab() {
       const { error: e } = await supabase.from('marketing_campaigns').update({ is_active: !c.is_active }).eq('id', c.id);
       if (e) throw e;
       setCampaigns((prev) => prev.map((x) => x.id === c.id ? { ...x, is_active: !x.is_active } : x));
-    } catch { /* non-fatal */ }
+    } catch (err) {
+      console.error('[Kiyo] Toggle campaign error:', err);
+      setError(adminErrorMessage(err, t('error.genericBody')));
+    }
   };
 
   const toggleFlag = async (f: FeatureFlag) => {
@@ -1660,7 +1686,10 @@ function MarketingTab() {
       const { error: e } = await supabase.from('feature_flags').update({ is_enabled: !f.is_enabled }).eq('id', f.id);
       if (e) throw e;
       setFlags((prev) => prev.map((x) => x.id === f.id ? { ...x, is_enabled: !x.is_enabled } : x));
-    } catch { /* non-fatal */ }
+    } catch (err) {
+      console.error('[Kiyo] Toggle feature flag error:', err);
+      setError(adminErrorMessage(err, t('error.genericBody')));
+    }
   };
 
   const createPlan = async () => {
@@ -1675,16 +1704,21 @@ function MarketingTab() {
       setShowPlanForm(false);
       setNewPlan({ name: '', type: 'customer', price: '0', features: '' });
       void load();
-    } catch {
-      setError(t('error.genericBody'));
+    } catch (err) {
+      console.error('[Kiyo] Create subscription plan error:', err);
+      setError(adminErrorMessage(err, t('error.genericBody')));
     }
   };
 
   const togglePlan = async (p: SubscriptionPlan) => {
     try {
-      await supabase.from('subscription_plans').update({ is_active: !p.is_active }).eq('id', p.id);
+      const { error: e } = await supabase.from('subscription_plans').update({ is_active: !p.is_active }).eq('id', p.id);
+      if (e) throw e;
       setPlans((prev) => prev.map((x) => x.id === p.id ? { ...x, is_active: !x.is_active } : x));
-    } catch { /* non-fatal */ }
+    } catch (err) {
+      console.error('[Kiyo] Toggle subscription plan error:', err);
+      setError(adminErrorMessage(err, t('error.genericBody')));
+    }
   };
 
   if (loading) return <Skeleton count={3} />;
@@ -2040,8 +2074,8 @@ function AlertsTab() {
       const { data, error: e } = await supabase.rpc('get_admin_alerts');
       if (e) throw e;
       setAlerts(data as typeof alerts);
-    } catch {
-      setError(t('error.genericBody'));
+    } catch (err) {
+      setError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
       setLoading(false);
     }
@@ -2150,8 +2184,8 @@ function AdminSupportTab() {
       const { data, error: e } = await q;
       if (e) throw e;
       setTickets((data as SupportTicket[]) ?? []);
-    } catch {
-      setError(t('error.genericBody'));
+    } catch (err) {
+      setError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
       setLoading(false);
     }
@@ -2251,8 +2285,8 @@ function AdminTicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () 
       if (msgRes.error) throw msgRes.error;
       setTicket(ticketRes.data as SupportTicket);
       setMessages(msgRes.data as typeof messages ?? []);
-    } catch {
-      setError(t('error.genericBody'));
+    } catch (err) {
+      setError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
       setLoading(false);
     }
@@ -2270,8 +2304,8 @@ function AdminTicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () 
       if (e) throw e;
       setReply('');
       void load();
-    } catch {
-      setError(t('error.genericBody'));
+    } catch (err) {
+      setError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
       setSending(false);
     }
@@ -2285,8 +2319,8 @@ function AdminTicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () 
       });
       if (e) throw e;
       void load();
-    } catch {
-      setError(t('error.genericBody'));
+    } catch (err) {
+      setError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
       setUpdating(false);
     }
@@ -2390,8 +2424,8 @@ function MonitoringTab() {
         .limit(50);
       if (e) throw e;
       setAudit((data as AuditLog[]) ?? []);
-    } catch {
-      setError(t('error.genericBody'));
+    } catch (err) {
+      setError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
       setLoading(false);
     }
@@ -2476,100 +2510,144 @@ function GeographyTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showZoneForm, setShowZoneForm] = useState(false);
+  const [savingZone, setSavingZone] = useState(false);
+  const [mutatingId, setMutatingId] = useState<string | number | null>(null);
   const [newZone, setNewZone] = useState({ name: '', base_fee: '50', per_km_fee: '10', min_fee: '50' });
 
-  useEffect(() => {
-    async function loadStats() {
-      setLoading(true);
-      setError(null);
-      try {
-        const [wilayasRes, restaurantCountsRes, profileWilayasRes, zonesRes] = await Promise.all([
-          supabase.from('wilayas').select('*').order('name_fr', { ascending: true }),
-          supabase.from('restaurants').select('wilaya_id').eq('status', 'published'),
-          supabase.from('profiles').select('selected_wilaya_id').not('selected_wilaya_id', 'is', null),
-          supabase.from('delivery_zones').select('*').order('name'),
-        ]);
+  const loadStats = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [wilayasRes, restaurantCountsRes, profileWilayasRes, zonesRes] = await Promise.all([
+        supabase.from('wilayas').select('*').order('name_fr', { ascending: true }),
+        supabase.from('restaurants').select('wilaya_id').eq('status', 'published'),
+        supabase.from('profiles').select('selected_wilaya_id').not('selected_wilaya_id', 'is', null),
+        supabase.from('delivery_zones').select('*').order('name'),
+      ]);
 
-        const wilayas = wilayasRes.data;
-        const restaurantCounts = restaurantCountsRes.data;
-        const profileWilayas = profileWilayasRes.data;
+      if (wilayasRes.error) throw wilayasRes.error;
+      if (restaurantCountsRes.error) throw restaurantCountsRes.error;
+      if (profileWilayasRes.error) throw profileWilayasRes.error;
+      if (zonesRes.error) throw zonesRes.error;
 
-        // Build restaurant wilaya lookup
-        const restaurantWilayaMap: Record<string, number> = {};
-        (restaurantCounts ?? []).forEach((r: { wilaya_id: number | null }) => {
-          if (r.wilaya_id) {
-            restaurantWilayaMap[r.wilaya_id] = (restaurantWilayaMap[r.wilaya_id] || 0) + 1;
-          }
-        });
+      const wilayas = wilayasRes.data;
+      const restaurantCounts = restaurantCountsRes.data;
+      const profileWilayas = profileWilayasRes.data;
 
-        // Build profile wilaya counts
-        const profileWilayaMap: Record<number, number> = {};
-        (profileWilayas ?? []).forEach((p: { selected_wilaya_id: number }) => {
+      const restaurantWilayaMap: Record<number, number> = {};
+      (restaurantCounts ?? []).forEach((r: { wilaya_id: number | null }) => {
+        if (r.wilaya_id) {
+          restaurantWilayaMap[r.wilaya_id] = (restaurantWilayaMap[r.wilaya_id] || 0) + 1;
+        }
+      });
+
+      const profileWilayaMap: Record<number, number> = {};
+      (profileWilayas ?? []).forEach((p: { selected_wilaya_id: number | null }) => {
+        if (p.selected_wilaya_id) {
           profileWilayaMap[p.selected_wilaya_id] = (profileWilayaMap[p.selected_wilaya_id] || 0) + 1;
-        });
+        }
+      });
 
-        // Combine into stats
-        const stats: WilayaStats[] = (wilayas ?? []).map((w) => ({
-          id: w.id,
-          name_en: w.name_en,
-          name_fr: w.name_fr,
-          name_ar: w.name_ar,
-          code: w.code,
-          is_active: w.is_active,
-          restaurant_count: restaurantWilayaMap[w.id] || 0,
-          customer_count: profileWilayaMap[w.id] || 0,
-          order_count: 0,
-        }));
+      const stats: WilayaStats[] = (wilayas ?? []).map((w) => ({
+        id: w.id,
+        name_en: w.name_en,
+        name_fr: w.name_fr,
+        name_ar: w.name_ar,
+        code: w.code,
+        is_active: Boolean(w.is_active),
+        restaurant_count: restaurantWilayaMap[w.id] || 0,
+        customer_count: profileWilayaMap[w.id] || 0,
+        order_count: 0,
+      }));
 
-        setWilayaStats(stats);
-        setDeliveryZones((zonesRes.data as DeliveryZone[]) ?? []);
-      } catch {
-        setError('Failed to load geographic stats');
-      } finally {
-        setLoading(false);
-      }
+      setWilayaStats(stats);
+      setDeliveryZones((zonesRes.data as DeliveryZone[]) ?? []);
+    } catch (err) {
+      console.error('[Kiyo] Load geography controls error:', err);
+      setError(adminErrorMessage(err, 'Failed to load geographic stats'));
+    } finally {
+      setLoading(false);
     }
-    void loadStats();
   }, []);
 
+  useEffect(() => {
+    void loadStats();
+  }, [loadStats]);
+
   const createZone = async () => {
+    const name = newZone.name.trim();
+    const baseFee = Number(newZone.base_fee);
+    const perKmFee = Number(newZone.per_km_fee);
+    const minFee = Number(newZone.min_fee);
+
+    if (!name) {
+      setError('Delivery zone name is required.');
+      return;
+    }
+
+    if (![baseFee, perKmFee, minFee].every((value) => Number.isFinite(value) && value >= 0)) {
+      setError('Delivery zone fees must be valid positive numbers.');
+      return;
+    }
+
+    setSavingZone(true);
+    setError(null);
     try {
-      const { error: e } = await supabase.from('delivery_zones').insert({
-        name: newZone.name,
-        base_fee: Number(newZone.base_fee),
-        per_km_fee: Number(newZone.per_km_fee),
-        min_fee: Number(newZone.min_fee),
-      });
+      const { data, error: e } = await supabase.from('delivery_zones').insert({
+        name,
+        base_fee: baseFee,
+        per_km_fee: perKmFee,
+        min_fee: minFee,
+        is_active: true,
+      }).select('*').single();
       if (e) throw e;
       setShowZoneForm(false);
       setNewZone({ name: '', base_fee: '50', per_km_fee: '10', min_fee: '50' });
-      // Reload zones
-      const { data } = await supabase.from('delivery_zones').select('*').order('name');
-      setDeliveryZones((data as DeliveryZone[]) ?? []);
-    } catch {
-      setError('Failed to create zone');
+      setDeliveryZones((prev) => [...prev, data as DeliveryZone].sort((a, b) => a.name.localeCompare(b.name)));
+    } catch (err) {
+      console.error('[Kiyo] Create delivery zone error:', err);
+      setError(adminErrorMessage(err, 'Failed to create zone'));
+    } finally {
+      setSavingZone(false);
     }
   };
 
   const toggleZone = async (z: DeliveryZone) => {
+    setMutatingId(z.id);
+    setError(null);
     try {
-      await supabase.from('delivery_zones').update({ is_active: !z.is_active }).eq('id', z.id);
-      setDeliveryZones((prev) => prev.map((x) => x.id === z.id ? { ...x, is_active: !x.is_active } : x));
-    } catch { /* non-fatal */ }
+      const nextActive = !z.is_active;
+      const { error: e } = await supabase.from('delivery_zones').update({ is_active: nextActive }).eq('id', z.id);
+      if (e) throw e;
+      setDeliveryZones((prev) => prev.map((x) => x.id === z.id ? { ...x, is_active: nextActive } : x));
+    } catch (err) {
+      console.error('[Kiyo] Toggle delivery zone error:', err);
+      setError(adminErrorMessage(err, 'Failed to update delivery zone'));
+    } finally {
+      setMutatingId(null);
+    }
   };
 
   const toggleWilaya = async (w: WilayaStats) => {
+    setMutatingId(w.id);
+    setError(null);
     try {
-      const { error: e } = await supabase.from('wilayas').update({ is_active: !w.is_active }).eq('id', w.id);
+      const nextActive = !w.is_active;
+      const { error: e } = await supabase.from('wilayas').update({ is_active: nextActive }).eq('id', w.id);
       if (e) throw e;
-      setWilayaStats((prev) => prev.map((x) => x.id === w.id ? { ...x, is_active: !x.is_active } : x));
-    } catch {
-      setError('Failed to update Wilaya status');
+      setWilayaStats((prev) => prev.map((x) => x.id === w.id ? { ...x, is_active: nextActive } : x));
+    } catch (err) {
+      console.error('[Kiyo] Toggle Wilaya error:', err);
+      setError(adminErrorMessage(err, 'Failed to update Wilaya status'));
+    } finally {
+      setMutatingId(null);
     }
   };
 
   if (loading) return <Skeleton count={4} />;
-  if (error) return <ErrorState title="Error" message={error} onRetry={() => setLoading(true)} retryLabel="Retry" />;
+  if (error && wilayaStats.length === 0 && deliveryZones.length === 0) {
+    return <ErrorState title="Error" message={error} onRetry={loadStats} retryLabel="Retry" />;
+  }
 
   const totalRestaurants = wilayaStats.reduce((sum, w) => sum + w.restaurant_count, 0);
   const activeWilayas = wilayaStats.filter((w) => w.is_active);
@@ -2577,6 +2655,17 @@ function GeographyTab() {
 
   return (
     <div className="space-y-6">
+      {error && (
+        <div className="rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-700">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <span>{error}</span>
+            <button onClick={loadStats} className="self-start text-xs font-semibold underline sm:self-auto">
+              Retry
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard icon={MapPin} label={tx('geography.activeWilayas', 'Active Wilayas')} value={String(activeWilayas.length)} accent="ember" />
@@ -2619,6 +2708,7 @@ function GeographyTab() {
                     <td className="px-4 py-2 text-center">
                       <button
                         onClick={() => toggleWilaya(w)}
+                        disabled={mutatingId === w.id}
                         className="focus:outline-none transition-transform active:scale-95"
                         title="Click to toggle active/inactive"
                       >
@@ -2650,7 +2740,7 @@ function GeographyTab() {
             <MapPin className="h-4 w-4 text-ember-500" />
             <h3 className="font-display text-sm font-bold text-ink-900">{tx('geography.deliveryZones', 'Delivery Zones')}</h3>
           </div>
-          <button onClick={() => setShowZoneForm((v) => !v)} className="kiyo-btn-primary text-xs">
+          <button onClick={() => { setError(null); setShowZoneForm((v) => !v); }} className="kiyo-btn-primary text-xs">
             {tx('geography.addZone', 'Add Zone')}
           </button>
         </div>
@@ -2671,8 +2761,10 @@ function GeographyTab() {
                 placeholder={tx('geography.minFee', 'Min fee')} className="rounded border border-ink-200 bg-white px-2 py-1 text-xs text-ink-900 focus:border-ember-500 focus:outline-none" />
             </div>
             <div className="mt-2 flex gap-2">
-              <button onClick={createZone} className="kiyo-btn-primary text-xs">{tx('geography.create', 'Create')}</button>
-              <button onClick={() => setShowZoneForm(false)} className="kiyo-btn-secondary text-xs">{tx('geography.cancel', 'Cancel')}</button>
+              <button onClick={createZone} disabled={savingZone} className="kiyo-btn-primary text-xs">
+                {savingZone ? <Spinner className="h-3 w-3" /> : tx('geography.create', 'Create')}
+              </button>
+              <button onClick={() => { setError(null); setShowZoneForm(false); }} disabled={savingZone} className="kiyo-btn-secondary text-xs">{tx('geography.cancel', 'Cancel')}</button>
             </div>
           </div>
         )}
@@ -2705,7 +2797,7 @@ function GeographyTab() {
                       }`}>{z.is_active ? tx('geography.active', 'Active') : tx('geography.inactive', 'Inactive')}</span>
                     </td>
                     <td className="px-3 py-2 text-right">
-                      <button onClick={() => toggleZone(z)} className="text-xs text-ink-500 hover:text-ink-700">
+                      <button onClick={() => toggleZone(z)} disabled={mutatingId === z.id} className="text-xs text-ink-500 hover:text-ink-700 disabled:cursor-not-allowed disabled:opacity-50">
                         {z.is_active ? tx('geography.disable', 'Disable') : tx('geography.enable', 'Enable')}
                       </button>
                     </td>
