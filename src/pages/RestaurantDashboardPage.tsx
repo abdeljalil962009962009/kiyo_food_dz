@@ -143,7 +143,9 @@ export default function RestaurantDashboardPage() {
       gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 0.5);
-    } catch { /* non-fatal */ }
+    } catch (err) {
+      console.debug('[Kiyo] Order notification sound unavailable:', err);
+    }
   }, [soundEnabled]);
 
   // Real-time: surface the channel status so the UI shows disconnected.
