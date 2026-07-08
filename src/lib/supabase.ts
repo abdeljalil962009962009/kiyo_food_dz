@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-let rawSupabaseUrl = (import.meta.env.VITE_SUPABASE_URL || 'https://rjdhzfcrsxibcszzlxyp.supabase.co').trim();
+let rawSupabaseUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim();
 if (rawSupabaseUrl) {
   rawSupabaseUrl = rawSupabaseUrl.replace(/\/+$/, ""); // Remove trailing slashes
   if (rawSupabaseUrl.endsWith('/rest/v1')) {
@@ -9,7 +9,7 @@ if (rawSupabaseUrl) {
   rawSupabaseUrl = rawSupabaseUrl.replace(/\/+$/, ""); // Clean trailing slashes again
 }
 const supabaseUrl = rawSupabaseUrl;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_6CBu9iy67V-xLAVqyzZdwQ_kcGOKFaq';
+const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
 
 const isValidUrl = (url: string | undefined | null): boolean => {
   if (!url) return false;
@@ -18,12 +18,12 @@ const isValidUrl = (url: string | undefined | null): boolean => {
 
 export const isSupabaseConfigured = isValidUrl(supabaseUrl) && !!supabaseAnonKey;
 
-const dummyUrl = 'https://placeholder-project-id.supabase.co';
-const dummyKey = 'placeholder-anon-key';
+const fallbackUrl = 'http://localhost:54321';
+const fallbackKey = 'missing-supabase-anon-key';
 
 export const supabase = createClient(
-  isValidUrl(supabaseUrl) ? supabaseUrl! : dummyUrl,
-  supabaseAnonKey || dummyKey,
+  isValidUrl(supabaseUrl) ? supabaseUrl! : fallbackUrl,
+  supabaseAnonKey || fallbackKey,
   {
     auth: {
       persistSession: true,

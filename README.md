@@ -1,50 +1,73 @@
-# 🍕 Kiyo Food - Food Delivery Platform
+# Kiyo Food DZ
 
-An elegant, fully-featured, high-performance food delivery platform with localized Wilaya settings, robust restaurant dashboards, real-time notifications, audit logs, and an admin control panel.
+Kiyo Food DZ is a React, Vite, Supabase, and Tailwind food delivery platform for customers, restaurants, drivers, and platform owners.
 
----
+The current production direction is simple: no fake dashboards, no frontend-only authority, no hardcoded owner bypass, and no silent connection to placeholder services.
 
-## 🚀 1-Click Deployment to Vercel
+## Production Deployment
 
-To deploy this project to Vercel with absolute zero-config error handling, follow these simple steps:
+1. Connect this repository to Vercel.
+2. Add these Vercel environment variables:
 
-1. **Import to GitHub**:
-   - Push this workspace/codebase directly to a GitHub repository.
-2. **Connect to Vercel**:
-   - Log in to your Vercel Dashboard and click **Add New** > **Project**.
-   - Select your newly created GitHub repository.
-3. **Configure Environment Variables**:
-   Add the following variables in the Vercel deployment setup under **Environment Variables**:
-   * `VITE_SUPABASE_URL` = `https://rjdhzfcrsxibcszzlxyp.supabase.co`
-   * `VITE_SUPABASE_ANON_KEY` = `sb_publishable_6CBu9iy67V-xLAVqyzZdwQ_kcGOKFaq`
-4. **Deploy**:
-   - Click **Deploy**. The included `vercel.json` will automatically manage routing for React Router DOM, so refresh or direct access to paths like `/admin` or `/restaurants` will never return 404 errors.
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-public-anon-key
+```
 
----
+3. Deploy from the `main` branch.
+4. Confirm the Vercel deployment status is `Ready`.
 
-## 👑 Exclusive Super Admin Access
+If either Supabase variable is missing, the app intentionally shows a setup screen instead of silently connecting to an unintended database.
 
-For **Samera Jaber** (`sameraldjaber@gmail.com`):
-* An instant admin login bypass has been natively built into the application's auth cycle.
-* Signing in using the email `sameraldjaber@gmail.com` or `sameraldja@gmail.com` with **any password** (even if the remote database is offline or encountering rate limits) will automatically authenticate you as the **Super Admin**.
-* Full privileges across the entire Admin Control Center are active immediately.
+## Database Setup
 
----
+Apply every SQL migration in `supabase/migrations` to the production Supabase project in order.
 
-## 🛠️ Supabase Configuration & Schema Transfer
+The root `supabase_schema.sql` file is kept as a full-schema helper, but the migrations are the source of truth for production evolution.
 
-If you ever provision a new Supabase project and want to transfer the database schema:
+Required checks after applying migrations:
 
-1. Go to your **Supabase Dashboard** > **SQL Editor**.
-2. Copy the entire contents of the `supabase_schema.sql` file located in the root directory of this project.
-3. Paste it into the editor and click **Run**.
-4. Set up the environment variables on Vercel with your new project keys.
+- RLS is enabled on production tables.
+- `platform_settings` exists and contains delivery, commission, settlement, feature, tax, driver, and loyalty settings.
+- Owner/admin operations are protected by `is_super_admin()` and RLS.
+- Public signup creates customer profiles only.
+- Staff roles are granted by authorized admin workflows, not by user metadata.
 
----
+## Roles
 
-## 📦 Features & Tech Stack
+Public users sign up as customers.
 
-* **Frontend**: React 18, Vite, Tailwind CSS, Lucide Icons, React Leaflet (delivery tracking).
-* **Database**: Supabase (PostgreSQL with Row Level Security, RPCs, and custom database triggers).
-* **Auth**: Custom persistent sessions, rate-limit tolerance, and automated role mapping.
-* **Routing**: Fully responsive client-side routing using React Router DOM.
+Restaurant owner, driver, and super admin access must be assigned through verified onboarding/admin processes. Do not add hardcoded admin emails or frontend bypasses.
+
+## Local Development
+
+```bash
+npm install
+npm run typecheck
+npm run lint
+npm run build
+```
+
+## Validation Before Launch
+
+Run and verify:
+
+- Customer signup/login/profile.
+- Restaurant discovery and checkout.
+- Order creation and customer cancellation/support fallback.
+- Restaurant dashboard order loading and status updates.
+- Driver dashboard status and live location flow.
+- Owner Control Center settings persistence.
+- Delivery/commission/settlement rules affect real calculations.
+- Vercel deployment succeeds with production env vars.
+- Supabase logs show no RLS or missing-table errors.
+
+## External Services Required
+
+Some production features require owner-managed accounts and keys:
+
+- Supabase production project.
+- Vercel production deployment.
+- Maps provider keys for paid map, geocoding, directions, and ETA services.
+- Payment provider account and legal/tax onboarding.
+- Real restaurant, driver, refund, support, and operating policies.

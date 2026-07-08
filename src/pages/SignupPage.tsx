@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, type FormEvent } from 'react';
-import { Mail, Lock, User as UserIcon, AlertCircle, Check } from 'lucide-react';
+import { Mail, Lock, User as UserIcon, AlertCircle, Store } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../lib/i18n-react';
 import { Logo } from '../components/Logo';
@@ -8,8 +8,6 @@ import { Field } from '../components/Field';
 import { Spinner } from '../components/feedback';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { AuthLayout } from './LoginPage';
-
-type RoleChoice = 'customer' | 'restaurant_owner';
 
 export default function SignupPage() {
   const { t } = useT();
@@ -20,7 +18,6 @@ export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
-  const [role, setRole] = useState<RoleChoice>('customer');
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -37,8 +34,7 @@ export default function SignupPage() {
     if (!acceptTerms) return setLocalError(t('auth.error.acceptTerms'));
 
     setSubmitting(true);
-    // Note: Super admin accounts are managed via the admin panel, not during signup.
-    const { ok } = await signUp(email.trim(), password, fullName.trim(), role);
+    const { ok } = await signUp(email.trim(), password, fullName.trim());
     setSubmitting(false);
     if (ok) {
       // AuthProvider will receive SIGNED_IN and establish the profile.
@@ -105,34 +101,18 @@ export default function SignupPage() {
             required
           />
 
-          <fieldset className="space-y-2">
-            <legend className="kiyo-label">{t('auth.chooseRole')}</legend>
-            <div className="grid grid-cols-2 gap-2">
-              {([
-                { v: 'customer', label: t('auth.role.customer') },
-                { v: 'restaurant_owner', label: t('auth.role.restaurant') },
-              ] as { v: RoleChoice; label: string }[]).map((opt) => {
-                const active = role === opt.v;
-                return (
-                  <button
-                    type="button"
-                    key={opt.v}
-                    onClick={() => setRole(opt.v)}
-                    className={`relative rounded-xl border px-3 py-2.5 text-left text-sm transition-all ${
-                      active
-                        ? 'border-ember-500 bg-ember-50 text-ink-900 ring-2 ring-ember-500/15'
-                        : 'border-ink-200 text-ink-700 hover:border-ink-300'
-                    }`}
-                  >
-                    {opt.label}
-                    {active && (
-                      <Check className="absolute right-2 top-2 h-4 w-4 text-ember-600" />
-                    )}
-                  </button>
-                );
-              })}
+          <div className="rounded-xl border border-ember-100 bg-ember-50/60 px-3 py-3 text-xs text-ink-700">
+            <div className="flex gap-2">
+              <Store className="mt-0.5 h-4 w-4 flex-shrink-0 text-ember-600" />
+              <div>
+                <p className="font-semibold text-ink-900">Restaurant accounts are verified after signup.</p>
+                <p className="mt-1">
+                  Create a customer account first. Restaurant owner access is granted through onboarding and admin approval,
+                  so the platform cannot be abused by choosing a staff role during public signup.
+                </p>
+              </div>
             </div>
-          </fieldset>
+          </div>
 
           <label className="flex items-start gap-2 text-xs text-ink-600">
             <input

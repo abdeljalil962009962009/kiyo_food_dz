@@ -78,12 +78,11 @@ async function fetchProfileWithRetry(
 // Returns true if profile was ensured, false if the user ID is invalid (e.g., deleted).
 async function ensureProfileExists(client: SupabaseClient, user: User): Promise<boolean> {
   const meta = user.user_metadata ?? {};
-  const role = (meta.role as Profile['role']) ?? 'customer';
   const insert = {
     id: user.id,
     email: user.email ?? '',
     full_name: (meta.full_name as string) ?? (meta.name as string) ?? null,
-    role,
+    role: 'customer' as const,
   };
 
   const { error } = await client.from('profiles').upsert(insert, { onConflict: 'id' }).maybeSingle();
@@ -115,9 +114,7 @@ type AuthContextValue = {
   locale: Locale;
   setLocale: (l: Locale) => void;
   signInWithPassword: (email: string, password: string) => Promise<{ ok: boolean }>;
-  signUp: (
-    email: string, password: string, fullName: string, role: 'customer' | 'restaurant_owner'
-  ) => Promise<{ ok: boolean }>;
+  signUp: (email: string, password: string, fullName: string) => Promise<{ ok: boolean }>;
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ ok: boolean }>;
@@ -329,13 +326,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signUp = useCallback<AuthContextValue['signUp']>(
-    async (email, password, fullName, role) => {
+    async (email, password, fullName) => {
       clearError();
       try {
         const { error: e } = await supabase.auth.signUp({
           email,
           password,
-          options: { data: { full_name: fullName, role } },
+          options: { data: { full_name: fullName } },
         });
         if (e) throw e;
         // On email-password signup with email confirmation OFF, Supabase
