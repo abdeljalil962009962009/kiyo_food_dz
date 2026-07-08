@@ -26,6 +26,7 @@ export default function RestaurantOnboardingPage() {
 
   const [owners, setOwners] = useState<Profile[]>([]);
   const [ownersLoading, setOwnersLoading] = useState(true);
+  const [ownersError, setOwnersError] = useState<string | null>(null);
 
   const [name, setName] = useState('');
   const [ownerId, setOwnerId] = useState('');
@@ -42,6 +43,7 @@ export default function RestaurantOnboardingPage() {
   useEffect(() => {
     (async () => {
       setOwnersLoading(true);
+      setOwnersError(null);
       try {
         const { data, error: e } = await supabase
           .from('profiles')
@@ -51,20 +53,22 @@ export default function RestaurantOnboardingPage() {
           .limit(50);
         if (e) throw e;
         setOwners((data as Profile[]) ?? []);
-      } catch {
-        // Admin-only RLS can surface as an empty list.
+      } catch (err) {
+        console.error('Failed to load restaurant owners for onboarding', err);
+        setOwners([]);
+        setOwnersError(formatOnboardingError(err, t('error.genericBody')));
       } finally {
         setOwnersLoading(false);
       }
     })();
-  }, []);
+  }, [t]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
     setError(null);
-    if (name.trim().length < 2) return setError(t('error.genericBody'));
-    if (!ownerId) return setError(t('error.genericBody'));
+    if (name.trim().length < 2) return setError('Restaurant name must contain at least 2 characters.');
+    if (!ownerId) return setError('Select a verified restaurant owner before creating a restaurant.');
     setSubmitting(true);
     try {
       const { data, error: e } = await supabase
@@ -95,11 +99,15 @@ export default function RestaurantOnboardingPage() {
           p_target_type: 'restaurant',
           p_target_id: data.id,
           p_metadata: { name, owner_id: ownerId, latitude: location?.lat, longitude: location?.lng },
-        }).then(() => { /* non-fatal */ }, () => { /* non-fatal */ });
+        }).then(
+          () => { /* non-fatal */ },
+          (logErr) => console.error('Failed to log restaurant creation activity', logErr),
+        );
       }
       navigate('/admin/restaurants', { replace: true });
     } catch (err) {
-      setError((err as Error)?.message ?? t('error.genericBody'));
+      console.error('Failed to create restaurant', err);
+      setError(formatOnboardingError(err, t('error.genericBody')));
     } finally {
       setSubmitting(false);
     }
@@ -143,6 +151,10 @@ export default function RestaurantOnboardingPage() {
                 <div className="flex items-center gap-2 text-xs text-ink-400">
                   <Spinner className="h-3.5 w-3.5" /> {t('common.loading')}
                 </div>
+              ) : ownersError ? (
+                <p className="rounded-lg bg-error-500/10 px-3 py-2 text-xs text-error-600">
+                  {ownersError}
+                </p>
               ) : owners.length === 0 ? (
                 <p className="rounded-lg bg-warning-500/10 px-3 py-2 text-xs text-warning-600">
                   {t('restaurant.onboard.noOwners')}
@@ -246,3 +258,12 @@ export default function RestaurantOnboardingPage() {
 }
 
 void ErrorState;
+
+function formatOnboardingError(err: unknown, fallback: string): string {
+  if (err instanceof Error && err.message) return err.message;
+  if (typeof err === 'object' && err && 'message' in err) {
+    const message = (err as { message?: unknown }).message;
+    if (typeof message === 'string' && message.trim()) return message;
+  }
+  return fallback;
+}

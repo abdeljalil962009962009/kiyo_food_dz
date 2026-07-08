@@ -42,6 +42,8 @@ export function AddressManager() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newLabel, setNewLabel] = useState<'home' | 'work' | 'family' | 'other'>('home');
   const [newLocation, setNewLocation] = useState<{ lat: number; lng: number; address: string } | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [busyAddressId, setBusyAddressId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -52,6 +54,7 @@ export function AddressManager() {
 
   const loadAddresses = async () => {
     setLoading(true);
+    setActionError(null);
     try {
       const { data, error } = await supabase
         .from('saved_addresses')
@@ -65,8 +68,9 @@ export function AddressManager() {
 
       if (error) throw error;
       setAddresses((data as SavedAddress[]) ?? []);
-    } catch {
-      // Non-fatal
+    } catch (err) {
+      console.error('Failed to load saved addresses', err);
+      setActionError(formatAddressError(err, t('error.genericBody')));
     } finally {
       setLoading(false);
     }
@@ -75,6 +79,7 @@ export function AddressManager() {
   const addAddress = async () => {
     if (!newLocation || !user) return;
 
+    setActionError(null);
     try {
       const { error } = await supabase
         .from('saved_addresses')
@@ -92,46 +97,62 @@ export function AddressManager() {
       setShowAddForm(false);
       setNewLocation(null);
       await loadAddresses();
-    } catch {
-      // Non-fatal
+    } catch (err) {
+      console.error('Failed to save address', err);
+      setActionError(formatAddressError(err, t('error.genericBody')));
     }
   };
 
   const setDefault = async (id: string) => {
     if (!user) return;
 
+    setActionError(null);
+    setBusyAddressId(id);
     try {
-      await supabase
+      const { error: clearError } = await supabase
         .from('saved_addresses')
         .update({ is_default: false })
         .eq('customer_id', user.id);
+      if (clearError) throw clearError;
 
-      await supabase
+      const { error: defaultError } = await supabase
         .from('saved_addresses')
         .update({ is_default: true, last_used_at: new Date().toISOString() })
         .eq('id', id);
+      if (defaultError) throw defaultError;
 
       await loadAddresses();
-    } catch {
-      // Non-fatal
+    } catch (err) {
+      console.error('Failed to set default address', err);
+      setActionError(formatAddressError(err, t('error.genericBody')));
+    } finally {
+      setBusyAddressId(null);
     }
   };
 
   const toggleFavorite = async (addr: SavedAddress) => {
+    setActionError(null);
+    setBusyAddressId(addr.id);
     try {
-      await supabase
+      const { error } = await supabase
         .from('saved_addresses')
         .update({ is_favorite: !addr.is_favorite })
         .eq('id', addr.id);
+      if (error) throw error;
 
       await loadAddresses();
-    } catch {
-      // Non-fatal
+    } catch (err) {
+      console.error('Failed to update favorite address', err);
+      setActionError(formatAddressError(err, t('error.genericBody')));
+    } finally {
+      setBusyAddressId(null);
     }
   };
 
   const duplicateAddress = async (addr: SavedAddress) => {
     if (!user) return;
+    setActionError(null);
+    setBusyAddressId(addr.id);
     try {
       const { error } = await supabase
         .from('saved_addresses')
@@ -148,34 +169,49 @@ export function AddressManager() {
 
       if (error) throw error;
       await loadAddresses();
-    } catch {
-      // Non-fatal
+    } catch (err) {
+      console.error('Failed to duplicate address', err);
+      setActionError(formatAddressError(err, t('error.genericBody')));
+    } finally {
+      setBusyAddressId(null);
     }
   };
 
   const archiveAddress = async (id: string) => {
+    setActionError(null);
+    setBusyAddressId(id);
     try {
-      await supabase
+      const { error } = await supabase
         .from('saved_addresses')
         .update({ is_archived: true, is_default: false })
         .eq('id', id);
+      if (error) throw error;
 
       await loadAddresses();
-    } catch {
-      // Non-fatal
+    } catch (err) {
+      console.error('Failed to archive address', err);
+      setActionError(formatAddressError(err, t('error.genericBody')));
+    } finally {
+      setBusyAddressId(null);
     }
   };
 
   const deleteAddress = async (id: string) => {
+    setActionError(null);
+    setBusyAddressId(id);
     try {
-      await supabase
+      const { error } = await supabase
         .from('saved_addresses')
         .delete()
         .eq('id', id);
+      if (error) throw error;
 
       await loadAddresses();
-    } catch {
-      // Non-fatal
+    } catch (err) {
+      console.error('Failed to delete address', err);
+      setActionError(formatAddressError(err, t('error.genericBody')));
+    } finally {
+      setBusyAddressId(null);
     }
   };
 
@@ -206,6 +242,12 @@ export function AddressManager() {
         </div>
       ) : (
         <div className="space-y-2">
+          {actionError && (
+            <div className="rounded-lg bg-error-500/10 px-3 py-2 text-xs font-medium text-error-600">
+              {actionError}
+            </div>
+          )}
+
           {addresses.map((addr) => {
             const Icon = LABEL_ICONS[addr.label];
             const colorClass = LABEL_COLORS[addr.label];
@@ -246,6 +288,7 @@ export function AddressManager() {
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => toggleFavorite(addr)}
+                    disabled={busyAddressId === addr.id}
                     className="rounded p-1.5 text-ink-400 hover:bg-sage-50 hover:text-sage-600"
                     title="Favorite"
                   >
@@ -253,6 +296,7 @@ export function AddressManager() {
                   </button>
                   <button
                     onClick={() => duplicateAddress(addr)}
+                    disabled={busyAddressId === addr.id}
                     className="rounded p-1.5 text-ink-400 hover:bg-ink-50 hover:text-ink-600"
                     title="Duplicate"
                   >
@@ -261,6 +305,7 @@ export function AddressManager() {
                   {!addr.is_default && (
                     <button
                       onClick={() => setDefault(addr.id)}
+                      disabled={busyAddressId === addr.id}
                       className="rounded p-1.5 text-ink-400 hover:bg-ink-50 hover:text-ink-600"
                       title={t('profile.addresses.setAsDefault')}
                     >
@@ -269,6 +314,7 @@ export function AddressManager() {
                   )}
                   <button
                     onClick={() => archiveAddress(addr.id)}
+                    disabled={busyAddressId === addr.id}
                     className="rounded p-1.5 text-ink-400 hover:bg-ink-50 hover:text-ink-600"
                     title="Archive"
                   >
@@ -276,6 +322,7 @@ export function AddressManager() {
                   </button>
                   <button
                     onClick={() => deleteAddress(addr.id)}
+                    disabled={busyAddressId === addr.id}
                     className="rounded p-1.5 text-ink-400 hover:bg-error-50 hover:text-error-600"
                     title={t('profile.addresses.delete')}
                   >
@@ -346,4 +393,13 @@ export function AddressManager() {
       )}
     </div>
   );
+}
+
+function formatAddressError(err: unknown, fallback: string): string {
+  if (err instanceof Error && err.message) return err.message;
+  if (typeof err === 'object' && err && 'message' in err) {
+    const message = (err as { message?: unknown }).message;
+    if (typeof message === 'string' && message.trim()) return message;
+  }
+  return fallback;
 }

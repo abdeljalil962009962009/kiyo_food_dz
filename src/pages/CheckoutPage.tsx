@@ -56,16 +56,22 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (!cart.restaurantId) return;
     void (async () => {
-      const { data } = await supabase
-        .from('restaurants')
-        .select('latitude, longitude, max_delivery_km')
-        .eq('id', cart.restaurantId)
-        .maybeSingle();
-      if (data && data.latitude != null && data.longitude != null) {
-        setRestaurantGeo({ lat: data.latitude, lng: data.longitude, max_km: data.max_delivery_km ?? 10 });
+      try {
+        const { data, error } = await supabase
+          .from('restaurants')
+          .select('latitude, longitude, max_delivery_km')
+          .eq('id', cart.restaurantId)
+          .maybeSingle();
+        if (error) throw error;
+        if (data && data.latitude != null && data.longitude != null) {
+          setRestaurantGeo({ lat: data.latitude, lng: data.longitude, max_km: data.max_delivery_km ?? 10 });
+        }
+      } catch (err) {
+        console.error('Failed to load restaurant delivery geography', err);
+        setCalcError(formatWorkflowError(err, t('checkout.errorCalc')));
       }
     })();
-  }, [cart.restaurantId]);
+  }, [cart.restaurantId, t]);
 
   // Sync profile into form once on mount.
   useEffect(() => {
@@ -80,6 +86,7 @@ export default function CheckoutPage() {
     if (cart.lines.length === 0) return;
     setCalcLoading(true);
     setCalcError(null);
+    setFinance(null);
     try {
       const itemsPayload = cart.lines.map((l) => ({
         menu_item_id: l.item.id,
@@ -96,8 +103,9 @@ export default function CheckoutPage() {
       });
       if (e) throw e;
       setFinance(data as Finance);
-    } catch {
-      setCalcError(t('checkout.errorCalc'));
+    } catch (err) {
+      console.error('Failed to calculate checkout financials', err);
+      setCalcError(formatWorkflowError(err, t('checkout.errorCalc')));
     } finally {
       setCalcLoading(false);
     }
@@ -176,18 +184,24 @@ export default function CheckoutPage() {
       const orderId = (data as { order_id?: string })?.order_id ?? null;
       setPlacedOrderId(orderId);
       if (orderId && mapLocation) {
-        await supabase
+        const { error: locationError } = await supabase
           .from('orders')
           .update({
             delivery_latitude: mapLocation.lat,
             delivery_longitude: mapLocation.lng,
           })
           .eq('id', orderId);
+        if (locationError) throw locationError;
       }
       setStep('success');
       clear();
-    } catch {
-      setSubmitError(t('checkout.error'));
+    } catch (err) {
+      console.error('Failed to place checkout order', err);
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setSubmitError(t('checkout.error'));
+      } else {
+        setSubmitError(formatWorkflowError(err, t('checkout.error')));
+      }
     } finally {
       clearTimeout(t0);
       setSubmitting(false);
@@ -481,4 +495,13 @@ function haversineKm(a: [number, number], b: [number, number]): number {
       Math.cos((b[0] * Math.PI) / 180) *
       Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(s0), Math.sqrt(1 - s0));
+}
+
+function formatWorkflowError(err: unknown, fallback: string): string {
+  if (err instanceof Error && err.message) return err.message;
+  if (typeof err === 'object' && err && 'message' in err) {
+    const message = (err as { message?: unknown }).message;
+    if (typeof message === 'string' && message.trim()) return message;
+  }
+  return fallback;
 }
