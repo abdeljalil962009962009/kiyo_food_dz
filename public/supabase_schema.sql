@@ -5064,4 +5064,14 @@ CREATE POLICY subscription_plans_select ON subscription_plans FOR SELECT
 -- Only super admins can modify subscription plans
 DROP POLICY IF EXISTS subscription_plans_modify ON subscription_plans;
 CREATE POLICY subscription_plans_modify ON subscription_plans FOR ALL
-  TO authenticated USING (public.is_super_admin());
+  TO authenticated USING (public.is_super_admin());-- Add super admin read access to saved_addresses
+DROP POLICY IF EXISTS saved_addresses_select_admin ON saved_addresses;
+CREATE POLICY saved_addresses_select_admin ON saved_addresses
+  FOR SELECT TO authenticated
+  USING (has_super_admin_role(auth.uid()));
+
+-- Also add super admin read access to orders for pickup points
+DROP POLICY IF EXISTS orders_select_admin_fallback ON orders;
+CREATE POLICY orders_select_admin_fallback ON orders
+  FOR SELECT TO authenticated
+  USING (has_super_admin_role(auth.uid()));

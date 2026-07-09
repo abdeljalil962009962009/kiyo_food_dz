@@ -13,6 +13,7 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Skeleton, ErrorState, Spinner } from '../components/feedback';
 import { RestaurantImage } from '../components/ui';
 import { PlatformHealthPanel } from '../components/PlatformHealth';
+import AdminCoverageMap from '../components/AdminCoverageMap';
 
 type Analytics = {
   revenue: { today: number; this_week: number; this_month: number; this_year: number; all_time: number };
@@ -2665,6 +2666,8 @@ function GeographyTab() {
           </div>
         </div>
       )}
+
+      <AdminCoverageMap />
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
