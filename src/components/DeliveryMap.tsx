@@ -5,7 +5,9 @@ import { MapPin, Locate, Search, AlertTriangle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import {
   formatDistanceKm,
+  getGpsAccuracyMessage,
   haversineKm,
+  isCoordinateInAlgeria,
   reverseGeocode,
   searchAddresses,
   watchCurrentPosition,
@@ -34,6 +36,19 @@ const liveLocationIcon = L.divIcon({
 });
 
 const ALGERIA_CENTER: [number, number] = [28.0, 2.0];
+const ALGERIA_BOUNDS: [[number, number], [number, number]] = [[18.5, -9.0], [37.6, 12.2]];
+const GPS_DELIVERY_ACCURACY_LIMIT_METERS = 250;
+
+const TILE_PROVIDERS = {
+  osm: {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  },
+  carto: {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+  },
+};
 
 type Props = {
   restaurantLat?: number | null;
@@ -56,8 +71,11 @@ export default function DeliveryMap({
   const [searching, setSearching] = useState(false);
   const [suggestions, setSuggestions] = useState<GeoSearchResult[]>([]);
   const [permissionDenied, setPermissionDenied] = useState(false);
+  const [gpsWarning, setGpsWarning] = useState<string | null>(null);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [livePosition, setLivePosition] = useState<LiveGeoPoint | null>(null);
+  const [tileProvider, setTileProvider] = useState<keyof typeof TILE_PROVIDERS>('osm');
+  const [tileErrorCount, setTileErrorCount] = useState(0);
   const mapRef = useRef<L.Map | null>(null);
   const stopWatchingRef = useRef<(() => void) | null>(null);
 
@@ -69,6 +87,12 @@ export default function DeliveryMap({
   const outOfZone = !!distanceKm && !!maxDeliveryKm && distanceKm > maxDeliveryKm;
 
   const setLocation = useCallback(async (lat: number, lng: number, address?: string) => {
+    if (!isCoordinateInAlgeria(lat, lng)) {
+      setGpsWarning('This location is outside Algeria. Please search or place the pin inside the service area.');
+      return;
+    }
+
+    setGpsWarning(null);
     setPin([lat, lng]);
     const resolvedAddress = address ?? (await reverseGeocode(lat, lng, document.documentElement.lang || 'fr')).displayName;
     setAddressText(resolvedAddress);
@@ -100,7 +124,14 @@ export default function DeliveryMap({
     stopWatchingRef.current = watchCurrentPosition(
       async (pos) => {
         setLivePosition(pos);
-        await setLocation(pos.lat, pos.lng);
+        const accuracyWarning = getGpsAccuracyMessage(pos.accuracy);
+        setGpsWarning(accuracyWarning);
+
+        if (!pos.accuracy || pos.accuracy <= GPS_DELIVERY_ACCURACY_LIMIT_METERS) {
+          await setLocation(pos.lat, pos.lng);
+          setGpsWarning(accuracyWarning);
+        }
+
         setGpsLoading(false);
         mapRef.current?.flyTo([pos.lat, pos.lng], 16, { duration: 0.75 });
       },
@@ -118,6 +149,17 @@ export default function DeliveryMap({
         await setLocation(lat, lng);
       },
     });
+    return null;
+  }
+
+  function MapResizeFix() {
+    const map = useMap();
+    useEffect(() => {
+      const timers = [100, 450, 1000].map((delay) =>
+        window.setTimeout(() => map.invalidateSize(), delay),
+      );
+      return () => timers.forEach((timer) => window.clearTimeout(timer));
+    }, [map]);
     return null;
   }
 
@@ -203,18 +245,38 @@ export default function DeliveryMap({
         </div>
       )}
 
+      {gpsWarning && (
+        <div className="flex items-start gap-2 rounded-lg bg-warning-500/10 px-3 py-2 text-xs text-warning-700">
+          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+          <span>{gpsWarning}</span>
+        </div>
+      )}
+
       <div className="relative h-72 w-full overflow-hidden rounded-xl border border-ink-200 sm:h-80">
         <MapContainer
           center={restaurantLat && restaurantLng ? [restaurantLat, restaurantLng] : ALGERIA_CENTER}
           zoom={13}
+          minZoom={5}
+          maxBounds={ALGERIA_BOUNDS}
+          maxBoundsViscosity={0.7}
           scrollWheelZoom={false}
           className="h-full w-full"
           ref={(m) => { mapRef.current = m; }}
         >
           <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution={TILE_PROVIDERS[tileProvider].attribution}
+            url={TILE_PROVIDERS[tileProvider].url}
+            eventHandlers={{
+              tileerror: () => {
+                setTileErrorCount((count) => {
+                  const next = count + 1;
+                  if (next >= 3) setTileProvider('carto');
+                  return next;
+                });
+              },
+            }}
           />
+          <MapResizeFix />
           <MapClickHandler />
           <RestaurantFlyTo />
           {pin && <Marker position={pin} icon={blueIcon} />}
@@ -233,6 +295,13 @@ export default function DeliveryMap({
             <Circle center={[restaurantLat, restaurantLng]} radius={maxDeliveryKm * 1000} kind="delivery" />
           )}
         </MapContainer>
+        {tileErrorCount > 0 && (
+          <div className="absolute bottom-2 left-2 z-[1000] max-w-[85%] rounded-lg bg-white/95 px-3 py-2 text-[11px] font-medium text-ink-600 shadow">
+            {tileProvider === 'carto'
+              ? 'Map fallback is active because the primary tiles were slow.'
+              : 'Map tiles are reconnecting. Your selected pin remains safe.'}
+          </div>
+        )}
       </div>
 
       {addressText && (

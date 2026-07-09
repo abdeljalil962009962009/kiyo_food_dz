@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   LogOut, Mail, Phone, User as UserIcon, Globe, Shield,
   Download, Trash2, AlertTriangle, X, FileText, MapPin,
-  Award, Star, TrendingUp,
+  Award, Star, TrendingUp, Store,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../lib/i18n-react';
@@ -251,6 +251,29 @@ export default function ProfilePage() {
             )}
           </div>
         </div>
+
+        {profile?.role === 'customer' && (
+          <div className="kiyo-card mt-6 p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-ink-900 text-white">
+                  <Store className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="font-display text-base font-bold text-ink-900">
+                    {t('restaurant.apply.nav')}
+                  </h2>
+                  <p className="mt-1 max-w-2xl text-sm text-ink-500">
+                    {t('restaurant.apply.subtitle')}
+                  </p>
+                </div>
+              </div>
+              <Link to="/restaurant/apply" className="kiyo-btn-secondary shrink-0 justify-center">
+                {t('restaurant.apply.submit')}
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* Saved Addresses */}
         <div className="kiyo-card mt-6 p-5">

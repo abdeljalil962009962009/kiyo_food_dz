@@ -35,6 +35,31 @@ export type GeoSearchResult = Coordinates & {
 const NOMINATIM_MIN_DELAY_MS = 1100;
 let lastNominatimRequestAt = 0;
 
+export const ALGERIA_GEO_BOUNDS = {
+  minLat: 18.5,
+  maxLat: 37.6,
+  minLng: -9.0,
+  maxLng: 12.2,
+};
+
+export function isCoordinateInAlgeria(lat: number, lng: number): boolean {
+  return (
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= ALGERIA_GEO_BOUNDS.minLat &&
+    lat <= ALGERIA_GEO_BOUNDS.maxLat &&
+    lng >= ALGERIA_GEO_BOUNDS.minLng &&
+    lng <= ALGERIA_GEO_BOUNDS.maxLng
+  );
+}
+
+export function getGpsAccuracyMessage(accuracy: number | null | undefined): string | null {
+  if (!accuracy) return null;
+  if (accuracy <= 80) return null;
+  if (accuracy <= 250) return 'GPS accuracy is weak. Please confirm the pin before ordering.';
+  return 'GPS accuracy is too weak for delivery. Search your address or move the pin to the exact entrance.';
+}
+
 export function haversineKm(a: Coordinates, b: Coordinates): number {
   const R = 6371;
   const dLat = ((b.lat - a.lat) * Math.PI) / 180;
@@ -135,6 +160,14 @@ function normalizeOsmAddress(data: {
 }
 
 export async function reverseGeocode(lat: number, lng: number, language = 'fr'): Promise<AddressParts> {
+  if (!isCoordinateInAlgeria(lat, lng)) {
+    return {
+      displayName: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+      country: 'Algeria',
+      provider: 'manual',
+    };
+  }
+
   await waitForNominatimSlot();
   try {
     const res = await fetch(
@@ -171,7 +204,7 @@ export async function searchAddresses(query: string, language = 'fr', limit = 5)
         placeId: item.place_id ? String(item.place_id) : undefined,
         provider: 'osm' as const,
       }))
-      .filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lng));
+      .filter((item) => isCoordinateInAlgeria(item.lat, item.lng));
   } catch {
     return [];
   }
@@ -188,6 +221,11 @@ export function watchCurrentPosition(
 
   const watchId = navigator.geolocation.watchPosition(
     (pos) => {
+      if (!isCoordinateInAlgeria(pos.coords.latitude, pos.coords.longitude)) {
+        onError(new Error('Detected location is outside Algeria. Please search or pick your address manually.'));
+        return;
+      }
+
       onPoint({
         lat: pos.coords.latitude,
         lng: pos.coords.longitude,
