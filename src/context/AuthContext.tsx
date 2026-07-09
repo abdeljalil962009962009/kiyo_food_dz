@@ -12,11 +12,19 @@ import type { Profile } from '../lib/supabase';
 export type AuthErrorCode =
   | 'invalidCredentials' | 'emailTaken' | 'weakPassword'
   | 'tooManyAttempts' | 'network' | 'timeout' | 'unknown'
-  | 'passwordMismatch' | 'acceptTerms' | 'invalidEmail' | 'emailNotConfirmed';
+  | 'passwordMismatch' | 'acceptTerms' | 'invalidEmail' | 'emailNotConfirmed'
+  | 'providerNotEnabled' | 'invalidRedirect';
 
 function mapSupabaseError(err: unknown): AuthErrorCode {
+  const code = (err as { code?: string })?.code;
   const msg = (err as { message?: string })?.message ?? '';
   const lc = msg.toLowerCase();
+  // OAuth provider not configured in Supabase.
+  if (code === 'validation_failed' && lc.includes('provider is not enabled')) return 'providerNotEnabled';
+  if (lc.includes('provider is not enabled') || lc.includes('provider not enabled')) return 'providerNotEnabled';
+  // OAuth provider rejected the redirect_uri (Google/Apple reject the request itself).
+  if (lc.includes('redirect_uri_mismatch') || lc.includes('redirect uri') || lc.includes('invalid_request')) return 'invalidRedirect';
+  if (code === 'invalid_request' && lc.includes('redirect')) return 'invalidRedirect';
   if (lc.includes('invalid login') || lc.includes('invalid credentials')) return 'invalidCredentials';
   if (lc.includes('email not confirmed') || lc.includes('not confirmed')) return 'emailNotConfirmed';
   if (lc.includes('already registered') || lc.includes('already been registered') || lc.includes('user already registered')) return 'emailTaken';
@@ -40,6 +48,8 @@ function describeAuthError(code: AuthErrorCode, locale: Locale): string {
     acceptTerms: 'auth.error.acceptTerms',
     invalidEmail: 'auth.error.invalidEmail',
     emailNotConfirmed: 'auth.error.emailNotConfirmed',
+    providerNotEnabled: 'auth.error.providerNotEnabled',
+    invalidRedirect: 'auth.error.invalidRedirect',
   };
   return translate(locale, map[code]);
 }

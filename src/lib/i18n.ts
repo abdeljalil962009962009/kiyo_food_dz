@@ -61,6 +61,8 @@ export type TranslationKey =
   | 'auth.error.invalidEmail'
   | 'auth.error.emailNotConfirmed'
   | 'auth.error.popupBlocked'
+  | 'auth.error.providerNotEnabled'
+  | 'auth.error.invalidRedirect'
   | 'auth.signupCheckEmailTitle'
   | 'auth.signupCheckEmailBody'
   | 'auth.resetInvalidTitle'
@@ -573,6 +575,8 @@ const en: Dict = {
   'auth.error.invalidEmail': 'Please enter a valid email address.',
   'auth.error.emailNotConfirmed': 'Confirm your email before signing in. Check your inbox for the Kiyo Food confirmation email.',
   'auth.error.popupBlocked': 'Allow popups for Kiyo Food to continue with this login provider.',
+  'auth.error.providerNotEnabled': 'This sign-in provider is not enabled yet. Ask the administrator to enable it in Supabase → Authentication → Providers.',
+  'auth.error.invalidRedirect': 'The sign-in provider rejected the redirect. The administrator must add the Supabase callback URL to the provider console (see Setup Guide).',
   'auth.signupCheckEmailTitle': 'Confirm your email',
   'auth.signupCheckEmailBody': 'Your account was created. Open the confirmation email from Kiyo Food, then come back and sign in.',
   'auth.resetInvalidTitle': 'Reset link expired',
@@ -1074,6 +1078,8 @@ const fr: Dict = {
   'auth.error.invalidEmail': 'Veuillez saisir une adresse e-mail valide.',
   'auth.error.emailNotConfirmed': 'Confirmez votre e-mail avant de vous connecter. Vérifiez votre boîte de réception pour l’e-mail de confirmation Kiyo Food.',
   'auth.error.popupBlocked': 'Autorisez les popups pour Kiyo Food afin de continuer avec ce fournisseur de connexion.',
+  'auth.error.providerNotEnabled': 'Ce fournisseur de connexion n’est pas encore activé. Demandez à l’administrateur de l’activer dans Supabase → Authentication → Providers.',
+  'auth.error.invalidRedirect': 'Le fournisseur de connexion a rejeté la redirection. L’administrateur doit ajouter l’URL de rappel Supabase dans la console du fournisseur (voir le guide d’installation).',
   'auth.signupCheckEmailTitle': 'Confirmez votre e-mail',
   'auth.signupCheckEmailBody': 'Votre compte a été créé. Ouvrez l’e-mail de confirmation de Kiyo Food, puis revenez vous connecter.',
   'auth.resetInvalidTitle': 'Lien de réinitialisation expiré',
@@ -1575,6 +1581,8 @@ const ar: Dict = {
   'auth.error.invalidEmail': 'يرجى إدخال بريد إلكتروني صالح.',
   'auth.error.emailNotConfirmed': 'أكد بريدك الإلكتروني قبل تسجيل الدخول. تحقق من بريدك للعثور على رسالة تأكيد كيو فود.',
   'auth.error.popupBlocked': 'اسمح بالنوافذ المنبثقة لكيو فود للمتابعة مع مزود تسجيل الدخول هذا.',
+  'auth.error.providerNotEnabled': 'مزود تسجيل الدخول هذا غير مفعّل بعد. اطلب من المدير تفعيله في Supabase → Authentication → Providers.',
+  'auth.error.invalidRedirect': 'مزود تسجيل الدخول رفض إعادة التوجيه. يجب على المدير إضافة عنوان رد الاتصال لـ Supabase في لوحة المزود (راجع دليل الإعداد).',
   'auth.signupCheckEmailTitle': 'أكد بريدك الإلكتروني',
   'auth.signupCheckEmailBody': 'تم إنشاء حسابك. افتح رسالة التأكيد من كيو فود، ثم عد لتسجيل الدخول.',
   'auth.resetInvalidTitle': 'انتهت صلاحية رابط إعادة التعيين',
