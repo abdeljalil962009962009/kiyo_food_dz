@@ -2,6 +2,8 @@
 -- Blocks new incomplete/invalid critical coordinates and stores checkout
 -- delivery coordinates atomically during order creation.
 
+CREATE EXTENSION IF NOT EXISTS postgis;
+
 CREATE OR REPLACE FUNCTION public.kiyo_is_coordinate_in_algeria(
   p_lat double precision,
   p_lng double precision
@@ -14,9 +16,47 @@ AS $$
      AND p_lng BETWEEN -9.0 AND 12.2;
 $$;
 
+ALTER TABLE public.saved_addresses
+  ADD COLUMN IF NOT EXISTS accuracy_m numeric,
+  ADD COLUMN IF NOT EXISTS geo geography(Point, 4326);
+
+ALTER TABLE public.restaurants
+  ADD COLUMN IF NOT EXISTS location_accuracy_m numeric,
+  ADD COLUMN IF NOT EXISTS location_verified boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS geo geography(Point, 4326);
+
+ALTER TABLE public.orders
+  ADD COLUMN IF NOT EXISTS delivery_accuracy_m numeric,
+  ADD COLUMN IF NOT EXISTS delivery_geo geography(Point, 4326);
+
+ALTER TABLE public.drivers
+  ADD COLUMN IF NOT EXISTS location_accuracy_m numeric,
+  ADD COLUMN IF NOT EXISTS geo geography(Point, 4326);
+
 ALTER TABLE public.restaurant_applications
   ADD COLUMN IF NOT EXISTS location_accuracy_m numeric,
   ADD COLUMN IF NOT EXISTS location_confirmed boolean NOT NULL DEFAULT false;
+
+UPDATE public.restaurants
+SET geo = ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography
+WHERE latitude IS NOT NULL
+  AND longitude IS NOT NULL
+  AND geo IS NULL
+  AND public.kiyo_is_coordinate_in_algeria(latitude, longitude);
+
+UPDATE public.saved_addresses
+SET geo = ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography
+WHERE latitude IS NOT NULL
+  AND longitude IS NOT NULL
+  AND geo IS NULL
+  AND public.kiyo_is_coordinate_in_algeria(latitude, longitude);
+
+UPDATE public.orders
+SET delivery_geo = ST_SetSRID(ST_MakePoint(delivery_longitude, delivery_latitude), 4326)::geography
+WHERE delivery_latitude IS NOT NULL
+  AND delivery_longitude IS NOT NULL
+  AND delivery_geo IS NULL
+  AND public.kiyo_is_coordinate_in_algeria(delivery_latitude, delivery_longitude);
 
 DO $$
 BEGIN
