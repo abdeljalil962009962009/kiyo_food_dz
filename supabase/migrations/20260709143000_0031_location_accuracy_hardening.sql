@@ -17,23 +17,33 @@ AS $$
 $$;
 
 ALTER TABLE public.saved_addresses
+  ADD COLUMN IF NOT EXISTS latitude double precision,
+  ADD COLUMN IF NOT EXISTS longitude double precision,
   ADD COLUMN IF NOT EXISTS accuracy_m numeric,
   ADD COLUMN IF NOT EXISTS geo geography(Point, 4326);
 
 ALTER TABLE public.restaurants
+  ADD COLUMN IF NOT EXISTS latitude double precision,
+  ADD COLUMN IF NOT EXISTS longitude double precision,
   ADD COLUMN IF NOT EXISTS location_accuracy_m numeric,
   ADD COLUMN IF NOT EXISTS location_verified boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS geo geography(Point, 4326);
 
 ALTER TABLE public.orders
+  ADD COLUMN IF NOT EXISTS delivery_latitude double precision,
+  ADD COLUMN IF NOT EXISTS delivery_longitude double precision,
   ADD COLUMN IF NOT EXISTS delivery_accuracy_m numeric,
   ADD COLUMN IF NOT EXISTS delivery_geo geography(Point, 4326);
 
 ALTER TABLE public.drivers
+  ADD COLUMN IF NOT EXISTS current_latitude double precision,
+  ADD COLUMN IF NOT EXISTS current_longitude double precision,
   ADD COLUMN IF NOT EXISTS location_accuracy_m numeric,
   ADD COLUMN IF NOT EXISTS geo geography(Point, 4326);
 
 ALTER TABLE public.restaurant_applications
+  ADD COLUMN IF NOT EXISTS latitude double precision,
+  ADD COLUMN IF NOT EXISTS longitude double precision,
   ADD COLUMN IF NOT EXISTS location_accuracy_m numeric,
   ADD COLUMN IF NOT EXISTS location_confirmed boolean NOT NULL DEFAULT false;
 
@@ -153,7 +163,8 @@ BEGIN
       CHECK (current_latitude IS NULL OR public.kiyo_is_coordinate_in_algeria(current_latitude, current_longitude)) NOT VALID;
   END IF;
 
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'driver_events_valid_algeria_coordinates') THEN
+  IF to_regclass('public.driver_location_events') IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'driver_events_valid_algeria_coordinates') THEN
     ALTER TABLE public.driver_location_events
       ADD CONSTRAINT driver_events_valid_algeria_coordinates
       CHECK (public.kiyo_is_coordinate_in_algeria(latitude, longitude)) NOT VALID;
