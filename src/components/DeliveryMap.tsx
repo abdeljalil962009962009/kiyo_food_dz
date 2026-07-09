@@ -265,9 +265,10 @@ function DeliveryMapInner({
   };
 
   const distanceKm = useMemo(() => {
+    if (purpose === 'restaurant' || purpose === 'driver') return null;
     if (!currentLocation || !restaurantLat || !restaurantLng) return null;
     return haversineKm({ lat: currentLocation.lat, lng: currentLocation.lng }, { lat: restaurantLat, lng: restaurantLng });
-  }, [currentLocation, restaurantLat, restaurantLng]);
+  }, [currentLocation, restaurantLat, restaurantLng, purpose]);
 
   const outOfZone = !!distanceKm && !!maxDeliveryKm && distanceKm > maxDeliveryKm;
 
