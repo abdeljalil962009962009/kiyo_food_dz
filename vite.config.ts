@@ -1,7 +1,12 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+
+const requiredProductionEnv = [
+  'VITE_SUPABASE_URL',
+  'VITE_SUPABASE_ANON_KEY',
+];
 
 const spaEntryRoutes = [
   'login',
@@ -48,24 +53,39 @@ function spaFallbackEntries() {
 }
 
 // https://vitejs.dev/config/
-export default defineConfig({
-  plugins: [react(), spaFallbackEntries()],
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (!id.includes('node_modules')) return undefined;
-          if (id.includes('@supabase')) return 'vendor-supabase';
-          if (id.includes('leaflet') || id.includes('react-leaflet')) return 'vendor-maps';
-          if (id.includes('lucide-react')) return 'vendor-icons';
-          if (id.includes('react-router-dom')) return 'vendor-router';
-          if (id.includes('react') || id.includes('react-dom')) return 'vendor-react';
-          return 'vendor';
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  const isVercelProduction = env.VERCEL === '1' && env.VERCEL_ENV === 'production';
+
+  if (isVercelProduction) {
+    const missing = requiredProductionEnv.filter((key) => !env[key]?.trim());
+    if (missing.length > 0) {
+      throw new Error(
+        `Kiyo Food production build is missing required Vercel environment variables: ${missing.join(', ')}. ` +
+          'Set them for the Production environment and redeploy.',
+      );
+    }
+  }
+
+  return {
+    plugins: [react(), spaFallbackEntries()],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return undefined;
+            if (id.includes('@supabase')) return 'vendor-supabase';
+            if (id.includes('leaflet') || id.includes('react-leaflet')) return 'vendor-maps';
+            if (id.includes('lucide-react')) return 'vendor-icons';
+            if (id.includes('react-router-dom')) return 'vendor-router';
+            if (id.includes('react') || id.includes('react-dom')) return 'vendor-react';
+            return 'vendor';
+          },
         },
       },
     },
-  },
-  optimizeDeps: {
-    exclude: ['lucide-react'],
-  },
+    optimizeDeps: {
+      exclude: ['lucide-react'],
+    },
+  };
 });
