@@ -158,7 +158,11 @@ export default function AdminCoverageMap() {
             defaultZoom={11}
             mapId="COVERAGE_MAP_ID"
             gestureHandling="greedy"
-            disableDefaultUI
+            disableDefaultUI={false}
+            zoomControl={true}
+            fullscreenControl={true}
+            mapTypeControl={false}
+            streetViewControl={false}
             internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
           >
             <HeatmapLayerComponent points={points} typeFilter={typeFilter} />
