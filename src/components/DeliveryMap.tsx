@@ -329,7 +329,11 @@ function DeliveryMapInner({
           mapId="DEMO_MAP_ID"
           internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
           gestureHandling="greedy"
-          disableDefaultUI
+          disableDefaultUI={false}
+          zoomControl={true}
+          fullscreenControl={true}
+          mapTypeControl={false}
+          streetViewControl={false}
           onDragstart={() => setIsDragging(true)}
           onIdle={handleIdle}
           style={{ width: '100%', height: '100%' }}

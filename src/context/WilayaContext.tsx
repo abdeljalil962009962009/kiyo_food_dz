@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { supabase } from '../lib/supabase';
-import { requestBestCurrentPosition } from '../lib/geo';
+import { requestBestCurrentPosition, reverseGeocode } from '../lib/geo';
 
 export type Wilaya = {
   id: number;
@@ -175,15 +175,8 @@ export function WilayaProvider({ children, locale = 'fr' }: { children: ReactNod
       });
 
       // Reverse geocode to get wilaya
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${point.lat}&lon=${point.lng}&zoom=6&addressdetails=1`,
-        { headers: { 'Accept-Language': 'en' } }
-      );
-
-      if (!res.ok) throw new Error('Geocoding failed');
-
-      const data = await res.json();
-      const state = data.address?.state || data.address?.region;
+      const data = await reverseGeocode(point.lat, point.lng, 'en');
+      const state = data.province || data.city || data.commune;
 
       if (state) {
         // Match wilaya by name (in any language)

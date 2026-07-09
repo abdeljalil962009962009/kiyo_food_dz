@@ -333,7 +333,11 @@ function RestaurantMiniMap({ restaurant }: { restaurant: Restaurant }) {
           defaultZoom={13}
           mapId="RESTAURANT_MINI_MAP"
           gestureHandling="cooperative"
-          disableDefaultUI
+          disableDefaultUI={false}
+          zoomControl={true}
+          fullscreenControl={true}
+          mapTypeControl={false}
+          streetViewControl={false}
           internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
           style={{ width: '100%', height: '100%' }}
         >

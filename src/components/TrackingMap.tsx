@@ -99,7 +99,11 @@ function TrackingMapInner({
         defaultZoom={14}
         mapId="TRACKING_MAP_ID"
         gestureHandling="greedy"
-        disableDefaultUI
+        disableDefaultUI={false}
+        zoomControl={true}
+        fullscreenControl={true}
+        mapTypeControl={false}
+        streetViewControl={false}
         internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
         style={{ width: '100%', height: '100%' }}
       >
