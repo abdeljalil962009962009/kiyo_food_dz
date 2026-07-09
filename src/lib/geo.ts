@@ -206,8 +206,10 @@ function normalizeOsmAddress(data: {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const API_KEY = process.env.GOOGLE_MAPS_PLATFORM_KEY || (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY || (globalThis as any).GOOGLE_MAPS_PLATFORM_KEY || '';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function parseGoogleAddress(result: any): AddressParts {
   const components = result.address_components || [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const getComponent = (type: string) => components.find((c: any) => c.types.includes(type))?.long_name;
   
   return {
@@ -270,6 +272,7 @@ export async function searchAddresses(query: string, language = 'fr', limit = 5)
       const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(trimmed)}&components=country:DZ&key=${API_KEY}&language=${language}`);
       const data = await res.json();
       if (data.status === 'OK' && data.results) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return data.results.slice(0, limit).map((r: any) => ({
           lat: r.geometry.location.lat,
           lng: r.geometry.location.lng,
