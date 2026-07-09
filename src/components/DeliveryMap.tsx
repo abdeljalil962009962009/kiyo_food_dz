@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { APIProvider, Map, AdvancedMarker, useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
 import { MapPin, Locate, Search, AlertTriangle, CheckCircle, Crosshair } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -329,7 +329,7 @@ function DeliveryMapInner({
           internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
           gestureHandling="greedy"
           disableDefaultUI
-          onDragStart={() => setIsDragging(true)}
+          onDragstart={() => setIsDragging(true)}
           onIdle={handleIdle}
           style={{ width: '100%', height: '100%' }}
         >

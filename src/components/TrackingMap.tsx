@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useEffect, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { APIProvider, Map, AdvancedMarker, useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
 import { useT } from '../lib/i18n-react';
 import { AlertTriangle } from 'lucide-react';
