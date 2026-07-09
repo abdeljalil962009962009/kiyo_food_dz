@@ -1,9 +1,55 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+
+const spaEntryRoutes = [
+  'login',
+  'signup',
+  'forgot-password',
+  'reset-password',
+  'auth/callback',
+  'auth/forgot',
+  'auth/reset',
+  'dashboard',
+  'profile',
+  'restaurants',
+  'restaurant/apply',
+  'restaurant/onboarding',
+  'restaurant',
+  'restaurant/menu',
+  'restaurant/settings',
+  'admin',
+  'admin/restaurants',
+  'admin/audit',
+  'driver',
+  'driver/onboarding',
+  'cart',
+  'checkout',
+  'orders',
+  'favorites',
+  'support',
+];
+
+function spaFallbackEntries() {
+  return {
+    name: 'kiyo-spa-fallback-entries',
+    writeBundle() {
+      const distDir = join(__dirname, 'dist');
+      const indexHtml = readFileSync(join(distDir, 'index.html'), 'utf8');
+
+      for (const route of spaEntryRoutes) {
+        const target = join(distDir, route, 'index.html');
+        mkdirSync(dirname(target), { recursive: true });
+        writeFileSync(target, indexHtml);
+      }
+    },
+  };
+}
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), spaFallbackEntries()],
   build: {
     rollupOptions: {
       output: {
