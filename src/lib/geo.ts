@@ -53,13 +53,6 @@ export function isCoordinateInAlgeria(lat: number, lng: number): boolean {
   );
 }
 
-export function getGpsAccuracyMessage(accuracy: number | null | undefined): string | null {
-  if (!accuracy) return null;
-  if (accuracy <= 80) return null;
-  if (accuracy <= 250) return 'GPS accuracy is weak. Please confirm the pin before ordering.';
-  return 'GPS accuracy is too weak for delivery. Search your address or move the pin to the exact entrance.';
-}
-
 export function haversineKm(a: Coordinates, b: Coordinates): number {
   const R = 6371;
   const dLat = ((b.lat - a.lat) * Math.PI) / 180;

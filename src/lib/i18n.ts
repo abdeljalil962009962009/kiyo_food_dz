@@ -186,6 +186,23 @@ export type TranslationKey =
   | 'restaurant.apply.errorLocation'
   | 'restaurant.apply.errorDelivery'
   | 'restaurant.apply.errorMinOrder'
+  | 'map.searchPlaceholder'
+  | 'map.useCurrentLocation'
+  | 'map.locating'
+  | 'map.gps'
+  | 'map.searching'
+  | 'map.loading'
+  | 'map.locationUnavailable'
+  | 'map.locationOutsideAlgeria'
+  | 'map.gpsWeak'
+  | 'map.gpsApproximate'
+  | 'map.tileFallbackActive'
+  | 'map.tileReconnecting'
+  | 'map.distance'
+  | 'map.max'
+  | 'map.gpsAccuracy'
+  | 'map.heading'
+  | 'map.outsideZone'
   // cart + checkout
   | 'cart.title'
   | 'cart.empty'
@@ -657,6 +674,23 @@ const en: Dict = {
   'restaurant.apply.errorLocation': 'Pin the restaurant location on the map.',
   'restaurant.apply.errorDelivery': 'Enter a delivery radius between 1 and 100 km.',
   'restaurant.apply.errorMinOrder': 'Minimum order amount cannot be negative.',
+  'map.searchPlaceholder': 'Search address, neighborhood, city...',
+  'map.useCurrentLocation': 'Use current location',
+  'map.locating': 'Locating...',
+  'map.gps': 'GPS',
+  'map.searching': 'Searching addresses...',
+  'map.loading': 'Loading map...',
+  'map.locationUnavailable': 'Location is unavailable. You can still search or tap the map to pick a delivery point.',
+  'map.locationOutsideAlgeria': 'This location is outside Algeria. Please search or place the pin inside the service area.',
+  'map.gpsWeak': 'GPS accuracy is weak. The pin was placed, but please confirm or drag it to the exact entrance.',
+  'map.gpsApproximate': 'GPS accuracy is approximate. The pin was placed, but drag it to the exact entrance before submitting.',
+  'map.tileFallbackActive': 'Map fallback is active because the primary tiles were slow.',
+  'map.tileReconnecting': 'Map tiles are reconnecting. Your selected pin remains safe.',
+  'map.distance': 'Distance',
+  'map.max': 'max',
+  'map.gpsAccuracy': 'GPS accuracy',
+  'map.heading': 'heading',
+  'map.outsideZone': "This address is outside the restaurant's delivery zone",
   'cart.title': 'Your cart',
   'cart.empty': 'Your cart is empty',
   'cart.emptyBody': 'Browse restaurants and add items to get started.',
@@ -1123,6 +1157,23 @@ const fr: Dict = {
   'restaurant.apply.errorLocation': 'Placez le restaurant sur la carte.',
   'restaurant.apply.errorDelivery': 'Saisissez un rayon de livraison entre 1 et 100 km.',
   'restaurant.apply.errorMinOrder': 'Le minimum de commande ne peut pas être négatif.',
+  'map.searchPlaceholder': 'Rechercher une adresse, un quartier, une ville...',
+  'map.useCurrentLocation': 'Utiliser ma position actuelle',
+  'map.locating': 'Localisation...',
+  'map.gps': 'GPS',
+  'map.searching': 'Recherche d’adresses...',
+  'map.loading': 'Chargement de la carte...',
+  'map.locationUnavailable': 'La position est indisponible. Vous pouvez rechercher une adresse ou toucher la carte pour choisir le point de livraison.',
+  'map.locationOutsideAlgeria': 'Cette position est hors d’Algérie. Recherchez une adresse ou placez l’épingle dans la zone couverte.',
+  'map.gpsWeak': 'La précision GPS est faible. L’épingle a été placée, mais confirmez-la ou déplacez-la vers l’entrée exacte.',
+  'map.gpsApproximate': 'La position GPS est approximative. L’épingle a été placée, mais déplacez-la vers l’entrée exacte avant l’envoi.',
+  'map.tileFallbackActive': 'La carte utilise une source de secours car les tuiles principales sont lentes.',
+  'map.tileReconnecting': 'La carte se reconnecte. Votre épingle reste enregistrée.',
+  'map.distance': 'Distance',
+  'map.max': 'max',
+  'map.gpsAccuracy': 'Précision GPS',
+  'map.heading': 'direction',
+  'map.outsideZone': 'Cette adresse est hors de la zone de livraison du restaurant',
   'cart.title': 'Votre panier',
   'cart.empty': 'Votre panier est vide',
   'cart.emptyBody': 'Parcourez les restaurants pour ajouter des plats.',
@@ -1589,6 +1640,23 @@ const ar: Dict = {
   'restaurant.apply.errorLocation': 'حدد موقع المطعم على الخريطة.',
   'restaurant.apply.errorDelivery': 'أدخل نطاق توصيل بين 1 و100 كم.',
   'restaurant.apply.errorMinOrder': 'لا يمكن أن يكون الحد الأدنى للطلب سالباً.',
+  'map.searchPlaceholder': 'ابحث عن عنوان أو حي أو مدينة...',
+  'map.useCurrentLocation': 'استخدام موقعي الحالي',
+  'map.locating': 'جارٍ تحديد الموقع...',
+  'map.gps': 'GPS',
+  'map.searching': 'جارٍ البحث عن العناوين...',
+  'map.loading': 'جارٍ تحميل الخريطة...',
+  'map.locationUnavailable': 'الموقع غير متاح. يمكنك البحث عن عنوان أو الضغط على الخريطة لاختيار نقطة التوصيل.',
+  'map.locationOutsideAlgeria': 'هذا الموقع خارج الجزائر. ابحث عن عنوان أو ضع الدبوس داخل منطقة الخدمة.',
+  'map.gpsWeak': 'دقة GPS ضعيفة. تم وضع الدبوس، لكن يرجى تأكيده أو سحبه إلى المدخل الصحيح.',
+  'map.gpsApproximate': 'موقع GPS تقريبي. تم وضع الدبوس، لكن اسحبه إلى المدخل الصحيح قبل الإرسال.',
+  'map.tileFallbackActive': 'تم تشغيل مصدر احتياطي للخريطة لأن تحميل الخريطة الأساسي بطيء.',
+  'map.tileReconnecting': 'الخريطة تعيد الاتصال. الدبوس الذي اخترته محفوظ.',
+  'map.distance': 'المسافة',
+  'map.max': 'الحد الأقصى',
+  'map.gpsAccuracy': 'دقة GPS',
+  'map.heading': 'الاتجاه',
+  'map.outsideZone': 'هذا العنوان خارج نطاق توصيل المطعم',
   'cart.title': 'سلتك',
   'cart.empty': 'سلتك فارغة',
   'cart.emptyBody': 'تصفح المطاعم وأضف أطباقاً.',
