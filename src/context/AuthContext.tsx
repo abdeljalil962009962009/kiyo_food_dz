@@ -4,6 +4,7 @@ import {
 } from 'react';
 import type { Session, User, SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { getAuthRedirectUrl } from '../lib/siteUrl';
 import { translate, type Locale, type TranslationKey } from '../lib/i18n';
 import type { Profile } from '../lib/supabase';
 
@@ -41,6 +42,18 @@ function describeAuthError(code: AuthErrorCode, locale: Locale): string {
     emailNotConfirmed: 'auth.error.emailNotConfirmed',
   };
   return translate(locale, map[code]);
+}
+
+function openAuthPopup(): Window | null {
+  const width = 600;
+  const height = 700;
+  const left = window.screen.width / 2 - width / 2;
+  const top = window.screen.height / 2 - height / 2;
+  return window.open(
+    'about:blank',
+    'kiyo-oauth',
+    `width=${width},height=${height},left=${left},top=${top}`,
+  );
 }
 
 // ----- Profile fetch with timeout -----
@@ -320,7 +333,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { ok: true };
       } catch (err) {
         localStorage.removeItem('kiyo-admin-bypass');
-        if (lowerEmail.endsWith('@kiyo.food')) {
+        if (lowerEmail.endsWith('@kiyo-food.store')) {
           console.warn('[Kiyo] Staff sign-in failed. Verify Supabase Auth credentials and profile role.', err);
         }
         const code = mapSupabaseError(err);
@@ -341,7 +354,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           password,
           options: {
             data: { full_name: fullName.trim() },
-            emailRedirectTo: window.location.origin + '/auth/callback',
+            emailRedirectTo: getAuthRedirectUrl('/auth/callback'),
           },
         });
         if (e) throw e;
@@ -357,33 +370,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = useCallback(async () => {
     clearError();
+    const popup = openAuthPopup();
+    if (!popup) {
+      setError({
+        code: 'unknown',
+        message: translate(locale, 'auth.error.popupBlocked'),
+      });
+      return;
+    }
     try {
       const { data, error: e } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin + '/auth/callback',
+          redirectTo: getAuthRedirectUrl('/auth/callback'),
           skipBrowserRedirect: true,
         },
       });
       if (e) throw e;
       if (data?.url) {
-        const width = 600;
-        const height = 700;
-        const left = window.screen.width / 2 - width / 2;
-        const top = window.screen.height / 2 - height / 2;
-        const popup = window.open(
-          data.url,
-          'kiyo-oauth',
-          `width=${width},height=${height},left=${left},top=${top}`
-        );
-        if (!popup) {
-          setError({
-            code: 'unknown',
-            message: translate(locale, 'auth.error.popupBlocked'),
-          });
-        }
+        popup.location.href = data.url;
+      } else {
+        popup.close();
       }
     } catch (err) {
+      popup.close();
       const code = mapSupabaseError(err);
       setError({ code, message: describeAuthError(code, locale) });
     }
@@ -391,33 +401,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithApple = useCallback(async () => {
     clearError();
+    const popup = openAuthPopup();
+    if (!popup) {
+      setError({
+        code: 'unknown',
+        message: translate(locale, 'auth.error.popupBlocked'),
+      });
+      return;
+    }
     try {
       const { data, error: e } = await supabase.auth.signInWithOAuth({
         provider: 'apple',
         options: {
-          redirectTo: window.location.origin + '/auth/callback',
+          redirectTo: getAuthRedirectUrl('/auth/callback'),
           skipBrowserRedirect: true,
         },
       });
       if (e) throw e;
       if (data?.url) {
-        const width = 600;
-        const height = 700;
-        const left = window.screen.width / 2 - width / 2;
-        const top = window.screen.height / 2 - height / 2;
-        const popup = window.open(
-          data.url,
-          'kiyo-oauth',
-          `width=${width},height=${height},left=${left},top=${top}`
-        );
-        if (!popup) {
-          setError({
-            code: 'unknown',
-            message: translate(locale, 'auth.error.popupBlocked'),
-          });
-        }
+        popup.location.href = data.url;
+      } else {
+        popup.close();
       }
     } catch (err) {
+      popup.close();
       const code = mapSupabaseError(err);
       setError({ code, message: describeAuthError(code, locale) });
     }
@@ -428,7 +435,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearError();
       try {
         const { error: e } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
-          redirectTo: window.location.origin + '/reset-password',
+          redirectTo: getAuthRedirectUrl('/reset-password'),
         });
         if (e) throw e;
         return { ok: true };

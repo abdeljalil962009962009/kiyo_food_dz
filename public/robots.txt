@@ -8,4 +8,4 @@ Disallow: /orders
 Disallow: /cart
 Disallow: /checkout
 
-Sitemap: https://kiyo.food/sitemap.xml
+Sitemap: https://kiyo-food.store/sitemap.xml

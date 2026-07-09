@@ -5,9 +5,11 @@ import { Zap, ShieldCheck, Tag, Wallet, MapPin, ArrowRight } from 'lucide-react'
 import { useT } from '../lib/i18n-react';
 import { Logo } from '../components/Logo';
 import { FullScreenLoader } from '../components/feedback';
+import { getPublicSiteUrl } from '../lib/siteUrl';
 
 export function HomePage() {
   const { t } = useT();
+  const siteUrl = getPublicSiteUrl();
   return (
     <div className="relative min-h-screen overflow-hidden bg-ink-900 text-white">
       <div
@@ -110,7 +112,7 @@ export function HomePage() {
         description: t('brand.seoDescription'),
         areaServed: t('brand.areaServed'),
         servesCuisine: ['Algerian', 'Fast Food', 'International'],
-        url: 'https://kiyo.food',
+        url: siteUrl,
       }) }} />
     </div>
   );

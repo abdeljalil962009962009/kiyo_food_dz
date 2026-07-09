@@ -36,10 +36,10 @@ Step-by-step, click-by-click setup for the four external services the platform n
 
 #### B. Add and verify your sending domain
 
-> You can use a subdomain (recommended for dev) or your root domain. The example below assumes `mail.kiyo.food`.
+> You can use a subdomain (recommended for dev) or your root domain. The example below assumes `mail.kiyo-food.store`.
 
 1. In Resend sidebar → click **Domains** → click **Add Domain**.
-2. Type `kiyo.food` (or whatever your real domain is) → click **Add**.
+2. Type `kiyo-food.store` (or whatever your real domain is) → click **Add**.
 3. Resend shows a list of DNS records you must add. They will look like:
    ```
    Type   Name                    Value
@@ -48,7 +48,7 @@ Step-by-step, click-by-click setup for the four external services the platform n
    TXT    @ (or your domain)      resend1._spf.resend.com or "v=spf1 …"
    CNAME  [varies]                [varies]
    ```
-4. Open your domain registrar's dashboard (where you bought `kiyo.food` — probably Namecheap, GoDaddy, Cloudflare, OVH, etc.). Find the **DNS records** section for `kiyo.food`.
+4. Open your domain registrar's dashboard (where you bought `kiyo-food.store` — probably Namecheap, GoDaddy, Cloudflare, OVH, etc.). Find the **DNS records** section for `kiyo-food.store`.
 5. Add **each** DNS record exactly as shown. Use the copy-paste buttons in Resend.
 6. Go back to Resend → click the **Verify** button next to your domain. DNS can take a few minutes to a few hours to propagate. Click verify periodically; once it works, the status turns green and says "Verified".
 7. *(Skip this if you're only testing locally for now — the steps that follow work with the unverified domain too, just in a "sandbox" mode where Resend only sends to your own address.)*
@@ -67,7 +67,7 @@ Step-by-step, click-by-click setup for the four external services the platform n
 3. Click the sub-tab **SMTP Settings** (sometimes called "Email" or under Auth → Sign In/Up → Email).
 4. Toggle **Enable Custom SMTP** to ON.
 5. Fill the form with exactly these values:
-   - **Sender email**: `noreply@kiyo.food` (or whatever address you set up — must match the verified domain above)
+   - **Sender email**: `noreply@kiyo-food.store` (or whatever address you set up — must match the verified domain above)
    - **Sender name**: `Kiyo Food`
    - **Host**: `smtp.resend.com`
    - **Port**: `465`
@@ -90,13 +90,13 @@ Step-by-step, click-by-click setup for the four external services the platform n
 This is what makes the reset link in the email go somewhere real instead of being rejected.
 
 1. Supabase → **Authentication** → **URL Configuration**.
-2. **Site URL**: paste your production Vercel domain, e.g. `https://kiyo-food.vercel.app` (or `https://kiyo.food` once you point your domain at Vercel — see step G).
+2. **Site URL**: paste your production domain: `https://kiyo-food.store`.
 3. **Redirect URLs** section → click **Add URL** and add one per line:
    ```
-   https://your-vercel-domain.vercel.app/auth/callback
-   https://your-vercel-domain.vercel.app/auth/reset
+   https://kiyo-food.store/auth/callback
+   https://kiyo-food.store/reset-password
    http://localhost:5173/auth/callback
-   http://localhost:5173/auth/reset
+   http://localhost:5173/reset-password
    ```
    (If you also have Vercel preview URLs, add `https://*-your-team.vercel.app/auth/callback` patterns.)
 4. Click **Save**.
@@ -106,9 +106,9 @@ This is what makes the reset link in the email go somewhere real instead of bein
 1. Open your **production** Vercel URL.
 2. Click **Login** → click **Forgot password**.
 3. Type a real email you control → click **Send reset link**.
-4. Open that email inbox. You should see an email from `Kiyo Food <noreply@kiyo.food>` with subject "Reset your Kiyo Food password".
+4. Open that email inbox. You should see an email from `Kiyo Food <noreply@kiyo-food.store>` with subject "Reset your Kiyo Food password".
 5. Click the orange **Reset password** button.
-6. You land on `/auth/reset`, which automatically forwards to the in-app password-reset screen.
+6. You land on `/reset-password`, which automatically forwards to the in-app password-reset screen.
 7. Type a new password → submit → you're redirected to `/login` and can log in.
 
 #### Common mistakes
@@ -162,7 +162,7 @@ In the left menu → **APIs & Services** → **Library**. Search for and **Enabl
 2. Copy the key (looks like `AIzaSy…`). Click **Edit Key** to restrict it:
    - **Application restrictions**: HTTP referrers (web sites). Add:
      ```
-     https://your-vercel-domain.vercel.app/*
+     https://kiyo-food.store/*
      http://localhost:5173/*
      ```
    - **API restrictions**: restrict to the four APIs you just enabled.
@@ -209,7 +209,7 @@ In the left menu → **APIs & Services** → **Library**. Search for and **Enabl
    - Name: `Kiyo Food Web`.
    - **Authorized JavaScript origins** → **Add URI**:
      ```
-     https://your-vercel-domain.vercel.app
+     https://kiyo-food.store
      http://localhost:5173
      ```
    - **Authorized redirect URIs** → **Add URI**:
@@ -238,7 +238,7 @@ Already covered in step 1F above, but double-check:
 
 1. Supabase → **Authentication** → **URL Configuration** → **Redirect URLs**:
    ```
-   https://your-vercel-domain.vercel.app/auth/callback
+   https://kiyo-food.store/auth/callback
    http://localhost:5173/auth/callback
    ```
 2. Save.
@@ -301,7 +301,7 @@ You can launch WITHOUT publishing as long as every user is on your "Test users" 
 3. **Primary App ID**: select your team's main iOS App ID. If you don't have one yet, create one quickly (Identifiers → App IDs → + → App → Bundle ID = `com.kiyofood.app`).
 4. **Domains**: add your Vercel domain AND Supabase callback domain (one per line):
    ```
-   your-vercel-domain.vercel.app
+   kiyo-food.store
    rjdhzfcrsxibcszzlxyp.supabase.co
    ```
 5. **Return URLs**: paste the Supabase callback URL:

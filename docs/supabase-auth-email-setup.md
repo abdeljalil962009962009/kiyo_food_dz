@@ -10,9 +10,9 @@ Use these settings before public launch.
 3. Set Site URL to the production Vercel domain.
 4. Add these Redirect URLs:
    - `https://YOUR_DOMAIN/auth/callback`
-   - `https://YOUR_DOMAIN/auth/reset`
+   - `https://YOUR_DOMAIN/reset-password`
    - `http://localhost:5173/auth/callback`
-   - `http://localhost:5173/auth/reset`
+   - `http://localhost:5173/reset-password`
 5. Go to Authentication > SMTP Settings.
 6. Set Sender name to `Kiyo Food`.
 7. Configure a real SMTP provider for production delivery.
@@ -64,6 +64,6 @@ Use these settings before public launch.
 
 - Send a reset email to a real address.
 - Confirm the sender name displays as `Kiyo Food`.
-- Confirm the link opens `/auth/reset`.
+- Confirm the link opens `/reset-password`.
 - Confirm an expired or already-used link shows the Kiyo Food expired-link screen.
 - Confirm a successful reset lets the user sign in with the new password.
