@@ -1,8 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState, useCallback } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
-import L from 'leaflet';
-import { Star, Clock, MapPin, Plus, ChevronLeft, ShoppingBag, Info, Truck, Heart } from 'lucide-react';
+import { APIProvider, Map, AdvancedMarker, useMap } from '@vis.gl/react-google-maps';
+import { Star, Clock, MapPin, Plus, ChevronLeft, ShoppingBag, Info, Truck, Heart, AlertTriangle } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
 import { supabase, type Restaurant, type MenuItem, type MenuCategory } from '../lib/supabase';
 import { useCart } from '../context/CartContext';
@@ -11,36 +11,32 @@ import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Skeleton, ErrorState, Spinner } from '../components/feedback';
 import { RestaurantImage, PriceTag } from '../components/ui';
-import { MAP_TILE_PROVIDERS, nextTileProvider, type MapTileProviderKey } from '../lib/mapConfig';
 
-const restaurantIcon = L.divIcon({
-  className: 'kiyo-map-pin-restaurant',
-  html: '<div style="background:#0f172a;border:2px solid white;border-radius:6px;width:22px;height:22px;box-shadow:0 2px 8px rgba(0,0,0,.35)"></div>',
-  iconSize: [22, 22],
-  iconAnchor: [11, 11],
-});
+const API_KEY =
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  process.env.GOOGLE_MAPS_PLATFORM_KEY ||
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY ||
+  (globalThis as any).GOOGLE_MAPS_PLATFORM_KEY ||
+  '';
+const hasValidKey = Boolean(API_KEY) && API_KEY !== 'YOUR_API_KEY';
 
-function Circle({ center, radius }: { center: [number, number]; radius: number }) {
+function MapCircle({ center, radius, color }: { center: { lat: number; lng: number }; radius: number; color: string }) {
   const map = useMap();
   useEffect(() => {
-    const c = L.circle(center, {
+    if (!map) return;
+    const circle = new google.maps.Circle({
+      strokeColor: color,
+      strokeOpacity: 0.8,
+      strokeWeight: 2,
+      fillColor: color,
+      fillOpacity: 0.15,
+      map,
+      center,
       radius,
-      color: '#ea580c',
-      fillColor: '#ea580c',
-      fillOpacity: 0.08,
-      weight: 1,
-    }).addTo(map);
-    return () => { map.removeLayer(c); };
-  }, [map, center, radius]);
-  return null;
-}
-
-function MapResizeFix() {
-  const map = useMap();
-  useEffect(() => {
-    const timers = [100, 450, 1000].map((delay) => window.setTimeout(() => map.invalidateSize(), delay));
-    return () => timers.forEach((timer) => window.clearTimeout(timer));
-  }, [map]);
+    });
+    return () => circle.setMap(null);
+  }, [map, center, radius, color]);
   return null;
 }
 
@@ -308,11 +304,19 @@ export default function RestaurantDetailPage() {
 
 function RestaurantMiniMap({ restaurant }: { restaurant: Restaurant }) {
   const { t } = useT();
-  const [tileProvider, setTileProvider] = useState<MapTileProviderKey>('carto');
-  const [tilesReady, setTilesReady] = useState(false);
   const lat = restaurant.latitude;
   const lng = restaurant.longitude;
   const maxKm = restaurant.max_delivery_km;
+  
+  if (!hasValidKey) {
+    return (
+      <div className="flex h-64 flex-col items-center justify-center rounded-xl border border-warning-200 bg-warning-50 px-4 text-center">
+        <AlertTriangle className="mb-2 h-6 w-6 text-warning-500" />
+        <p className="text-sm text-warning-700">Google Maps API key missing.</p>
+      </div>
+    );
+  }
+
   if (!lat || !lng) {
     return (
       <div className="rounded-xl border border-ink-200 bg-ink-50 px-4 py-6 text-center text-xs text-ink-500">
@@ -320,26 +324,27 @@ function RestaurantMiniMap({ restaurant }: { restaurant: Restaurant }) {
       </div>
     );
   }
+  
   return (
     <div className="relative h-64 w-full overflow-hidden rounded-xl border border-ink-200">
-      <MapContainer center={[lat, lng]} zoom={13} scrollWheelZoom={false} className="h-full w-full">
-        <TileLayer
-          attribution={MAP_TILE_PROVIDERS[tileProvider].attribution}
-          url={MAP_TILE_PROVIDERS[tileProvider].url}
-          eventHandlers={{
-            tileload: () => setTilesReady(true),
-            tileerror: () => setTileProvider(nextTileProvider),
-          }}
-        />
-        <MapResizeFix />
-        <Marker position={[lat, lng]} icon={restaurantIcon} />
-        {maxKm && maxKm > 0 && <Circle center={[lat, lng]} radius={maxKm * 1000} />}
-      </MapContainer>
-      {!tilesReady && (
-        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-ink-50/80 text-xs font-semibold text-ink-500">
-          {t('map.loading')}
-        </div>
-      )}
+      <APIProvider apiKey={API_KEY} version="weekly">
+        <Map
+          defaultCenter={{ lat, lng }}
+          defaultZoom={13}
+          mapId="RESTAURANT_MINI_MAP"
+          gestureHandling="cooperative"
+          disableDefaultUI
+          internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
+          style={{ width: '100%', height: '100%' }}
+        >
+          <AdvancedMarker position={{ lat, lng }} title={restaurant.name}>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg border-2 border-white bg-slate-900 text-white shadow-lg">
+              🍳
+            </div>
+          </AdvancedMarker>
+          {maxKm && maxKm > 0 && <MapCircle center={{ lat, lng }} radius={maxKm * 1000} color="#ea580c" />}
+        </Map>
+      </APIProvider>
     </div>
   );
 }

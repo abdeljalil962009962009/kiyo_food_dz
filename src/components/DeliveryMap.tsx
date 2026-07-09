@@ -1,51 +1,19 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
-import L from 'leaflet';
-import { MapPin, Locate, Search, AlertTriangle } from 'lucide-react';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { APIProvider, Map, AdvancedMarker, useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
+import { MapPin, Locate, Search, AlertTriangle, CheckCircle, Crosshair } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import {
-  formatDistanceKm,
-  haversineKm,
-  isCoordinateInAlgeria,
-  isUsableAccuracy,
-  requestBestCurrentPosition,
-  reverseGeocode,
-  searchAddresses,
-  type GeoSearchResult,
-  type LocationCapturePurpose,
-  type LiveGeoPoint,
-} from '../lib/geo';
+import { formatDistanceKm, haversineKm, isCoordinateInAlgeria, type LiveGeoPoint } from '../lib/geo';
 import { useT } from '../lib/i18n-react';
-import { ALGERIA_MAP_BOUNDS, ALGERIA_MAP_CENTER, MAP_TILE_PROVIDERS, nextTileProvider, type MapTileProviderKey } from '../lib/mapConfig';
 
-// Fix default marker icons under bundlers (Leaflet expects CDN assets by default).
-const blueIcon = L.divIcon({
-  className: 'kiyo-map-pin',
-  html: '<div style="background:#ea580c;border:2px solid white;border-radius:50%;width:22px;height:22px;box-shadow:0 2px 8px rgba(0,0,0,.35)"></div>',
-  iconSize: [22, 22],
-  iconAnchor: [11, 11],
-});
-const restaurantIcon = L.divIcon({
-  className: 'kiyo-map-pin-restaurant',
-  html: '<div style="background:#0f172a;border:2px solid white;border-radius:6px;width:22px;height:22px;box-shadow:0 2px 8px rgba(0,0,0,.35)"></div>',
-  iconSize: [22, 22],
-  iconAnchor: [11, 11],
-});
-const liveLocationIcon = L.divIcon({
-  className: 'kiyo-map-pin-live',
-  html: '<div style="position:relative;width:24px;height:24px"><div style="position:absolute;inset:0;border-radius:999px;background:#2563eb;box-shadow:0 0 0 7px rgba(37,99,235,.16)"></div><div style="position:absolute;left:9px;top:-6px;width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-bottom:11px solid #2563eb;transform-origin:50% 16px"></div><div style="position:absolute;inset:7px;border-radius:999px;background:white"></div></div>',
-  iconSize: [24, 24],
-  iconAnchor: [12, 12],
-});
-
-type Props = {
-  restaurantLat?: number | null;
-  restaurantLng?: number | null;
-  maxDeliveryKm?: number;
-  initialAddress?: string;
-  purpose?: LocationCapturePurpose;
-  onLocationChange: (loc: DeliveryMapLocation) => void;
-};
+const API_KEY =
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  process.env.GOOGLE_MAPS_PLATFORM_KEY ||
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY ||
+  (globalThis as any).GOOGLE_MAPS_PLATFORM_KEY ||
+  '';
+const hasValidKey = Boolean(API_KEY) && API_KEY !== 'YOUR_API_KEY';
 
 export type DeliveryMapLocation = {
   lat: number;
@@ -56,7 +24,64 @@ export type DeliveryMapLocation = {
   confirmed: boolean;
 };
 
-export default function DeliveryMap({
+type Props = {
+  restaurantLat?: number | null;
+  restaurantLng?: number | null;
+  maxDeliveryKm?: number;
+  initialAddress?: string;
+  purpose?: 'customer' | 'restaurant' | 'driver';
+  onLocationChange: (loc: DeliveryMapLocation) => void;
+};
+
+function MapCircle({ center, radius, color }: { center: { lat: number; lng: number }; radius: number; color: string }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!map) return;
+    const circle = new google.maps.Circle({
+      strokeColor: color,
+      strokeOpacity: 0.8,
+      strokeWeight: 2,
+      fillColor: color,
+      fillOpacity: 0.15,
+      map,
+      center,
+      radius,
+    });
+    return () => circle.setMap(null);
+  }, [map, center, radius, color]);
+  return null;
+}
+
+export default function DeliveryMapWrapper(props: Props) {
+   
+  if (!hasValidKey) {
+    return (
+      <div className="flex h-[400px] flex-col items-center justify-center rounded-xl border border-warning-200 bg-warning-50 px-6 text-center shadow-sm">
+        <AlertTriangle className="mb-3 h-8 w-8 text-warning-500" />
+        <h3 className="mb-2 font-display text-lg font-bold text-warning-900">Google Maps API Key Required</h3>
+        <p className="mb-4 text-sm text-warning-700">
+          Please add <code className="rounded bg-warning-100 px-1 py-0.5 font-mono">GOOGLE_MAPS_PLATFORM_KEY</code> to your AI Studio Secrets (⚙️ Settings &gt; Secrets). The app will automatically rebuild.
+        </p>
+        <a 
+          href="https://console.cloud.google.com/google/maps-apis/start?utm_campaign=gmp-code-assist-ais" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="kiyo-btn-primary"
+        >
+          Get API Key
+        </a>
+      </div>
+    );
+  }
+
+  return (
+    <APIProvider apiKey={API_KEY} version="weekly">
+      <DeliveryMapInner {...props} />
+    </APIProvider>
+  );
+}
+
+function DeliveryMapInner({
   restaurantLat,
   restaurantLng,
   maxDeliveryKm,
@@ -66,196 +91,185 @@ export default function DeliveryMap({
 }: Props) {
   const { t, locale } = useT();
   const isRtl = locale === 'ar';
-  const [pin, setPin] = useState<[number, number] | null>(null);
+  
+  const map = useMap();
+  const placesLib = useMapsLibrary('places');
+  const geocodingLib = useMapsLibrary('geocoding');
+  
+  const [center, setCenter] = useState({ lat: 36.7538, lng: 3.0588 }); // Algiers default
   const [addressText, setAddressText] = useState(initialAddress ?? '');
   const [search, setSearch] = useState('');
+  const [suggestions, setSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([]);
   const [searching, setSearching] = useState(false);
-  const [suggestions, setSuggestions] = useState<GeoSearchResult[]>([]);
-  const [permissionDenied, setPermissionDenied] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  
+  const [currentLocation, setCurrentLocation] = useState<DeliveryMapLocation | null>(null);
   const [gpsWarning, setGpsWarning] = useState<string | null>(null);
   const [gpsLoading, setGpsLoading] = useState(false);
-  const [improvingGps, setImprovingGps] = useState(false);
-  const [livePosition, setLivePosition] = useState<LiveGeoPoint | null>(null);
-  const [currentLocation, setCurrentLocation] = useState<DeliveryMapLocation | null>(null);
-  const [tileProvider, setTileProvider] = useState<MapTileProviderKey>('carto');
-  const [tilesReady, setTilesReady] = useState(false);
-  const [tileErrorCount, setTileErrorCount] = useState(0);
-  const mapRef = useRef<L.Map | null>(null);
-  const stopWatchingRef = useRef<(() => void) | null>(null);
-
-  const distanceKm = useMemo(() => {
-    if (!pin || !restaurantLat || !restaurantLng) return null;
-    return haversineKm({ lat: pin[0], lng: pin[1] }, { lat: restaurantLat, lng: restaurantLng });
-  }, [pin, restaurantLat, restaurantLng]);
-
-  const outOfZone = !!distanceKm && !!maxDeliveryKm && distanceKm > maxDeliveryKm;
-
-  const setLocation = useCallback(async (
-    lat: number,
-    lng: number,
-    address?: string,
-    meta: {
-      accuracy?: number | null;
-      source?: DeliveryMapLocation['source'];
-      confirmed?: boolean;
-    } = {},
-  ) => {
-    if (!isCoordinateInAlgeria(lat, lng)) {
-      setGpsWarning(t('map.locationOutsideAlgeria'));
-      return;
+  
+  const autocompleteService = useRef<google.maps.places.AutocompleteService | null>(null);
+  const geocoder = useRef<google.maps.Geocoder | null>(null);
+  
+  useEffect(() => {
+    if (placesLib && !autocompleteService.current) {
+      autocompleteService.current = new placesLib.AutocompleteService();
     }
+    if (geocodingLib && !geocoder.current) {
+      geocoder.current = new geocodingLib.Geocoder();
+    }
+  }, [placesLib, geocodingLib]);
 
-    setGpsWarning(null);
-    setPin([lat, lng]);
-    const resolvedAddress = address ?? (await reverseGeocode(lat, lng, document.documentElement.lang || 'fr')).displayName;
-    const next: DeliveryMapLocation = {
-      lat,
-      lng,
-      address: resolvedAddress,
-      accuracy: meta.accuracy ?? null,
-      source: meta.source ?? 'manual',
-      confirmed: meta.confirmed ?? false,
-    };
-    setAddressText(resolvedAddress);
-    setCurrentLocation(next);
-    onLocationChange(next);
+  // Initial location set if restaurant coordinates are provided
+  useEffect(() => {
+    if (purpose === 'restaurant' && restaurantLat && restaurantLng) {
+      setCenter({ lat: restaurantLat, lng: restaurantLng });
+    }
+  }, [restaurantLat, restaurantLng, purpose]);
+
+  const reverseGeocode = useCallback((lat: number, lng: number) => {
+    if (!geocoder.current) return;
+    setSearching(true);
+    geocoder.current.geocode({ location: { lat, lng }, language: document.documentElement.lang || 'fr' }, (results, status) => {
+      setSearching(false);
+      if (status === 'OK' && results && results[0]) {
+        setAddressText(results[0].formatted_address);
+        const loc: DeliveryMapLocation = {
+          lat,
+          lng,
+          address: results[0].formatted_address,
+          accuracy: null,
+          source: 'manual',
+          confirmed: false,
+        };
+        setCurrentLocation(loc);
+        onLocationChange(loc);
+        setGpsWarning(t('map.confirmDraggedPin'));
+      }
+    });
   }, [onLocationChange, t]);
 
-  const getAccuracyWarning = useCallback((accuracy: number | null | undefined) => {
-    if (!accuracy || accuracy <= 80) return null;
-    if (accuracy <= 250) return t('map.gpsWeak');
-    return t('map.gpsApproximate');
-  }, [t]);
-
-  const confirmPin = () => {
-    if (!currentLocation) return;
-    if (
-      purpose === 'restaurant' &&
-      currentLocation.source !== 'manual' &&
-      !isUsableAccuracy(currentLocation.accuracy, 'restaurant')
-    ) {
-      setGpsWarning(t('map.restaurantConfirmRequired'));
-      return;
+  const handleIdle = () => {
+    setIsDragging(false);
+    if (!map) return;
+    const pos = map.getCenter();
+    if (pos) {
+      const lat = pos.lat();
+      const lng = pos.lng();
+      setCenter({ lat, lng });
+      if (!isCoordinateInAlgeria(lat, lng)) {
+        setGpsWarning(t('map.locationOutsideAlgeria'));
+        return;
+      }
+      reverseGeocode(lat, lng);
     }
-    const confirmed = {
-      ...currentLocation,
-      confirmed: true,
-      accuracy: currentLocation.source === 'manual' ? null : currentLocation.accuracy ?? livePosition?.accuracy ?? null,
-    };
-    setCurrentLocation(confirmed);
-    setGpsWarning(null);
-    onLocationChange(confirmed);
   };
 
-  useEffect(() => {
-    const term = search.trim();
-    if (term.length < 2) {
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setSearch(val);
+    if (!val.trim() || !autocompleteService.current) {
       setSuggestions([]);
       return;
     }
-    const timer = window.setTimeout(() => {
-      setSearching(true);
-      searchAddresses(term, document.documentElement.lang || 'fr')
-        .then(setSuggestions)
-        .finally(() => setSearching(false));
-    }, 350);
-    return () => window.clearTimeout(timer);
-  }, [search]);
+    autocompleteService.current.getPlacePredictions({
+      input: val,
+      componentRestrictions: { country: 'dz' },
+      language: document.documentElement.lang || 'fr'
+    }, (preds, status) => {
+      if (status === 'OK' && preds) {
+        setSuggestions(preds);
+      } else {
+        setSuggestions([]);
+      }
+    });
+  };
 
-  useEffect(() => () => {
-    stopWatchingRef.current?.();
-  }, []);
+  const handleSelectPlace = (placeId: string, description: string) => {
+    setSearch(description);
+    setSuggestions([]);
+    if (!geocoder.current) return;
+    setSearching(true);
+    geocoder.current.geocode({ placeId, language: document.documentElement.lang || 'fr' }, (results, status) => {
+      setSearching(false);
+      if (status === 'OK' && results && results[0]) {
+        const loc = results[0].geometry.location;
+        const lat = loc.lat();
+        const lng = loc.lng();
+        map?.panTo({ lat, lng });
+        map?.setZoom(16);
+        setAddressText(description);
+        const newLoc: DeliveryMapLocation = {
+          lat,
+          lng,
+          address: description,
+          accuracy: null,
+          source: 'search',
+          confirmed: false,
+        };
+        setCurrentLocation(newLoc);
+        onLocationChange(newLoc);
+        setGpsWarning(t('map.confirmSearchPin'));
+      }
+    });
+  };
 
   const useGps = () => {
-    stopWatchingRef.current?.();
+    if (!navigator.geolocation) return;
     setGpsLoading(true);
-    setImprovingGps(true);
-    setPermissionDenied(false);
-    stopWatchingRef.current = requestBestCurrentPosition({
-      purpose,
-      onCandidate: (pos) => {
-        setLivePosition(pos);
-        setGpsWarning(getAccuracyWarning(pos.accuracy) ?? t('map.improvingAccuracy'));
-        mapRef.current?.flyTo([pos.lat, pos.lng], 16, { duration: 0.75 });
-      },
-      onResult: async ({ point, accepted }) => {
-        setLivePosition(point);
-        const confirmed = accepted && purpose !== 'restaurant';
-        await setLocation(point.lat, point.lng, undefined, {
-          accuracy: point.accuracy,
-          source: point.source,
-          confirmed,
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setGpsLoading(false);
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const acc = pos.coords.accuracy;
+        map?.panTo({ lat, lng });
+        map?.setZoom(17);
+        if (!geocoder.current) return;
+        geocoder.current.geocode({ location: { lat, lng }, language: document.documentElement.lang || 'fr' }, (results, status) => {
+          if (status === 'OK' && results && results[0]) {
+            const addr = results[0].formatted_address;
+            setAddressText(addr);
+            const newLoc: DeliveryMapLocation = {
+              lat,
+              lng,
+              address: addr,
+              accuracy: acc,
+              source: 'gps',
+              confirmed: true, // GPS is usually accurate enough to auto-confirm, but we can ask user.
+            };
+            setCurrentLocation(newLoc);
+            onLocationChange(newLoc);
+            if (acc > 100) {
+              setGpsWarning(t('map.gpsApproximate'));
+              setCurrentLocation({ ...newLoc, confirmed: false });
+            } else {
+              setGpsWarning(null);
+            }
+          }
         });
-        setGpsWarning(accepted
-          ? (confirmed ? null : t('map.restaurantConfirmRequired'))
-          : t('map.confirmWeakGps'));
+      },
+      () => {
         setGpsLoading(false);
-        setImprovingGps(false);
-        mapRef.current?.flyTo([point.lat, point.lng], 16, { duration: 0.75 });
+        setGpsWarning(t('map.locationUnavailable'));
       },
-      onError: () => {
-        setPermissionDenied(true);
-        setGpsLoading(false);
-        setImprovingGps(false);
-      },
-    });
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
   };
 
-  const updateDraggedPin = async (marker: L.Marker) => {
-    const { lat, lng } = marker.getLatLng();
-    await setLocation(lat, lng, undefined, { source: 'manual', accuracy: null, confirmed: false });
-    setGpsWarning(t('map.confirmDraggedPin'));
+  const confirmPin = () => {
+    if (!currentLocation) return;
+    const confirmed = { ...currentLocation, confirmed: true };
+    setCurrentLocation(confirmed);
+    onLocationChange(confirmed);
+    setGpsWarning(null);
   };
 
-  function MapClickHandler() {
-    useMapEvents({
-      click: async (e) => {
-        const { lat, lng } = e.latlng;
-        await setLocation(lat, lng, undefined, { source: 'manual', confirmed: false });
-        setGpsWarning(t('map.confirmDraggedPin'));
-      },
-    });
-    return null;
-  }
+  const distanceKm = useMemo(() => {
+    if (!currentLocation || !restaurantLat || !restaurantLng) return null;
+    return haversineKm({ lat: currentLocation.lat, lng: currentLocation.lng }, { lat: restaurantLat, lng: restaurantLng });
+  }, [currentLocation, restaurantLat, restaurantLng]);
 
-  function MapResizeFix() {
-    const map = useMap();
-    useEffect(() => {
-      const timers = [100, 450, 1000].map((delay) =>
-        window.setTimeout(() => map.invalidateSize(), delay),
-      );
-      return () => timers.forEach((timer) => window.clearTimeout(timer));
-    }, [map]);
-    return null;
-  }
-
-  function RestaurantFlyTo() {
-    const map = useMap();
-    useEffect(() => {
-      if (restaurantLat && restaurantLng) {
-        map.setView([restaurantLat, restaurantLng], 13);
-      }
-    }, [map]);
-    return null;
-  }
-
-  const doSearch = async () => {
-    if (!search.trim()) return;
-    setSearching(true);
-    try {
-      const [first] = suggestions.length > 0
-        ? suggestions
-        : await searchAddresses(search.trim(), document.documentElement.lang || 'fr', 1);
-      if (first) {
-        await setLocation(first.lat, first.lng, first.label, { source: 'search', confirmed: false });
-        setGpsWarning(t('map.confirmSearchPin'));
-        setSuggestions([]);
-        mapRef.current?.flyTo([first.lat, first.lng], 15, { duration: 0.75 });
-      }
-    } finally {
-      setSearching(false);
-    }
-  };
+  const outOfZone = !!distanceKm && !!maxDeliveryKm && distanceKm > maxDeliveryKm;
 
   return (
     <div className="space-y-3">
@@ -264,8 +278,7 @@ export default function DeliveryMap({
           <Search className={`pointer-events-none absolute top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400 ${isRtl ? 'right-3' : 'left-3'}`} />
           <input
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && doSearch()}
+            onChange={handleSearchChange}
             placeholder={t('map.searchPlaceholder')}
             className={`kiyo-input ${isRtl ? 'pr-10 text-right' : 'pl-10'}`}
             autoComplete="off"
@@ -275,18 +288,13 @@ export default function DeliveryMap({
             <div className="absolute z-[1000] mt-1 max-h-56 w-full overflow-auto rounded-xl border border-ink-100 bg-white py-1 shadow-xl">
               {suggestions.map((item) => (
                 <button
-                  key={`${item.provider}-${item.placeId ?? item.label}`}
+                  key={item.place_id}
                   type="button"
-                  onClick={async () => {
-                    await setLocation(item.lat, item.lng, item.label, { source: 'search', confirmed: false });
-                    setGpsWarning(t('map.confirmSearchPin'));
-                    setSearch(item.label);
-                    setSuggestions([]);
-                    mapRef.current?.flyTo([item.lat, item.lng], 15, { duration: 0.75 });
-                  }}
+                  onClick={() => handleSelectPlace(item.place_id, item.description)}
                   className={`block w-full px-3 py-2 text-xs text-ink-700 hover:bg-ember-50 ${isRtl ? 'text-right' : 'text-left'}`}
                 >
-                  {item.label}
+                  <strong className="font-semibold">{item.structured_formatting.main_text}</strong>
+                  <span className="ml-1 text-ink-500">{item.structured_formatting.secondary_text}</span>
                 </button>
               ))}
             </div>
@@ -304,18 +312,7 @@ export default function DeliveryMap({
         </button>
       </div>
 
-      {searching && (
-        <p className="text-xs font-medium text-ink-400">{t('map.searching')}</p>
-      )}
-      {improvingGps && (
-        <p className="text-xs font-medium text-sage-700">{t('map.improvingAccuracy')}</p>
-      )}
-
-      {permissionDenied && (
-        <div className="rounded-lg bg-warning-500/10 px-3 py-2 text-xs text-warning-600">
-          {t('map.locationUnavailable')}
-        </div>
-      )}
+      {searching && <p className="text-xs font-medium text-ink-400">{t('map.searching')}</p>}
 
       {gpsWarning && (
         <div className="flex items-start gap-2 rounded-lg bg-warning-500/10 px-3 py-2 text-xs text-warning-700">
@@ -324,136 +321,98 @@ export default function DeliveryMap({
         </div>
       )}
 
-      <div className="relative h-72 w-full overflow-hidden rounded-xl border border-ink-200 sm:h-80">
-        <MapContainer
-          center={restaurantLat && restaurantLng ? [restaurantLat, restaurantLng] : ALGERIA_MAP_CENTER}
-          zoom={restaurantLat && restaurantLng ? 13 : 5}
-          minZoom={5}
-          maxBounds={ALGERIA_MAP_BOUNDS}
-          maxBoundsViscosity={0.7}
-          scrollWheelZoom={false}
-          className="h-full w-full"
-          ref={(m) => { mapRef.current = m; }}
+      <div className="relative h-[360px] w-full overflow-hidden rounded-xl border border-ink-200 shadow-sm sm:h-[420px]">
+        <Map
+          defaultCenter={center}
+          defaultZoom={15}
+          mapId="DEMO_MAP_ID"
+          internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
+          gestureHandling="greedy"
+          disableDefaultUI
+          onDragStart={() => setIsDragging(true)}
+          onIdle={handleIdle}
+          style={{ width: '100%', height: '100%' }}
         >
-          <TileLayer
-            attribution={MAP_TILE_PROVIDERS[tileProvider].attribution}
-            url={MAP_TILE_PROVIDERS[tileProvider].url}
-            eventHandlers={{
-              tileload: () => setTilesReady(true),
-              tileerror: () => {
-                setTileErrorCount((count) => {
-                  const next = count + 1;
-                  if (next >= 2) setTileProvider(nextTileProvider);
-                  return next;
-                });
-              },
-            }}
-          />
-          <MapResizeFix />
-          <MapClickHandler />
-          <RestaurantFlyTo />
-          {pin && (
-            <Marker
-              position={pin}
-              icon={blueIcon}
-              draggable
-              eventHandlers={{
-                dragend: (event) => {
-                  void updateDraggedPin(event.target as L.Marker);
-                },
-              }}
-            />
-          )}
-          {livePosition && (
-            <>
-              <Marker position={[livePosition.lat, livePosition.lng]} icon={liveLocationIcon} />
-              {livePosition.accuracy && (
-                <Circle center={[livePosition.lat, livePosition.lng]} radius={livePosition.accuracy} kind="accuracy" />
-              )}
-            </>
-          )}
           {restaurantLat && restaurantLng && (
-            <Marker position={[restaurantLat, restaurantLng]} icon={restaurantIcon} />
+            <AdvancedMarker position={{ lat: restaurantLat, lng: restaurantLng }} title="Restaurant">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg border-2 border-white bg-slate-900 text-white shadow-lg">
+                🍳
+              </div>
+            </AdvancedMarker>
           )}
+          
           {restaurantLat && restaurantLng && maxDeliveryKm && (
-            <Circle center={[restaurantLat, restaurantLng]} radius={maxDeliveryKm * 1000} kind="delivery" />
+            <MapCircle center={{ lat: restaurantLat, lng: restaurantLng }} radius={maxDeliveryKm * 1000} color="#ea580c" />
           )}
-        </MapContainer>
-        {!tilesReady && (
-          <div className="pointer-events-none absolute inset-0 z-[900] flex items-center justify-center bg-ink-50/80 text-xs font-semibold text-ink-500">
-            {t('map.loading')}
+          
+          {currentLocation?.accuracy && currentLocation.accuracy > 0 && (
+            <MapCircle center={{ lat: currentLocation.lat, lng: currentLocation.lng }} radius={currentLocation.accuracy} color="#2563eb" />
+          )}
+        </Map>
+        
+        {/* Fixed Center Pin (Uber style) */}
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+          <div className={`relative flex flex-col items-center justify-center transition-transform duration-200 ${isDragging ? '-translate-y-4 scale-110' : ''}`}>
+            <div className="flex items-center justify-center rounded-full bg-ember-600 p-2 text-white shadow-xl ring-4 ring-white">
+              <Crosshair className="h-5 w-5" />
+            </div>
+            <div className="mt-1 h-2 w-2 rounded-full bg-ink-900/20 blur-[2px]" />
           </div>
-        )}
-        {tileErrorCount > 0 && (
-          <div className="absolute bottom-2 left-2 z-[1000] max-w-[85%] rounded-lg bg-white/95 px-3 py-2 text-[11px] font-medium text-ink-600 shadow">
-            {tileProvider === 'carto'
-              ? t('map.tileFallbackActive')
-              : t('map.tileReconnecting')}
-          </div>
-        )}
+        </div>
       </div>
 
       {addressText && (
-        <div className="rounded-lg bg-ink-50 px-3 py-2 text-xs">
-          <div className="flex items-start gap-2">
-            <MapPin className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-ember-500" />
+        <div className="rounded-xl border border-ink-100 bg-white p-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-ember-50 text-ember-600">
+              <MapPin className="h-4 w-4" />
+            </div>
             <div className="flex-1">
-              <p className="font-medium text-ink-900">{addressText}</p>
+              <p className="font-semibold text-ink-900">{addressText}</p>
               {distanceKm !== null && (
-                <p className="mt-0.5 text-ink-500">
-                  {t('map.distance')}: {formatDistanceKm(distanceKm)}
-                  {maxDeliveryKm ? ` - ${t('map.max')} ${maxDeliveryKm} km` : ''}
-                </p>
-              )}
-              {livePosition?.accuracy && (
-                <p className="mt-0.5 text-ink-400">
-                  {t('map.gpsAccuracy')}: {Math.round(livePosition.accuracy)} m
-                  {livePosition.heading != null ? ` - ${t('map.heading')} ${Math.round(livePosition.heading)} deg` : ''}
-                </p>
-              )}
-              {currentLocation && (
-                <p className={`mt-0.5 font-semibold ${currentLocation.confirmed ? 'text-sage-700' : 'text-warning-700'}`}>
-                  {currentLocation.confirmed ? t('map.pinConfirmed') : t('map.pinNeedsConfirmation')}
+                <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-ink-600">
+                  <span className={outOfZone ? 'text-error-600' : 'text-sage-600'}>
+                    {formatDistanceKm(distanceKm)}
+                  </span>
+                  <span className="text-ink-400">away</span>
+                  {maxDeliveryKm ? <span className="text-ink-400">({maxDeliveryKm} km max)</span> : null}
                 </p>
               )}
             </div>
           </div>
-          {currentLocation && !currentLocation.confirmed && (
+          
+          {currentLocation && !currentLocation.confirmed && !outOfZone && (
             <button
               type="button"
               onClick={confirmPin}
-              className="mt-3 w-full rounded-lg bg-ink-900 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-ink-700"
+              className="mt-4 w-full rounded-xl bg-ink-900 py-3 text-sm font-bold text-white transition-all hover:bg-ink-800 active:scale-[0.98]"
             >
               {t('map.confirmPin')}
             </button>
           )}
+          
+          {currentLocation?.confirmed && !outOfZone && (
+            <div className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-sage-50 py-3 text-sm font-bold text-sage-700">
+              <CheckCircle className="h-4 w-4" />
+              Location Confirmed
+            </div>
+          )}
         </div>
       )}
+
       {outOfZone && (
-        <div className="flex items-start gap-2 rounded-lg bg-error-500/10 px-3 py-2 text-xs text-error-600">
-          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-          <span className="font-medium">
-            {t('map.outsideZone')} ({distanceKm?.toFixed(1)} km &gt; {maxDeliveryKm} km {t('map.max')}).
-          </span>
+        <div className="flex items-start gap-3 rounded-xl bg-error-50 p-4 text-error-700">
+          <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0" />
+          <div>
+            <p className="font-bold">Outside Delivery Zone</p>
+            <p className="mt-1 text-sm text-error-600">
+              This location is {distanceKm?.toFixed(1)} km away, which exceeds the restaurant's maximum delivery distance of {maxDeliveryKm} km.
+            </p>
+          </div>
         </div>
       )}
     </div>
   );
-}
-
-function Circle(props: { center: [number, number]; radius: number; kind: 'delivery' | 'accuracy' }) {
-  const map = useMap();
-  useEffect(() => {
-    const c = L.circle(props.center, {
-      radius: props.radius,
-      color: props.kind === 'accuracy' ? '#2563eb' : '#ea580c',
-      fillColor: props.kind === 'accuracy' ? '#2563eb' : '#ea580c',
-      fillOpacity: props.kind === 'accuracy' ? 0.12 : 0.08,
-      weight: 1,
-    }).addTo(map);
-    return () => { map.removeLayer(c); };
-  }, [map, props.center, props.kind, props.radius]);
-  return null;
 }
 
 export async function saveAddressIfNew(
