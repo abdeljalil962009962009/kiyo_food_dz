@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useT } from '../lib/i18n-react';
 import { type TranslationKey } from '../lib/i18n';
 
-import DeliveryMap from './DeliveryMap';
+import DeliveryMap, { type DeliveryMapLocation } from './DeliveryMap';
 
 type SavedAddress = {
   id: string;
@@ -13,6 +13,7 @@ type SavedAddress = {
   address: string;
   latitude: number;
   longitude: number;
+  accuracy_m?: number | null;
   is_default: boolean;
   is_favorite?: boolean;
   is_archived?: boolean;
@@ -41,7 +42,7 @@ export function AddressManager() {
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newLabel, setNewLabel] = useState<'home' | 'work' | 'family' | 'other'>('home');
-  const [newLocation, setNewLocation] = useState<{ lat: number; lng: number; address: string } | null>(null);
+  const [newLocation, setNewLocation] = useState<DeliveryMapLocation | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyAddressId, setBusyAddressId] = useState<string | null>(null);
 
@@ -89,6 +90,7 @@ export function AddressManager() {
           address: newLocation.address,
           latitude: newLocation.lat,
           longitude: newLocation.lng,
+          accuracy_m: newLocation.accuracy,
           is_default: addresses.length === 0,
           last_used_at: new Date().toISOString(),
         });
@@ -162,6 +164,7 @@ export function AddressManager() {
           address: addr.address,
           latitude: addr.latitude,
           longitude: addr.longitude,
+          accuracy_m: addr.accuracy_m ?? null,
           is_default: false,
           is_favorite: false,
           last_used_at: null,
@@ -371,8 +374,14 @@ export function AddressManager() {
           </div>
 
           <DeliveryMap
+            purpose="customer"
             onLocationChange={(loc) => setNewLocation(loc)}
           />
+          {newLocation && !newLocation.confirmed && (
+            <p className="mt-2 rounded-lg bg-warning-500/10 px-3 py-2 text-xs font-medium text-warning-700">
+              {t('map.confirmRequired')}
+            </p>
+          )}
 
           <div className="mt-4 flex justify-end gap-2">
             <button
@@ -387,7 +396,7 @@ export function AddressManager() {
             </button>
             <button
               onClick={addAddress}
-              disabled={!newLocation}
+              disabled={!newLocation?.confirmed}
               className="kiyo-btn-primary text-xs"
             >
               <Check className="h-3 w-3" />

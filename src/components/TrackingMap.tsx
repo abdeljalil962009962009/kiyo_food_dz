@@ -1,6 +1,8 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
+import { useT } from '../lib/i18n-react';
+import { MAP_TILE_PROVIDERS, nextTileProvider, type MapTileProviderKey } from '../lib/mapConfig';
 
 // Custom high-contrast marker icons for the tracking experience
 const customerIcon = L.divIcon({
@@ -62,6 +64,15 @@ function FitMapBounds({ points }: { points: [number, number][] }) {
   return null;
 }
 
+function MapResizeFix() {
+  const map = useMap();
+  useEffect(() => {
+    const timers = [100, 450, 1000].map((delay) => window.setTimeout(() => map.invalidateSize(), delay));
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [map]);
+  return null;
+}
+
 type TrackingMapProps = {
   restaurantLat: number;
   restaurantLng: number;
@@ -81,6 +92,9 @@ export default function TrackingMap({
   driverLng,
   status
 }: TrackingMapProps) {
+  const { t } = useT();
+  const [tileProvider, setTileProvider] = useState<MapTileProviderKey>('carto');
+  const [tilesReady, setTilesReady] = useState(false);
   
   // Collect all coordinates for the map bounds
   const mapPoints = useMemo(() => {
@@ -111,9 +125,14 @@ export default function TrackingMap({
         className="h-full w-full z-10"
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution={MAP_TILE_PROVIDERS[tileProvider].attribution}
+          url={MAP_TILE_PROVIDERS[tileProvider].url}
+          eventHandlers={{
+            tileload: () => setTilesReady(true),
+            tileerror: () => setTileProvider(nextTileProvider),
+          }}
         />
+        <MapResizeFix />
         
         {/* Restaurant Pin */}
         <Marker position={[restaurantLat, restaurantLng]} icon={restaurantIcon} />
@@ -129,16 +148,21 @@ export default function TrackingMap({
         {/* Auto fit layout to show all active objects */}
         <FitMapBounds points={mapPoints} />
       </MapContainer>
+      {!tilesReady && (
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-ink-50/80 text-xs font-semibold text-ink-500">
+          {t('map.loading')}
+        </div>
+      )}
       
       {/* Small floating HUD */}
       <div className="absolute bottom-2 left-2 z-20 rounded-lg bg-white/95 backdrop-blur-sm px-2.5 py-1 text-[10px] font-bold text-ink-800 shadow-md border border-ink-100 flex items-center gap-1.5">
         <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
         <span>
           {status === 'out_for_delivery' || status === 'delivering'
-            ? 'Rider en route'
+            ? t('map.trackingRiderEnRoute')
             : status === 'preparing'
-            ? 'Preparing order'
-            : 'Order live'}
+            ? t('map.trackingPreparing')
+            : t('map.trackingLive')}
         </span>
       </div>
     </div>

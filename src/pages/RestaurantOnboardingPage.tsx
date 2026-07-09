@@ -7,7 +7,7 @@ import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Field } from '../components/Field';
 import { Spinner, ErrorState } from '../components/feedback';
-import DeliveryMap from '../components/DeliveryMap';
+import DeliveryMap, { type DeliveryMapLocation } from '../components/DeliveryMap';
 
 const PLACEHOLDER_IMG =
   'https://images.unsplash.com/photo-1552566626-52f8b828add9?w=800&q=60&auto=format&fit=crop';
@@ -35,7 +35,7 @@ export default function RestaurantOnboardingPage() {
   const [address, setAddress] = useState('');
   const [cuisine, setCuisine] = useState('');
   const [imageUrl, setImageUrl] = useState('');
-  const [location, setLocation] = useState<{ lat: number; lng: number; address: string } | null>(null);
+  const [location, setLocation] = useState<DeliveryMapLocation | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +69,7 @@ export default function RestaurantOnboardingPage() {
     setError(null);
     if (name.trim().length < 2) return setError(t('restaurant.onboard.invalidName'));
     if (!ownerId) return setError(t('restaurant.onboard.ownerRequired'));
+    if (!location?.confirmed) return setError(t('map.confirmRequired'));
     setSubmitting(true);
     try {
       const { data, error: e } = await supabase
@@ -81,8 +82,8 @@ export default function RestaurantOnboardingPage() {
           address: address.trim() || null,
           latitude: location?.lat ?? null,
           longitude: location?.lng ?? null,
-          location_accuracy_m: null,
-          location_verified: Boolean(location),
+          location_accuracy_m: location?.accuracy ?? null,
+          location_verified: Boolean(location?.confirmed),
           location_updated_at: location ? new Date().toISOString() : null,
           cuisine: cuisine.split(',').map((s) => s.trim()).filter(Boolean),
           image_url: imageUrl.trim() || PLACEHOLDER_IMG,
@@ -202,6 +203,7 @@ export default function RestaurantOnboardingPage() {
                 </div>
               </div>
               <DeliveryMap
+                purpose="restaurant"
                 initialAddress={address}
                 onLocationChange={(loc) => {
                   setLocation(loc);

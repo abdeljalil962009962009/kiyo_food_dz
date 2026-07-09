@@ -190,8 +190,8 @@ export default function DriverDashboardPage() {
           const result = data as LocationRpcResult | null;
           if (result?.suspicious) {
             setGpsNotice(result.reason === 'low_accuracy'
-              ? 'GPS accuracy is weak. Move near a window or open area.'
-              : 'Location jump detected. Keep GPS enabled for reliable dispatch.');
+              ? t('map.driverWeakGps')
+              : t('map.driverJump'));
           } else {
             setGpsNotice(null);
           }
@@ -208,19 +208,19 @@ export default function DriverDashboardPage() {
           } : prev);
         } catch {
           setGpsStatus('error');
-          setGpsNotice('Live GPS could not sync. Keep this page open and check location permission.');
+          setGpsNotice(t('map.driverSyncFailed'));
         } finally {
           locationWriteInFlightRef.current = false;
         }
       },
       () => {
         setGpsStatus('error');
-        setGpsNotice('Location permission is required while online.');
+        setGpsNotice(t('map.driverPermissionRequired'));
       },
     );
 
     return stop;
-  }, [driver?.id, driver?.is_online, driver?.is_verified]);
+  }, [driver?.id, driver?.is_online, driver?.is_verified, t]);
 
   const toggleOnline = async () => {
     if (!driver) return;

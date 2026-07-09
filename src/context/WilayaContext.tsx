@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { supabase } from '../lib/supabase';
+import { requestBestCurrentPosition } from '../lib/geo';
 
 export type Wilaya = {
   id: number;
@@ -164,20 +165,18 @@ export function WilayaProvider({ children, locale = 'fr' }: { children: ReactNod
     setError(null);
 
     try {
-      // Get GPS position
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: false,
-          timeout: 10000,
-          maximumAge: 300000, // 5 min cache
+      const point = await new Promise<{ lat: number; lng: number }>((resolve, reject) => {
+        requestBestCurrentPosition({
+          purpose: 'wilaya',
+          waitMs: 5000,
+          onResult: ({ point: bestPoint }) => resolve({ lat: bestPoint.lat, lng: bestPoint.lng }),
+          onError: reject,
         });
       });
 
-      const { latitude, longitude } = position.coords;
-
       // Reverse geocode to get wilaya
       const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=6&addressdetails=1`,
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${point.lat}&lon=${point.lng}&zoom=6&addressdetails=1`,
         { headers: { 'Accept-Language': 'en' } }
       );
 

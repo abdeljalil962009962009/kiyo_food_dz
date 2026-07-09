@@ -11,6 +11,7 @@ import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Skeleton, ErrorState, Spinner } from '../components/feedback';
 import { RestaurantImage, PriceTag } from '../components/ui';
+import { MAP_TILE_PROVIDERS, nextTileProvider, type MapTileProviderKey } from '../lib/mapConfig';
 
 const restaurantIcon = L.divIcon({
   className: 'kiyo-map-pin-restaurant',
@@ -31,6 +32,15 @@ function Circle({ center, radius }: { center: [number, number]; radius: number }
     }).addTo(map);
     return () => { map.removeLayer(c); };
   }, [map, center, radius]);
+  return null;
+}
+
+function MapResizeFix() {
+  const map = useMap();
+  useEffect(() => {
+    const timers = [100, 450, 1000].map((delay) => window.setTimeout(() => map.invalidateSize(), delay));
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [map]);
   return null;
 }
 
@@ -289,7 +299,7 @@ export default function RestaurantDetailPage() {
       )}
       {/* Restaurant location + delivery zone map */}
       <div className="mt-6 mb-20">
-        <h2 className="mb-2 font-display text-base font-bold text-ink-900">Location & Delivery zone</h2>
+        <h2 className="mb-2 font-display text-base font-bold text-ink-900">{t('map.locationDeliveryZone')}</h2>
         <RestaurantMiniMap restaurant={restaurant} />
       </div>
     </AppShell>
@@ -297,26 +307,39 @@ export default function RestaurantDetailPage() {
 }
 
 function RestaurantMiniMap({ restaurant }: { restaurant: Restaurant }) {
+  const { t } = useT();
+  const [tileProvider, setTileProvider] = useState<MapTileProviderKey>('carto');
+  const [tilesReady, setTilesReady] = useState(false);
   const lat = restaurant.latitude;
   const lng = restaurant.longitude;
   const maxKm = restaurant.max_delivery_km;
   if (!lat || !lng) {
     return (
       <div className="rounded-xl border border-ink-200 bg-ink-50 px-4 py-6 text-center text-xs text-ink-500">
-        Location unavailable for this restaurant.
+        {t('map.locationUnavailableShort')}
       </div>
     );
   }
   return (
-    <div className="h-64 w-full overflow-hidden rounded-xl border border-ink-200">
+    <div className="relative h-64 w-full overflow-hidden rounded-xl border border-ink-200">
       <MapContainer center={[lat, lng]} zoom={13} scrollWheelZoom={false} className="h-full w-full">
         <TileLayer
-          attribution='&copy; OpenStreetMap'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution={MAP_TILE_PROVIDERS[tileProvider].attribution}
+          url={MAP_TILE_PROVIDERS[tileProvider].url}
+          eventHandlers={{
+            tileload: () => setTilesReady(true),
+            tileerror: () => setTileProvider(nextTileProvider),
+          }}
         />
+        <MapResizeFix />
         <Marker position={[lat, lng]} icon={restaurantIcon} />
         {maxKm && maxKm > 0 && <Circle center={[lat, lng]} radius={maxKm * 1000} />}
       </MapContainer>
+      {!tilesReady && (
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-ink-50/80 text-xs font-semibold text-ink-500">
+          {t('map.loading')}
+        </div>
+      )}
     </div>
   );
 }

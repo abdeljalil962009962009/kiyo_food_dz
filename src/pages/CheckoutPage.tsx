@@ -9,7 +9,7 @@ import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Spinner, ErrorState } from '../components/feedback';
 import { PriceTag } from '../components/ui';
-import DeliveryMap from '../components/DeliveryMap';
+import DeliveryMap, { type DeliveryMapLocation } from '../components/DeliveryMap';
 
 type Step = 'details' | 'review' | 'success';
 type Finance = {
@@ -50,7 +50,7 @@ export default function CheckoutPage() {
   type RestaurantGeo = { lat: number; lng: number; max_km: number };
   const [restaurantGeo, setRestaurantGeo] = useState<RestaurantGeo | null>(null);
   // Customer-chosen delivery location from the map
-  const [mapLocation, setMapLocation] = useState<{ lat: number; lng: number; address: string } | null>(null);
+  const [mapLocation, setMapLocation] = useState<DeliveryMapLocation | null>(null);
 
   // Load restaurant coordinates + delivery zone (for the map + distance check).
   useEffect(() => {
@@ -121,8 +121,8 @@ export default function CheckoutPage() {
   // ----- Validation -----
   const detailsValid = useMemo(() => {
     const phoneOk = /^[+\d][\d\s-]{6,}$/.test(phone.trim());
-    return name.trim().length >= 2 && phoneOk && address.trim().length >= 5;
-  }, [name, phone, address]);
+    return name.trim().length >= 2 && phoneOk && address.trim().length >= 5 && mapLocation?.confirmed === true;
+  }, [name, phone, address, mapLocation?.confirmed]);
 
   // ----- Submit (single-statement transactional RPC) -----
   // Calls create_order_with_items() which inserts order + items in one
@@ -132,6 +132,10 @@ export default function CheckoutPage() {
   const submitOrder = useCallback(async () => {
     if (submitting) return; // double-click guard (defense-in-depth)
     if (!profile || !cart.restaurantId || cart.lines.length === 0) return;
+    if (!mapLocation?.confirmed) {
+      setSubmitError(t('map.confirmRequired'));
+      return;
+    }
     setSubmitting(true);
     setSubmitError(null);
 
@@ -155,6 +159,9 @@ export default function CheckoutPage() {
         })),
         delivery_address: address.trim(),
         delivery_phone: phone.trim(),
+        delivery_latitude: mapLocation.lat,
+        delivery_longitude: mapLocation.lng,
+        delivery_accuracy_m: mapLocation.accuracy,
         notes: notes.trim() || null,
         delivery_km: mapLocation && restaurantGeo
           ? haversineKm(
@@ -189,6 +196,7 @@ export default function CheckoutPage() {
           .update({
             delivery_latitude: mapLocation.lat,
             delivery_longitude: mapLocation.lng,
+            delivery_accuracy_m: mapLocation.accuracy,
           })
           .eq('id', orderId);
         if (locationError) throw locationError;
@@ -289,6 +297,7 @@ export default function CheckoutPage() {
               <div>
                 <label className="kiyo-label">{t('checkout.address')}</label>
                 <DeliveryMap
+                  purpose="customer"
                   restaurantLat={restaurantGeo?.lat}
                   restaurantLng={restaurantGeo?.lng}
                   maxDeliveryKm={restaurantGeo?.max_km}
@@ -299,6 +308,9 @@ export default function CheckoutPage() {
                   }}
                 />
                 <input type="hidden" value={address} onChange={() => {}} />
+                {mapLocation && !mapLocation.confirmed && (
+                  <p className="mt-1 text-xs text-warning-700">{t('map.confirmRequired')}</p>
+                )}
                 {!detailsValid && address && address.trim().length < 5 && (
                   <p className="mt-1 text-xs text-error-600">{t('checkout.invalidAddress')}</p>
                 )}

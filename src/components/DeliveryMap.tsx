@@ -7,13 +7,16 @@ import {
   formatDistanceKm,
   haversineKm,
   isCoordinateInAlgeria,
+  isUsableAccuracy,
+  requestBestCurrentPosition,
   reverseGeocode,
   searchAddresses,
-  watchCurrentPosition,
   type GeoSearchResult,
+  type LocationCapturePurpose,
   type LiveGeoPoint,
 } from '../lib/geo';
 import { useT } from '../lib/i18n-react';
+import { ALGERIA_MAP_BOUNDS, ALGERIA_MAP_CENTER, MAP_TILE_PROVIDERS, nextTileProvider, type MapTileProviderKey } from '../lib/mapConfig';
 
 // Fix default marker icons under bundlers (Leaflet expects CDN assets by default).
 const blueIcon = L.divIcon({
@@ -35,26 +38,22 @@ const liveLocationIcon = L.divIcon({
   iconAnchor: [12, 12],
 });
 
-const ALGERIA_CENTER: [number, number] = [28.0, 2.0];
-const ALGERIA_BOUNDS: [[number, number], [number, number]] = [[18.5, -9.0], [37.6, 12.2]];
-
-const TILE_PROVIDERS = {
-  carto: {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-  },
-  osm: {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-  },
-};
-
 type Props = {
   restaurantLat?: number | null;
   restaurantLng?: number | null;
   maxDeliveryKm?: number;
   initialAddress?: string;
-  onLocationChange: (loc: { lat: number; lng: number; address: string }) => void;
+  purpose?: LocationCapturePurpose;
+  onLocationChange: (loc: DeliveryMapLocation) => void;
+};
+
+export type DeliveryMapLocation = {
+  lat: number;
+  lng: number;
+  address: string;
+  accuracy: number | null;
+  source: LiveGeoPoint['source'] | 'search' | 'manual';
+  confirmed: boolean;
 };
 
 export default function DeliveryMap({
@@ -62,6 +61,7 @@ export default function DeliveryMap({
   restaurantLng,
   maxDeliveryKm,
   initialAddress,
+  purpose = 'customer',
   onLocationChange,
 }: Props) {
   const { t, locale } = useT();
@@ -74,8 +74,10 @@ export default function DeliveryMap({
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [gpsWarning, setGpsWarning] = useState<string | null>(null);
   const [gpsLoading, setGpsLoading] = useState(false);
+  const [improvingGps, setImprovingGps] = useState(false);
   const [livePosition, setLivePosition] = useState<LiveGeoPoint | null>(null);
-  const [tileProvider, setTileProvider] = useState<keyof typeof TILE_PROVIDERS>('carto');
+  const [currentLocation, setCurrentLocation] = useState<DeliveryMapLocation | null>(null);
+  const [tileProvider, setTileProvider] = useState<MapTileProviderKey>('carto');
   const [tilesReady, setTilesReady] = useState(false);
   const [tileErrorCount, setTileErrorCount] = useState(0);
   const mapRef = useRef<L.Map | null>(null);
@@ -88,7 +90,16 @@ export default function DeliveryMap({
 
   const outOfZone = !!distanceKm && !!maxDeliveryKm && distanceKm > maxDeliveryKm;
 
-  const setLocation = useCallback(async (lat: number, lng: number, address?: string) => {
+  const setLocation = useCallback(async (
+    lat: number,
+    lng: number,
+    address?: string,
+    meta: {
+      accuracy?: number | null;
+      source?: DeliveryMapLocation['source'];
+      confirmed?: boolean;
+    } = {},
+  ) => {
     if (!isCoordinateInAlgeria(lat, lng)) {
       setGpsWarning(t('map.locationOutsideAlgeria'));
       return;
@@ -97,8 +108,17 @@ export default function DeliveryMap({
     setGpsWarning(null);
     setPin([lat, lng]);
     const resolvedAddress = address ?? (await reverseGeocode(lat, lng, document.documentElement.lang || 'fr')).displayName;
+    const next: DeliveryMapLocation = {
+      lat,
+      lng,
+      address: resolvedAddress,
+      accuracy: meta.accuracy ?? null,
+      source: meta.source ?? 'manual',
+      confirmed: meta.confirmed ?? false,
+    };
     setAddressText(resolvedAddress);
-    onLocationChange({ lat, lng, address: resolvedAddress });
+    setCurrentLocation(next);
+    onLocationChange(next);
   }, [onLocationChange, t]);
 
   const getAccuracyWarning = useCallback((accuracy: number | null | undefined) => {
@@ -106,6 +126,26 @@ export default function DeliveryMap({
     if (accuracy <= 250) return t('map.gpsWeak');
     return t('map.gpsApproximate');
   }, [t]);
+
+  const confirmPin = () => {
+    if (!currentLocation) return;
+    if (
+      purpose === 'restaurant' &&
+      currentLocation.source !== 'manual' &&
+      !isUsableAccuracy(currentLocation.accuracy, 'restaurant')
+    ) {
+      setGpsWarning(t('map.restaurantConfirmRequired'));
+      return;
+    }
+    const confirmed = {
+      ...currentLocation,
+      confirmed: true,
+      accuracy: currentLocation.source === 'manual' ? null : currentLocation.accuracy ?? livePosition?.accuracy ?? null,
+    };
+    setCurrentLocation(confirmed);
+    setGpsWarning(null);
+    onLocationChange(confirmed);
+  };
 
   useEffect(() => {
     const term = search.trim();
@@ -129,35 +169,50 @@ export default function DeliveryMap({
   const useGps = () => {
     stopWatchingRef.current?.();
     setGpsLoading(true);
-    stopWatchingRef.current = watchCurrentPosition(
-      async (pos) => {
+    setImprovingGps(true);
+    setPermissionDenied(false);
+    stopWatchingRef.current = requestBestCurrentPosition({
+      purpose,
+      onCandidate: (pos) => {
         setLivePosition(pos);
-        const accuracyWarning = getAccuracyWarning(pos.accuracy);
-        setGpsWarning(accuracyWarning);
-        await setLocation(pos.lat, pos.lng);
-        setGpsWarning(accuracyWarning);
-
-        setGpsLoading(false);
+        setGpsWarning(getAccuracyWarning(pos.accuracy) ?? t('map.improvingAccuracy'));
         mapRef.current?.flyTo([pos.lat, pos.lng], 16, { duration: 0.75 });
       },
-      () => {
+      onResult: async ({ point, accepted }) => {
+        setLivePosition(point);
+        const confirmed = accepted && purpose !== 'restaurant';
+        await setLocation(point.lat, point.lng, undefined, {
+          accuracy: point.accuracy,
+          source: point.source,
+          confirmed,
+        });
+        setGpsWarning(accepted
+          ? (confirmed ? null : t('map.restaurantConfirmRequired'))
+          : t('map.confirmWeakGps'));
+        setGpsLoading(false);
+        setImprovingGps(false);
+        mapRef.current?.flyTo([point.lat, point.lng], 16, { duration: 0.75 });
+      },
+      onError: () => {
         setPermissionDenied(true);
         setGpsLoading(false);
+        setImprovingGps(false);
       },
-    );
+    });
   };
 
   const updateDraggedPin = async (marker: L.Marker) => {
     const { lat, lng } = marker.getLatLng();
-    await setLocation(lat, lng);
-    setGpsWarning(null);
+    await setLocation(lat, lng, undefined, { source: 'manual', accuracy: null, confirmed: false });
+    setGpsWarning(t('map.confirmDraggedPin'));
   };
 
   function MapClickHandler() {
     useMapEvents({
       click: async (e) => {
         const { lat, lng } = e.latlng;
-        await setLocation(lat, lng);
+        await setLocation(lat, lng, undefined, { source: 'manual', confirmed: false });
+        setGpsWarning(t('map.confirmDraggedPin'));
       },
     });
     return null;
@@ -192,7 +247,8 @@ export default function DeliveryMap({
         ? suggestions
         : await searchAddresses(search.trim(), document.documentElement.lang || 'fr', 1);
       if (first) {
-        await setLocation(first.lat, first.lng, first.label);
+        await setLocation(first.lat, first.lng, first.label, { source: 'search', confirmed: false });
+        setGpsWarning(t('map.confirmSearchPin'));
         setSuggestions([]);
         mapRef.current?.flyTo([first.lat, first.lng], 15, { duration: 0.75 });
       }
@@ -222,7 +278,8 @@ export default function DeliveryMap({
                   key={`${item.provider}-${item.placeId ?? item.label}`}
                   type="button"
                   onClick={async () => {
-                    await setLocation(item.lat, item.lng, item.label);
+                    await setLocation(item.lat, item.lng, item.label, { source: 'search', confirmed: false });
+                    setGpsWarning(t('map.confirmSearchPin'));
                     setSearch(item.label);
                     setSuggestions([]);
                     mapRef.current?.flyTo([item.lat, item.lng], 15, { duration: 0.75 });
@@ -250,6 +307,9 @@ export default function DeliveryMap({
       {searching && (
         <p className="text-xs font-medium text-ink-400">{t('map.searching')}</p>
       )}
+      {improvingGps && (
+        <p className="text-xs font-medium text-sage-700">{t('map.improvingAccuracy')}</p>
+      )}
 
       {permissionDenied && (
         <div className="rounded-lg bg-warning-500/10 px-3 py-2 text-xs text-warning-600">
@@ -266,24 +326,24 @@ export default function DeliveryMap({
 
       <div className="relative h-72 w-full overflow-hidden rounded-xl border border-ink-200 sm:h-80">
         <MapContainer
-          center={restaurantLat && restaurantLng ? [restaurantLat, restaurantLng] : ALGERIA_CENTER}
+          center={restaurantLat && restaurantLng ? [restaurantLat, restaurantLng] : ALGERIA_MAP_CENTER}
           zoom={restaurantLat && restaurantLng ? 13 : 5}
           minZoom={5}
-          maxBounds={ALGERIA_BOUNDS}
+          maxBounds={ALGERIA_MAP_BOUNDS}
           maxBoundsViscosity={0.7}
           scrollWheelZoom={false}
           className="h-full w-full"
           ref={(m) => { mapRef.current = m; }}
         >
           <TileLayer
-            attribution={TILE_PROVIDERS[tileProvider].attribution}
-            url={TILE_PROVIDERS[tileProvider].url}
+            attribution={MAP_TILE_PROVIDERS[tileProvider].attribution}
+            url={MAP_TILE_PROVIDERS[tileProvider].url}
             eventHandlers={{
               tileload: () => setTilesReady(true),
               tileerror: () => {
                 setTileErrorCount((count) => {
                   const next = count + 1;
-                  if (next >= 2) setTileProvider((provider) => provider === 'carto' ? 'osm' : 'carto');
+                  if (next >= 2) setTileProvider(nextTileProvider);
                   return next;
                 });
               },
@@ -351,8 +411,22 @@ export default function DeliveryMap({
                   {livePosition.heading != null ? ` - ${t('map.heading')} ${Math.round(livePosition.heading)} deg` : ''}
                 </p>
               )}
+              {currentLocation && (
+                <p className={`mt-0.5 font-semibold ${currentLocation.confirmed ? 'text-sage-700' : 'text-warning-700'}`}>
+                  {currentLocation.confirmed ? t('map.pinConfirmed') : t('map.pinNeedsConfirmation')}
+                </p>
+              )}
             </div>
           </div>
+          {currentLocation && !currentLocation.confirmed && (
+            <button
+              type="button"
+              onClick={confirmPin}
+              className="mt-3 w-full rounded-lg bg-ink-900 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-ink-700"
+            >
+              {t('map.confirmPin')}
+            </button>
+          )}
         </div>
       )}
       {outOfZone && (
@@ -383,7 +457,7 @@ function Circle(props: { center: [number, number]; radius: number; kind: 'delive
 }
 
 export async function saveAddressIfNew(
-  loc: { lat: number; lng: number; address: string },
+  loc: { lat: number; lng: number; address: string; accuracy?: number | null },
   label: 'home' | 'work' | 'family' | 'other' = 'other',
 ): Promise<{ ok: true; skipped?: true } | { ok: false; error: string }> {
   try {
@@ -395,6 +469,7 @@ export async function saveAddressIfNew(
       address: loc.address,
       latitude: loc.lat,
       longitude: loc.lng,
+      accuracy_m: loc.accuracy ?? null,
       is_default: false,
     });
     if (error) throw error;

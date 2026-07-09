@@ -9,7 +9,7 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { ErrorState } from '../components/feedback';
 import { RestaurantImage } from '../components/ui';
 import { WilayaSelector } from '../components/WilayaSelector';
-import { haversineKm, formatDistanceKm } from '../lib/geo';
+import { haversineKm, formatDistanceKm, requestBestCurrentPosition } from '../lib/geo';
 import { useSettings } from '../context/SettingsContext';
 
 type RestaurantWithDistance = Restaurant & {
@@ -66,16 +66,16 @@ export default function RestaurantsPage() {
   }, [selectedWilaya?.id, wilayaLoading, currentLocation?.lat, currentLocation?.lng]);
 
   const locateRestaurants = () => {
-    if (!('geolocation' in navigator)) return;
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setCurrentLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+    requestBestCurrentPosition({
+      purpose: 'customer',
+      onResult: ({ point }) => {
+        setCurrentLocation({ lat: point.lat, lng: point.lng });
         setLocating(false);
       },
-      () => setLocating(false),
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 },
-    );
+      onError: () => setLocating(false),
+      waitMs: 5000,
+    });
   };
 
   const filtered = useMemo(() => {

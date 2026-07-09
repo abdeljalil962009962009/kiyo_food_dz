@@ -4,12 +4,12 @@ import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Field } from '../components/Field';
 import { Spinner } from '../components/feedback';
-import DeliveryMap from '../components/DeliveryMap';
+import DeliveryMap, { type DeliveryMapLocation } from '../components/DeliveryMap';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../lib/i18n-react';
 import { supabase } from '../lib/supabase';
 
-type Location = { lat: number; lng: number; address: string };
+type Location = DeliveryMapLocation;
 
 export default function RestaurantApplicationPage() {
   const { t } = useT();
@@ -39,6 +39,7 @@ export default function RestaurantApplicationPage() {
     if (phone.trim().length < 6) return setError(t('restaurant.apply.errorPhone'));
     if (address.trim().length < 5) return setError(t('restaurant.apply.errorAddress'));
     if (!location) return setError(t('restaurant.apply.errorLocation'));
+    if (!location.confirmed) return setError(t('map.confirmRequired'));
 
     const maxKm = Number(maxDeliveryKm);
     const minOrder = Number(minOrderAmount);
@@ -65,6 +66,8 @@ export default function RestaurantApplicationPage() {
         cover_image_url: coverUrl,
         latitude: location.lat,
         longitude: location.lng,
+        location_accuracy_m: location.accuracy,
+        location_confirmed: location.confirmed,
         status: 'pending',
       });
       if (insertError) throw insertError;
@@ -141,6 +144,7 @@ export default function RestaurantApplicationPage() {
                 </div>
               </div>
               <DeliveryMap
+                purpose="restaurant"
                 initialAddress={address}
                 onLocationChange={(loc) => {
                   setLocation(loc);

@@ -196,6 +196,15 @@ export type TranslationKey =
   | 'map.locationOutsideAlgeria'
   | 'map.gpsWeak'
   | 'map.gpsApproximate'
+  | 'map.improvingAccuracy'
+  | 'map.restaurantConfirmRequired'
+  | 'map.confirmWeakGps'
+  | 'map.confirmDraggedPin'
+  | 'map.confirmSearchPin'
+  | 'map.pinConfirmed'
+  | 'map.pinNeedsConfirmation'
+  | 'map.confirmPin'
+  | 'map.confirmRequired'
   | 'map.tileFallbackActive'
   | 'map.tileReconnecting'
   | 'map.distance'
@@ -203,6 +212,15 @@ export type TranslationKey =
   | 'map.gpsAccuracy'
   | 'map.heading'
   | 'map.outsideZone'
+  | 'map.locationDeliveryZone'
+  | 'map.locationUnavailableShort'
+  | 'map.trackingRiderEnRoute'
+  | 'map.trackingPreparing'
+  | 'map.trackingLive'
+  | 'map.driverWeakGps'
+  | 'map.driverJump'
+  | 'map.driverSyncFailed'
+  | 'map.driverPermissionRequired'
   // cart + checkout
   | 'cart.title'
   | 'cart.empty'
@@ -684,6 +702,15 @@ const en: Dict = {
   'map.locationOutsideAlgeria': 'This location is outside Algeria. Please search or place the pin inside the service area.',
   'map.gpsWeak': 'GPS accuracy is weak. The pin was placed, but please confirm or drag it to the exact entrance.',
   'map.gpsApproximate': 'GPS accuracy is approximate. The pin was placed, but drag it to the exact entrance before submitting.',
+  'map.improvingAccuracy': 'Improving GPS accuracy...',
+  'map.restaurantConfirmRequired': 'Restaurant GPS must be exact. Drag the pin to the entrance and confirm it.',
+  'map.confirmWeakGps': 'GPS is still weak. Drag the pin to the exact entrance and confirm it before saving.',
+  'map.confirmDraggedPin': 'Confirm this exact pin before saving.',
+  'map.confirmSearchPin': 'Search found this area. Move the pin if needed, then confirm the exact location.',
+  'map.pinConfirmed': 'Pin confirmed',
+  'map.pinNeedsConfirmation': 'Pin needs confirmation',
+  'map.confirmPin': 'Confirm exact pin',
+  'map.confirmRequired': 'Confirm the exact map pin before continuing.',
   'map.tileFallbackActive': 'Map fallback is active because the primary tiles were slow.',
   'map.tileReconnecting': 'Map tiles are reconnecting. Your selected pin remains safe.',
   'map.distance': 'Distance',
@@ -691,6 +718,15 @@ const en: Dict = {
   'map.gpsAccuracy': 'GPS accuracy',
   'map.heading': 'heading',
   'map.outsideZone': "This address is outside the restaurant's delivery zone",
+  'map.locationDeliveryZone': 'Location & delivery zone',
+  'map.locationUnavailableShort': 'Location unavailable for this restaurant.',
+  'map.trackingRiderEnRoute': 'Rider en route',
+  'map.trackingPreparing': 'Preparing order',
+  'map.trackingLive': 'Order live',
+  'map.driverWeakGps': 'GPS accuracy is weak. Move near a window or open area.',
+  'map.driverJump': 'Location jump detected. Keep GPS enabled for reliable dispatch.',
+  'map.driverSyncFailed': 'Live GPS could not sync. Keep this page open and check location permission.',
+  'map.driverPermissionRequired': 'Location permission is required while online.',
   'cart.title': 'Your cart',
   'cart.empty': 'Your cart is empty',
   'cart.emptyBody': 'Browse restaurants and add items to get started.',
@@ -1167,6 +1203,15 @@ const fr: Dict = {
   'map.locationOutsideAlgeria': 'Cette position est hors d’Algérie. Recherchez une adresse ou placez l’épingle dans la zone couverte.',
   'map.gpsWeak': 'La précision GPS est faible. L’épingle a été placée, mais confirmez-la ou déplacez-la vers l’entrée exacte.',
   'map.gpsApproximate': 'La position GPS est approximative. L’épingle a été placée, mais déplacez-la vers l’entrée exacte avant l’envoi.',
+  'map.improvingAccuracy': 'Amélioration de la précision GPS...',
+  'map.restaurantConfirmRequired': 'La position du restaurant doit être exacte. Déplacez l’épingle vers l’entrée et confirmez-la.',
+  'map.confirmWeakGps': 'Le GPS reste faible. Déplacez l’épingle vers l’entrée exacte et confirmez-la avant l’enregistrement.',
+  'map.confirmDraggedPin': 'Confirmez cette épingle exacte avant l’enregistrement.',
+  'map.confirmSearchPin': 'La recherche a trouvé cette zone. Déplacez l’épingle si nécessaire, puis confirmez le lieu exact.',
+  'map.pinConfirmed': 'Épingle confirmée',
+  'map.pinNeedsConfirmation': 'Épingle à confirmer',
+  'map.confirmPin': 'Confirmer l’épingle exacte',
+  'map.confirmRequired': 'Confirmez l’épingle exacte sur la carte avant de continuer.',
   'map.tileFallbackActive': 'La carte utilise une source de secours car les tuiles principales sont lentes.',
   'map.tileReconnecting': 'La carte se reconnecte. Votre épingle reste enregistrée.',
   'map.distance': 'Distance',
@@ -1174,6 +1219,15 @@ const fr: Dict = {
   'map.gpsAccuracy': 'Précision GPS',
   'map.heading': 'direction',
   'map.outsideZone': 'Cette adresse est hors de la zone de livraison du restaurant',
+  'map.locationDeliveryZone': 'Position et zone de livraison',
+  'map.locationUnavailableShort': 'Position indisponible pour ce restaurant.',
+  'map.trackingRiderEnRoute': 'Livreur en route',
+  'map.trackingPreparing': 'Commande en préparation',
+  'map.trackingLive': 'Commande en direct',
+  'map.driverWeakGps': 'La précision GPS est faible. Approchez-vous d’une fenêtre ou d’un espace ouvert.',
+  'map.driverJump': 'Déplacement anormal détecté. Gardez le GPS activé pour une livraison fiable.',
+  'map.driverSyncFailed': 'La synchronisation GPS a échoué. Gardez cette page ouverte et vérifiez l’autorisation de localisation.',
+  'map.driverPermissionRequired': 'L’autorisation de localisation est nécessaire lorsque vous êtes en ligne.',
   'cart.title': 'Votre panier',
   'cart.empty': 'Votre panier est vide',
   'cart.emptyBody': 'Parcourez les restaurants pour ajouter des plats.',
@@ -1650,6 +1704,15 @@ const ar: Dict = {
   'map.locationOutsideAlgeria': 'هذا الموقع خارج الجزائر. ابحث عن عنوان أو ضع الدبوس داخل منطقة الخدمة.',
   'map.gpsWeak': 'دقة GPS ضعيفة. تم وضع الدبوس، لكن يرجى تأكيده أو سحبه إلى المدخل الصحيح.',
   'map.gpsApproximate': 'موقع GPS تقريبي. تم وضع الدبوس، لكن اسحبه إلى المدخل الصحيح قبل الإرسال.',
+  'map.improvingAccuracy': 'جارٍ تحسين دقة GPS...',
+  'map.restaurantConfirmRequired': 'يجب أن يكون موقع المطعم دقيقاً. اسحب الدبوس إلى المدخل ثم أكده.',
+  'map.confirmWeakGps': 'ما زالت دقة GPS ضعيفة. اسحب الدبوس إلى المدخل الصحيح وأكده قبل الحفظ.',
+  'map.confirmDraggedPin': 'أكد هذا الدبوس الدقيق قبل الحفظ.',
+  'map.confirmSearchPin': 'وجد البحث هذه المنطقة. حرك الدبوس إذا لزم الأمر ثم أكد الموقع الدقيق.',
+  'map.pinConfirmed': 'تم تأكيد الدبوس',
+  'map.pinNeedsConfirmation': 'يحتاج الدبوس إلى تأكيد',
+  'map.confirmPin': 'تأكيد الدبوس الدقيق',
+  'map.confirmRequired': 'أكد الدبوس الدقيق على الخريطة قبل المتابعة.',
   'map.tileFallbackActive': 'تم تشغيل مصدر احتياطي للخريطة لأن تحميل الخريطة الأساسي بطيء.',
   'map.tileReconnecting': 'الخريطة تعيد الاتصال. الدبوس الذي اخترته محفوظ.',
   'map.distance': 'المسافة',
@@ -1657,6 +1720,15 @@ const ar: Dict = {
   'map.gpsAccuracy': 'دقة GPS',
   'map.heading': 'الاتجاه',
   'map.outsideZone': 'هذا العنوان خارج نطاق توصيل المطعم',
+  'map.locationDeliveryZone': 'الموقع ونطاق التوصيل',
+  'map.locationUnavailableShort': 'موقع هذا المطعم غير متاح.',
+  'map.trackingRiderEnRoute': 'السائق في الطريق',
+  'map.trackingPreparing': 'الطلب قيد التحضير',
+  'map.trackingLive': 'الطلب مباشر',
+  'map.driverWeakGps': 'دقة GPS ضعيفة. اقترب من نافذة أو مكان مفتوح.',
+  'map.driverJump': 'تم رصد قفزة غير طبيعية في الموقع. أبقِ GPS مفعلاً لتوصيل موثوق.',
+  'map.driverSyncFailed': 'تعذرت مزامنة GPS المباشرة. أبقِ هذه الصفحة مفتوحة وتحقق من إذن الموقع.',
+  'map.driverPermissionRequired': 'إذن الموقع مطلوب أثناء الاتصال.',
   'cart.title': 'سلتك',
   'cart.empty': 'سلتك فارغة',
   'cart.emptyBody': 'تصفح المطاعم وأضف أطباقاً.',

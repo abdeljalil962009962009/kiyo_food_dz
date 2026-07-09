@@ -13,6 +13,14 @@ export type LiveGeoPoint = Coordinates & {
   source: 'gps' | 'network' | 'manual' | 'ip';
 };
 
+export type LocationCapturePurpose = 'customer' | 'restaurant' | 'driver' | 'wilaya';
+
+export type LocationCaptureResult = {
+  point: LiveGeoPoint;
+  accepted: boolean;
+  timedOut: boolean;
+};
+
 export type AddressParts = {
   displayName: string;
   street?: string;
@@ -33,6 +41,20 @@ export type GeoSearchResult = Coordinates & {
 };
 
 const NOMINATIM_MIN_DELAY_MS = 1100;
+export const GEOLOCATION_DEFAULT_OPTIONS: PositionOptions = {
+  enableHighAccuracy: true,
+  maximumAge: 0,
+  timeout: 30000,
+};
+
+export const LOCATION_ACCURACY_METERS = {
+  restaurantStrict: 50,
+  customerGood: 80,
+  customerUsable: 250,
+  driverSuspicious: 250,
+};
+
+const BEST_READING_WAIT_MS = 8000;
 let lastNominatimRequestAt = 0;
 
 export const ALGERIA_GEO_BOUNDS = {
@@ -51,6 +73,34 @@ export function isCoordinateInAlgeria(lat: number, lng: number): boolean {
     lng >= ALGERIA_GEO_BOUNDS.minLng &&
     lng <= ALGERIA_GEO_BOUNDS.maxLng
   );
+}
+
+export function isUsableAccuracy(accuracy: number | null | undefined, purpose: LocationCapturePurpose): boolean {
+  if (accuracy == null) return purpose !== 'restaurant';
+  if (purpose === 'restaurant') return accuracy <= LOCATION_ACCURACY_METERS.restaurantStrict;
+  if (purpose === 'driver') return accuracy <= LOCATION_ACCURACY_METERS.driverSuspicious;
+  return accuracy <= LOCATION_ACCURACY_METERS.customerUsable;
+}
+
+function toLiveGeoPoint(pos: GeolocationPosition): LiveGeoPoint {
+  return {
+    lat: pos.coords.latitude,
+    lng: pos.coords.longitude,
+    altitude: pos.coords.altitude,
+    accuracy: pos.coords.accuracy,
+    altitudeAccuracy: pos.coords.altitudeAccuracy,
+    heading: pos.coords.heading,
+    speed: pos.coords.speed,
+    timestamp: pos.timestamp,
+    source: pos.coords.accuracy && pos.coords.accuracy <= LOCATION_ACCURACY_METERS.customerGood ? 'gps' : 'network',
+  };
+}
+
+function isBetterPoint(next: LiveGeoPoint, current: LiveGeoPoint | null): boolean {
+  if (!current) return true;
+  if (next.accuracy == null) return false;
+  if (current.accuracy == null) return true;
+  return next.accuracy < current.accuracy;
 }
 
 export function haversineKm(a: Coordinates, b: Coordinates): number {
@@ -206,6 +256,7 @@ export async function searchAddresses(query: string, language = 'fr', limit = 5)
 export function watchCurrentPosition(
   onPoint: (point: LiveGeoPoint) => void,
   onError: (error: GeolocationPositionError | Error) => void,
+  options: PositionOptions = GEOLOCATION_DEFAULT_OPTIONS,
 ): () => void {
   if (!('geolocation' in navigator)) {
     onError(new Error('Geolocation is not supported on this device'));
@@ -219,25 +270,65 @@ export function watchCurrentPosition(
         return;
       }
 
-      onPoint({
-        lat: pos.coords.latitude,
-        lng: pos.coords.longitude,
-        altitude: pos.coords.altitude,
-        accuracy: pos.coords.accuracy,
-        altitudeAccuracy: pos.coords.altitudeAccuracy,
-        heading: pos.coords.heading,
-        speed: pos.coords.speed,
-        timestamp: pos.timestamp,
-        source: pos.coords.accuracy && pos.coords.accuracy <= 60 ? 'gps' : 'network',
-      });
+      onPoint(toLiveGeoPoint(pos));
     },
     onError,
-    {
-      enableHighAccuracy: true,
-      maximumAge: 0,
-      timeout: 30000,
-    },
+    options,
   );
 
   return () => navigator.geolocation.clearWatch(watchId);
+}
+
+export function requestBestCurrentPosition(params: {
+  purpose: LocationCapturePurpose;
+  onCandidate?: (point: LiveGeoPoint) => void;
+  onResult: (result: LocationCaptureResult) => void;
+  onError: (error: GeolocationPositionError | Error) => void;
+  waitMs?: number;
+  options?: PositionOptions;
+}): () => void {
+  let best: LiveGeoPoint | null = null;
+  let completed = false;
+  let stopWatching: (() => void) | null = null;
+
+  const finish = (timedOut: boolean) => {
+    if (completed || !best) return;
+    completed = true;
+    stopWatching?.();
+    params.onResult({
+      point: best,
+      accepted: isUsableAccuracy(best.accuracy, params.purpose),
+      timedOut,
+    });
+  };
+
+  const timer = window.setTimeout(() => finish(true), params.waitMs ?? BEST_READING_WAIT_MS);
+
+  stopWatching = watchCurrentPosition(
+    (point) => {
+      if (!isBetterPoint(point, best)) return;
+      best = point;
+      params.onCandidate?.(point);
+      if (isUsableAccuracy(point.accuracy, params.purpose)) {
+        window.clearTimeout(timer);
+        finish(false);
+      }
+    },
+    (error) => {
+      if (best) {
+        finish(true);
+        return;
+      }
+      window.clearTimeout(timer);
+      completed = true;
+      params.onError(error);
+    },
+    params.options ?? GEOLOCATION_DEFAULT_OPTIONS,
+  );
+
+  return () => {
+    completed = true;
+    window.clearTimeout(timer);
+    stopWatching?.();
+  };
 }
