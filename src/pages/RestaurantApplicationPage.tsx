@@ -68,6 +68,9 @@ export default function RestaurantApplicationPage() {
         longitude: location.lng,
         location_accuracy_m: location.accuracy,
         location_confirmed: location.confirmed,
+        place_id: location.placeId,
+        location_source: location.source,
+        address_quality: location.addressQuality,
         status: 'pending',
       });
       if (insertError) throw insertError;
@@ -112,7 +115,17 @@ export default function RestaurantApplicationPage() {
             <Field name="restaurantName" label={t('restaurant.apply.name')} value={restaurantName} onChange={(e) => setRestaurantName(e.target.value)} required />
             <Field name="legalName" label={t('restaurant.apply.legalName')} value={legalName} onChange={(e) => setLegalName(e.target.value)} />
             <Field name="phone" label={t('restaurant.phone')} value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" required />
-            <Field name="address" label={t('restaurant.address')} value={address} onChange={(e) => setAddress(e.target.value)} required />
+            <Field
+              name="address"
+              label={t('restaurant.address')}
+              value={address}
+              onChange={(event) => {
+                setAddress(event.target.value);
+                setLocation(null);
+              }}
+              readOnly={Boolean(location)}
+              required
+            />
 
             <div>
               <label className="kiyo-label" htmlFor="description">{t('restaurant.description')}</label>
@@ -135,7 +148,7 @@ export default function RestaurantApplicationPage() {
               <FileField label={t('restaurant.apply.cover')} file={cover} onChange={setCover} />
             </div>
 
-            <div className="rounded-xl border border-ink-100 bg-ink-50/50 p-3">
+            <div className="space-y-3 border-t border-ink-100 pt-4">
               <div className="mb-3 flex items-start gap-2">
                 <MapPin className="mt-0.5 h-4 w-4 text-ember-600" />
                 <div>
@@ -148,7 +161,7 @@ export default function RestaurantApplicationPage() {
                 initialAddress={address}
                 onLocationChange={(loc) => {
                   setLocation(loc);
-                  if (!address.trim()) setAddress(loc.address);
+                  setAddress(loc.address);
                 }}
               />
             </div>

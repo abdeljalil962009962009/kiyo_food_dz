@@ -78,9 +78,9 @@ export function isCoordinateInAlgeria(lat: number, lng: number): boolean {
 export function isUsableAccuracy(accuracy: number | null | undefined, purpose: LocationCapturePurpose): boolean {
   if (accuracy == null) return purpose !== 'restaurant';
   if (purpose === 'restaurant') return accuracy <= LOCATION_ACCURACY_METERS.restaurantStrict;
-  if (purpose === 'driver') return accuracy <= LOCATION_ACCURACY_METERS.driverSuspicious;
-  if (purpose === 'wilaya') return accuracy <= 20000;
-  return accuracy <= LOCATION_ACCURACY_METERS.customerUsable;
+  if (purpose === 'driver') return accuracy <= LOCATION_ACCURACY_METERS.customerGood;
+  if (purpose === 'wilaya') return accuracy <= 5000;
+  return accuracy <= LOCATION_ACCURACY_METERS.customerGood;
 }
 
 function toLiveGeoPoint(pos: GeolocationPosition): LiveGeoPoint {
@@ -191,7 +191,7 @@ function normalizeOsmAddress(data: {
   const a = data.address ?? {};
   return {
     displayName: data.display_name ?? 'Selected location',
-    street: [a.road, a.house_number].filter(Boolean).join(' ') || a.pedestrian || a.footway,
+    street: [a.house_number, a.road].filter(Boolean).join(' ') || a.pedestrian || a.footway,
     neighborhood: a.neighbourhood || a.suburb || a.quarter,
     commune: a.municipality || a.town || a.village || a.city_district,
     city: a.city || a.town || a.village || a.county,
@@ -203,29 +203,6 @@ function normalizeOsmAddress(data: {
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const API_KEY = process.env.GOOGLE_MAPS_PLATFORM_KEY || (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY || (globalThis as any).GOOGLE_MAPS_PLATFORM_KEY || '';
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function parseGoogleAddress(result: any): AddressParts {
-  const components = result.address_components || [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const getComponent = (type: string) => components.find((c: any) => c.types.includes(type))?.long_name;
-  
-  return {
-    displayName: result.formatted_address || 'Selected location',
-    street: [getComponent('route'), getComponent('street_number')].filter(Boolean).join(' '),
-    neighborhood: getComponent('neighborhood') || getComponent('sublocality'),
-    commune: getComponent('locality') || getComponent('administrative_area_level_2'),
-    city: getComponent('administrative_area_level_2') || getComponent('locality'),
-    province: getComponent('administrative_area_level_1'),
-    postalCode: getComponent('postal_code'),
-    country: getComponent('country'),
-    placeId: result.place_id,
-    provider: 'google',
-  };
-}
-
 export async function reverseGeocode(lat: number, lng: number, language = 'fr'): Promise<AddressParts> {
   if (!isCoordinateInAlgeria(lat, lng)) {
     return {
@@ -233,18 +210,6 @@ export async function reverseGeocode(lat: number, lng: number, language = 'fr'):
       country: 'Algeria',
       provider: 'manual',
     };
-  }
-
-  if (API_KEY && API_KEY !== 'YOUR_API_KEY') {
-    try {
-      const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${API_KEY}&language=${language}`);
-      const data = await res.json();
-      if (data.status === 'OK' && data.results && data.results.length > 0) {
-        return parseGoogleAddress(data.results[0]);
-      }
-    } catch (err) {
-      console.warn('Google Geocoding failed, falling back to OSM', err);
-    }
   }
 
   await waitForNominatimSlot();
@@ -266,26 +231,6 @@ export async function reverseGeocode(lat: number, lng: number, language = 'fr'):
 export async function searchAddresses(query: string, language = 'fr', limit = 5): Promise<GeoSearchResult[]> {
   const trimmed = query.trim();
   if (trimmed.length < 2) return [];
-  
-  if (API_KEY && API_KEY !== 'YOUR_API_KEY') {
-    try {
-      const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(trimmed)}&components=country:DZ&key=${API_KEY}&language=${language}`);
-      const data = await res.json();
-      if (data.status === 'OK' && data.results) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return data.results.slice(0, limit).map((r: any) => ({
-          lat: r.geometry.location.lat,
-          lng: r.geometry.location.lng,
-          label: r.formatted_address,
-          placeId: r.place_id,
-          provider: 'google',
-        }));
-      }
-    } catch (err) {
-      console.warn('Google Geocoding search failed, falling back to OSM', err);
-    }
-  }
-
   await waitForNominatimSlot();
   try {
     const res = await fetch(

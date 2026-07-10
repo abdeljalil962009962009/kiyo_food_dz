@@ -1,8 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState, useCallback } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { APIProvider, Map, AdvancedMarker, useMap } from '@vis.gl/react-google-maps';
-import { Star, Clock, MapPin, Plus, ChevronLeft, ShoppingBag, Info, Truck, Heart, AlertTriangle } from 'lucide-react';
+import { Map, AdvancedMarker } from '@vis.gl/react-google-maps';
+import { Star, Clock, MapPin, Plus, ChevronLeft, ShoppingBag, Info, Truck, Heart } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
 import { supabase, type Restaurant, type MenuItem, type MenuCategory } from '../lib/supabase';
 import { useCart } from '../context/CartContext';
@@ -11,34 +10,8 @@ import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Skeleton, ErrorState, Spinner } from '../components/feedback';
 import { RestaurantImage, PriceTag } from '../components/ui';
-
-const API_KEY =
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  process.env.GOOGLE_MAPS_PLATFORM_KEY ||
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY ||
-  (globalThis as any).GOOGLE_MAPS_PLATFORM_KEY ||
-  '';
-const hasValidKey = Boolean(API_KEY) && API_KEY !== 'YOUR_API_KEY';
-
-function MapCircle({ center, radius, color }: { center: { lat: number; lng: number }; radius: number; color: string }) {
-  const map = useMap();
-  useEffect(() => {
-    if (!map) return;
-    const circle = new google.maps.Circle({
-      strokeColor: color,
-      strokeOpacity: 0.8,
-      strokeWeight: 2,
-      fillColor: color,
-      fillOpacity: 0.15,
-      map,
-      center,
-      radius,
-    });
-    return () => circle.setMap(null);
-  }, [map, center, radius, color]);
-  return null;
-}
+import { GoogleMapShell, GOOGLE_MAPS_MAP_ID, MapCircle, MapMarkerBadge } from '../components/GoogleMapShell';
+import { isValidMapCoordinate } from '../lib/googleMaps';
 
 export default function RestaurantDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -308,48 +281,38 @@ function RestaurantMiniMap({ restaurant }: { restaurant: Restaurant }) {
   const lng = restaurant.longitude;
   const maxKm = restaurant.max_delivery_km;
   
-  if (!hasValidKey) {
-    return (
-      <div className="flex h-64 flex-col items-center justify-center rounded-xl border border-warning-200 bg-warning-50 px-4 text-center">
-        <AlertTriangle className="mb-2 h-6 w-6 text-warning-500" />
-        <p className="text-sm text-warning-700">Google Maps API key missing.</p>
-      </div>
-    );
-  }
-
-  if (!lat || !lng) {
+  if (!isValidMapCoordinate(lat, lng)) {
     return (
       <div className="rounded-xl border border-ink-200 bg-ink-50 px-4 py-6 text-center text-xs text-ink-500">
         {t('map.locationUnavailableShort')}
       </div>
     );
   }
+  const position = { lat: lat as number, lng: lng as number };
   
   return (
-    <div className="relative h-64 w-full overflow-hidden rounded-xl border border-ink-200">
-      <APIProvider apiKey={API_KEY} version="weekly">
+    <GoogleMapShell fallbackHeightClass="h-64">
+      <div className="relative h-64 w-full overflow-hidden rounded-xl border border-ink-200 bg-ink-100 shadow-card">
         <Map
-          defaultCenter={{ lat, lng }}
+          defaultCenter={position}
           defaultZoom={13}
-          mapId="RESTAURANT_MINI_MAP"
+          mapId={GOOGLE_MAPS_MAP_ID}
           gestureHandling="cooperative"
-          disableDefaultUI={false}
-          zoomControl={true}
-          fullscreenControl={true}
-          mapTypeControl={false}
-          streetViewControl={false}
-          internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
+          disableDefaultUI
+          zoomControl
+          fullscreenControl
+          minZoom={5}
+          maxZoom={20}
+          reuseMaps
           style={{ width: '100%', height: '100%' }}
         >
-          <AdvancedMarker position={{ lat, lng }} title={restaurant.name}>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg border-2 border-white bg-slate-900 text-white shadow-lg">
-              🍳
-            </div>
+          <AdvancedMarker position={position} title={restaurant.name}>
+            <MapMarkerBadge kind="restaurant" />
           </AdvancedMarker>
-          {maxKm && maxKm > 0 && <MapCircle center={{ lat, lng }} radius={maxKm * 1000} color="#ea580c" />}
+          {maxKm && maxKm > 0 && <MapCircle center={position} radius={maxKm * 1000} color="#ec3804" fillOpacity={0.07} />}
         </Map>
-      </APIProvider>
-    </div>
+      </div>
+    </GoogleMapShell>
   );
 }
 

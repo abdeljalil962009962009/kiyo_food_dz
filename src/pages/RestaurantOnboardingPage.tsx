@@ -84,6 +84,8 @@ export default function RestaurantOnboardingPage() {
           longitude: location?.lng ?? null,
           location_accuracy_m: location?.accuracy ?? null,
           location_verified: Boolean(location?.confirmed),
+          place_id: location?.placeId ?? null,
+          location_source: location?.source ?? null,
           location_updated_at: location ? new Date().toISOString() : null,
           cuisine: cuisine.split(',').map((s) => s.trim()).filter(Boolean),
           image_url: imageUrl.trim() || PLACEHOLDER_IMG,
@@ -190,9 +192,13 @@ export default function RestaurantOnboardingPage() {
             />
             <Field
               name="r-addr" label={t('restaurant.address')} value={address}
-              onChange={(e) => setAddress(e.target.value)}
+              onChange={(event) => {
+                setAddress(event.target.value);
+                setLocation(null);
+              }}
+              readOnly={Boolean(location)}
             />
-            <div className="rounded-xl border border-ink-100 bg-ink-50/50 p-3">
+            <div className="space-y-3 border-t border-ink-100 pt-4">
               <div className="mb-3 flex items-start gap-2">
                 <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0 text-ember-600" />
                 <div>
@@ -207,9 +213,7 @@ export default function RestaurantOnboardingPage() {
                 initialAddress={address}
                 onLocationChange={(loc) => {
                   setLocation(loc);
-                  if (!address.trim() || address === location?.address) {
-                    setAddress(loc.address);
-                  }
+                  setAddress(loc.address);
                 }}
               />
               {location && (

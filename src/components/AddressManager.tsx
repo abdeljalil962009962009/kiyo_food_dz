@@ -14,6 +14,16 @@ type SavedAddress = {
   latitude: number;
   longitude: number;
   accuracy_m?: number | null;
+  place_id?: string | null;
+  street?: string | null;
+  neighborhood?: string | null;
+  commune?: string | null;
+  city?: string | null;
+  province?: string | null;
+  postal_code?: string | null;
+  country?: string | null;
+  location_source?: string | null;
+  location_confirmed?: boolean;
   is_default: boolean;
   is_favorite?: boolean;
   is_archived?: boolean;
@@ -78,7 +88,11 @@ export function AddressManager() {
   };
 
   const addAddress = async () => {
-    if (!newLocation || !user) return;
+    if (!user) return;
+    if (!newLocation?.confirmed) {
+      setActionError(t('map.confirmRequired'));
+      return;
+    }
 
     setActionError(null);
     try {
@@ -91,6 +105,16 @@ export function AddressManager() {
           latitude: newLocation.lat,
           longitude: newLocation.lng,
           accuracy_m: newLocation.accuracy,
+          place_id: newLocation.placeId,
+          street: newLocation.addressParts?.street ?? null,
+          neighborhood: newLocation.addressParts?.neighborhood ?? null,
+          commune: newLocation.addressParts?.commune ?? null,
+          city: newLocation.addressParts?.city ?? null,
+          province: newLocation.addressParts?.province ?? null,
+          postal_code: newLocation.addressParts?.postalCode ?? null,
+          country: newLocation.addressParts?.country ?? 'Algeria',
+          location_source: newLocation.source,
+          location_confirmed: true,
           is_default: addresses.length === 0,
           last_used_at: new Date().toISOString(),
         });
@@ -165,6 +189,16 @@ export function AddressManager() {
           latitude: addr.latitude,
           longitude: addr.longitude,
           accuracy_m: addr.accuracy_m ?? null,
+          place_id: addr.place_id ?? null,
+          street: addr.street ?? null,
+          neighborhood: addr.neighborhood ?? null,
+          commune: addr.commune ?? null,
+          city: addr.city ?? null,
+          province: addr.province ?? null,
+          postal_code: addr.postal_code ?? null,
+          country: addr.country ?? 'Algeria',
+          location_source: addr.location_source ?? 'manual',
+          location_confirmed: addr.location_confirmed ?? true,
           is_default: false,
           is_favorite: false,
           last_used_at: null,

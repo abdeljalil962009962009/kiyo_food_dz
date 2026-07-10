@@ -152,9 +152,9 @@ What Google Maps would give you if you switched:
 
 In the left menu → **APIs & Services** → **Library**. Search for and **Enable** each of:
 - **Maps JavaScript API**
-- **Places API**
+- **Places API (New)**
 - **Geocoding API**
-- **Distance Matrix API** (for driver ETA if you use Google's ETA)
+- **Directions API** (for delivery routes and ETA)
 
 #### 3. Create an API key
 
@@ -177,9 +177,12 @@ In the left menu → **APIs & Services** → **Library**. Search for and **Enabl
 5. Tick all three environments (Production, Preview, Development).
 6. **Save** → go to the **Deployments** tab → click the three-dot menu on the latest → **Redeploy** (this rebuilds the bundle with the new env var).
 
-#### 5. Code change required (not free, not automatic)
+#### 5. Create a production map ID (recommended)
 
-> This requires developer time — the frontend does not currently use Google Maps. You would swap `src/components/DeliveryMap.tsx` and `src/lib/geo.ts` to call Google instead of Nominatim. Expect 4–8 hours of work plus QA in Algeria. Not recommended until revenue justifies the cost.
+1. Google Cloud → **Google Maps Platform** → **Map Management** → **Create map ID**.
+2. Choose **JavaScript** and the vector map type.
+3. Add the generated value in Vercel as `VITE_GOOGLE_MAPS_MAP_ID`.
+4. Redeploy. The app already contains the complete Google Maps integration and uses `DEMO_MAP_ID` only when this optional value is absent.
 
 #### Common mistakes
 
@@ -397,7 +400,8 @@ Same as for Google — make sure `/auth/callback` is in your Supabase **URL Conf
 | Resend sender domain | resend.com → Domains | DNS records at your domain registrar |
 | Google OAuth Client ID | Google Cloud → Credentials | Supabase → Auth → Providers → Google |
 | Google OAuth Client Secret | Google Cloud → Credentials | Supabase → Auth → Providers → Google |
-| Google Maps JavaScript API key | Google Cloud → Credentials | Vercel env `VITE_GOOGLE_MAPS_API_KEY` *(only if switching from OSM)* |
+| Google Maps JavaScript API key | Google Cloud → Credentials | Vercel env `VITE_GOOGLE_MAPS_API_KEY` |
+| Google Maps map ID | Google Maps Platform → Map Management | Vercel env `VITE_GOOGLE_MAPS_MAP_ID` |
 | Apple Services ID | developer.apple.com | Supabase → Auth → Providers → Apple |
 | Apple Key ID | developer.apple.com | Supabase → Auth → Providers → Apple |
 | Apple Team ID | developer.apple.com (top-right) | Supabase → Auth → Providers → Apple |

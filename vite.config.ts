@@ -59,6 +59,10 @@ export default defineConfig(({ mode }) => {
 
   if (isVercelProduction) {
     const missing = requiredProductionEnv.filter((key) => !env[key]?.trim());
+    const googleMapsKey = env.VITE_GOOGLE_MAPS_API_KEY?.trim()
+      || env.VITE_GOOGLE_MAPS_PLATFORM_KEY?.trim()
+      || process.env.GOOGLE_MAPS_PLATFORM_KEY?.trim();
+    if (!googleMapsKey) missing.push('VITE_GOOGLE_MAPS_API_KEY');
     if (missing.length > 0) {
       throw new Error(
         `Kiyo Food production build is missing required Vercel environment variables: ${missing.join(', ')}. ` +
@@ -78,7 +82,14 @@ export default defineConfig(({ mode }) => {
           manualChunks(id) {
             if (!id.includes('node_modules')) return undefined;
             if (id.includes('@supabase')) return 'vendor-supabase';
-            if (id.includes('leaflet') || id.includes('react-leaflet')) return 'vendor-maps';
+            if (id.includes('@deck.gl/google-maps')) return 'vendor-deck-google-maps';
+            if (id.includes('@deck.gl/layers')) return 'vendor-deck-layers';
+            if (id.includes('@deck.gl/core')) return 'vendor-deck-core';
+            if (id.includes('@luma.gl')) return 'vendor-luma';
+            if (id.includes('@math.gl')) return 'vendor-math';
+            if (id.includes('@vis.gl/react-google-maps') || id.includes('@googlemaps')) {
+              return 'vendor-google-maps';
+            }
             if (id.includes('lucide-react')) return 'vendor-icons';
             if (id.includes('react-router-dom')) return 'vendor-router';
             if (id.includes('react') || id.includes('react-dom')) return 'vendor-react';

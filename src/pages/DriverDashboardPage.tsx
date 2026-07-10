@@ -357,8 +357,14 @@ export default function DriverDashboardPage() {
             <p className={`mt-1 text-xs font-medium ${
               gpsStatus === 'watching' ? 'text-sage-600' : gpsStatus === 'error' ? 'text-error-600' : 'text-ink-400'
             }`}>
-              GPS: {gpsStatus === 'watching' ? 'live' : gpsStatus}
-              {lastGpsPoint?.accuracy ? ` - ${Math.round(lastGpsPoint.accuracy)} m accuracy` : ''}
+              {t('map.gps')}: {gpsStatus === 'watching'
+                ? t('map.gpsLive')
+                : gpsStatus === 'error'
+                  ? t('map.gpsError')
+                  : t('map.gpsIdle')}
+              {lastGpsPoint?.accuracy
+                ? ` - ${t('map.gpsAccuracy')}: ${Math.round(lastGpsPoint.accuracy)} m`
+                : ''}
             </p>
           )}
         </div>

@@ -106,6 +106,7 @@ export type Restaurant = {
   geohash: string | null;
   location_accuracy_m: number | null;
   location_verified: boolean;
+  location_source: 'gps' | 'network' | 'manual' | 'search' | 'ip' | null;
   location_updated_at: string | null;
   max_delivery_km: number;
   min_order_amount: number;
@@ -202,6 +203,8 @@ export type SavedAddress = {
   country: string | null;
   geohash: string | null;
   accuracy_m: number | null;
+  location_source: 'gps' | 'network' | 'manual' | 'search' | 'ip' | null;
+  location_confirmed: boolean;
   is_default: boolean;
   is_archived: boolean;
   is_favorite: boolean;

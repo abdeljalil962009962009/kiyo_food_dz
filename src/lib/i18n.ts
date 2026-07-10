@@ -128,6 +128,8 @@ export type TranslationKey =
   | 'market.topRated'
   | 'market.empty'
   | 'market.searchPlaceholder'
+  | 'market.nearMe'
+  | 'market.locationTooWeak'
   | 'restaurant.menu'
   | 'restaurant.owner'
   | 'restaurant.addToCart'
@@ -223,6 +225,39 @@ export type TranslationKey =
   | 'map.driverJump'
   | 'map.driverSyncFailed'
   | 'map.driverPermissionRequired'
+  | 'map.searchUnavailable'
+  | 'map.addressStillLoading'
+  | 'map.addressNotFound'
+  | 'map.addressApproximate'
+  | 'map.locationSelector'
+  | 'map.restaurantMarker'
+  | 'map.currentPosition'
+  | 'map.satelliteView'
+  | 'map.standardView'
+  | 'map.releaseToSelect'
+  | 'map.outsideZoneShort'
+  | 'map.movePinRequired'
+  | 'map.selectionHelp'
+  | 'map.permissionDenied'
+  | 'map.locationTimeout'
+  | 'map.loadFailedTitle'
+  | 'map.loadFailedBody'
+  | 'map.configurationMissingTitle'
+  | 'map.configurationMissingBody'
+  | 'map.customerMarker'
+  | 'map.driverMarker'
+  | 'map.coverageTitle'
+  | 'map.coverageFilter'
+  | 'map.coverageAll'
+  | 'map.coverageDestinations'
+  | 'map.coverageRestaurants'
+  | 'map.coverageAnalyzing'
+  | 'map.coverageEmpty'
+  | 'map.coverageSummary'
+  | 'map.coverageLoadFailed'
+  | 'map.gpsLive'
+  | 'map.gpsIdle'
+  | 'map.gpsError'
   // cart + checkout
   | 'cart.title'
   | 'cart.empty'
@@ -297,6 +332,9 @@ export type TranslationKey =
   | 'wilaya.detectLocation'
   | 'wilaya.detecting'
   | 'wilaya.noResults'
+  | 'wilaya.detectError'
+  | 'wilaya.permissionDenied'
+  | 'wilaya.locationTooWeak'
   // navigation, maintenance, roles and admin details
   | 'nav.controlCenter'
   | 'nav.driverDashboard'
@@ -636,6 +674,8 @@ const en: Dict = {
   'market.topRated': 'Top rated',
   'market.empty': 'No restaurants found near you yet.',
   'market.searchPlaceholder': 'Search restaurants or cuisines…',
+  'market.nearMe': 'Near me',
+  'market.locationTooWeak': 'Your location is not accurate enough to sort restaurants safely. Try again in an open area.',
   'restaurant.menu': 'Menu',
   'restaurant.owner': 'Owner',
   'restaurant.addToCart': 'Add to cart',
@@ -731,6 +771,39 @@ const en: Dict = {
   'map.driverJump': 'Location jump detected. Keep GPS enabled for reliable dispatch.',
   'map.driverSyncFailed': 'Live GPS could not sync. Keep this page open and check location permission.',
   'map.driverPermissionRequired': 'Location permission is required while online.',
+  'map.searchUnavailable': 'Address search is temporarily unavailable. You can still move the map to choose the exact point.',
+  'map.addressStillLoading': 'Address services are still loading. Wait a moment and try again.',
+  'map.addressNotFound': 'No precise street address was found here. Move the map to the exact entrance and confirm the pin.',
+  'map.addressApproximate': 'This result identifies an area, not an exact entrance. Move the map to the correct point before confirming.',
+  'map.locationSelector': 'Choose an exact location',
+  'map.restaurantMarker': 'Restaurant location',
+  'map.currentPosition': 'Current GPS position',
+  'map.satelliteView': 'Switch to satellite view',
+  'map.standardView': 'Switch to standard map',
+  'map.releaseToSelect': 'Release the map to select this point',
+  'map.outsideZoneShort': 'Outside delivery zone',
+  'map.movePinRequired': 'Move the map to the exact point',
+  'map.selectionHelp': 'Search for an address, use your current location, or move the map to the exact entrance.',
+  'map.permissionDenied': 'Location permission is blocked. Allow location access in your browser settings, or choose the point manually.',
+  'map.locationTimeout': 'GPS took too long to respond. Move to an open area and retry, or choose the point manually.',
+  'map.loadFailedTitle': 'The map could not load',
+  'map.loadFailedBody': 'Check your connection and retry. Your form data has not been lost.',
+  'map.configurationMissingTitle': 'Map service is unavailable',
+  'map.configurationMissingBody': 'Location selection is temporarily unavailable. Please try again shortly.',
+  'map.customerMarker': 'Delivery location',
+  'map.driverMarker': 'Driver location',
+  'map.coverageTitle': 'Delivery activity map',
+  'map.coverageFilter': 'Filter map activity',
+  'map.coverageAll': 'All activity',
+  'map.coverageDestinations': 'Destinations',
+  'map.coverageRestaurants': 'Restaurants',
+  'map.coverageAnalyzing': 'Analyzing location activity...',
+  'map.coverageEmpty': 'No verified location data matches this filter yet.',
+  'map.coverageSummary': 'verified location points displayed for operational coverage planning.',
+  'map.coverageLoadFailed': 'Location activity could not be loaded. Verify owner access and try again.',
+  'map.gpsLive': 'live',
+  'map.gpsIdle': 'idle',
+  'map.gpsError': 'unavailable',
   'cart.title': 'Your cart',
   'cart.empty': 'Your cart is empty',
   'cart.emptyBody': 'Browse restaurants and add items to get started.',
@@ -802,6 +875,9 @@ const en: Dict = {
   'wilaya.detectLocation': 'Detect my location',
   'wilaya.detecting': 'Detecting…',
   'wilaya.noResults': 'No wilayas found.',
+  'wilaya.detectError': 'Your wilaya could not be determined reliably. Please select it manually.',
+  'wilaya.permissionDenied': 'Location access is blocked. Allow it in your browser settings or select your wilaya manually.',
+  'wilaya.locationTooWeak': 'Your location is not accurate enough to choose a wilaya safely. Please select it manually.',
   'nav.controlCenter': 'Control Center',
   'nav.driverDashboard': 'Driver Dashboard',
   'nav.support': 'Support',
@@ -1139,6 +1215,8 @@ const fr: Dict = {
   'market.topRated': 'Les mieux notés',
   'market.empty': 'Aucun restaurant trouvé près de vous.',
   'market.searchPlaceholder': 'Rechercher restaurants ou cuisines…',
+  'market.nearMe': 'À proximité',
+  'market.locationTooWeak': 'Votre position n’est pas assez précise pour classer les restaurants. Réessayez dans un endroit dégagé.',
   'restaurant.menu': 'Menu',
   'restaurant.owner': 'Propriétaire',
   'restaurant.addToCart': 'Ajouter au panier',
@@ -1234,6 +1312,39 @@ const fr: Dict = {
   'map.driverJump': 'Déplacement anormal détecté. Gardez le GPS activé pour une livraison fiable.',
   'map.driverSyncFailed': 'La synchronisation GPS a échoué. Gardez cette page ouverte et vérifiez l’autorisation de localisation.',
   'map.driverPermissionRequired': 'L’autorisation de localisation est nécessaire lorsque vous êtes en ligne.',
+  'map.searchUnavailable': 'La recherche d’adresse est temporairement indisponible. Vous pouvez déplacer la carte pour choisir le point exact.',
+  'map.addressStillLoading': 'Les services d’adresse sont en cours de chargement. Patientez un instant puis réessayez.',
+  'map.addressNotFound': 'Aucune adresse précise n’a été trouvée ici. Déplacez la carte jusqu’à l’entrée exacte puis confirmez le repère.',
+  'map.addressApproximate': 'Ce résultat indique une zone, pas une entrée précise. Déplacez la carte jusqu’au bon point avant de confirmer.',
+  'map.locationSelector': 'Choisir un emplacement exact',
+  'map.restaurantMarker': 'Emplacement du restaurant',
+  'map.currentPosition': 'Position GPS actuelle',
+  'map.satelliteView': 'Afficher la vue satellite',
+  'map.standardView': 'Afficher la carte standard',
+  'map.releaseToSelect': 'Relâchez la carte pour sélectionner ce point',
+  'map.outsideZoneShort': 'Hors zone de livraison',
+  'map.movePinRequired': 'Déplacez la carte jusqu’au point exact',
+  'map.selectionHelp': 'Recherchez une adresse, utilisez votre position actuelle ou déplacez la carte jusqu’à l’entrée exacte.',
+  'map.permissionDenied': 'L’accès à la position est bloqué. Autorisez-le dans les réglages du navigateur ou choisissez le point manuellement.',
+  'map.locationTimeout': 'Le GPS a mis trop de temps à répondre. Placez-vous dans un endroit dégagé et réessayez, ou choisissez le point manuellement.',
+  'map.loadFailedTitle': 'Impossible de charger la carte',
+  'map.loadFailedBody': 'Vérifiez votre connexion puis réessayez. Les données du formulaire sont conservées.',
+  'map.configurationMissingTitle': 'Le service de carte est indisponible',
+  'map.configurationMissingBody': 'La sélection d’emplacement est temporairement indisponible. Réessayez dans un instant.',
+  'map.customerMarker': 'Adresse de livraison',
+  'map.driverMarker': 'Position du livreur',
+  'map.coverageTitle': 'Carte de l’activité de livraison',
+  'map.coverageFilter': 'Filtrer l’activité de la carte',
+  'map.coverageAll': 'Toute l’activité',
+  'map.coverageDestinations': 'Destinations',
+  'map.coverageRestaurants': 'Restaurants',
+  'map.coverageAnalyzing': 'Analyse de l’activité géographique...',
+  'map.coverageEmpty': 'Aucune donnée de localisation vérifiée ne correspond à ce filtre.',
+  'map.coverageSummary': 'points de localisation vérifiés affichés pour planifier la couverture opérationnelle.',
+  'map.coverageLoadFailed': 'Impossible de charger l’activité géographique. Vérifiez l’accès propriétaire puis réessayez.',
+  'map.gpsLive': 'en direct',
+  'map.gpsIdle': 'en attente',
+  'map.gpsError': 'indisponible',
   'cart.title': 'Votre panier',
   'cart.empty': 'Votre panier est vide',
   'cart.emptyBody': 'Parcourez les restaurants pour ajouter des plats.',
@@ -1305,6 +1416,9 @@ const fr: Dict = {
   'wilaya.detectLocation': 'Détecter ma position',
   'wilaya.detecting': 'Détection…',
   'wilaya.noResults': 'Aucune wilaya trouvée.',
+  'wilaya.detectError': 'Votre wilaya n’a pas pu être déterminée avec certitude. Sélectionnez-la manuellement.',
+  'wilaya.permissionDenied': 'L’accès à la position est bloqué. Autorisez-le dans le navigateur ou sélectionnez votre wilaya manuellement.',
+  'wilaya.locationTooWeak': 'Votre position n’est pas assez précise pour choisir une wilaya de manière fiable. Sélectionnez-la manuellement.',
   'nav.controlCenter': 'Centre de contrôle',
   'nav.driverDashboard': 'Tableau de bord livreur',
   'nav.support': 'Support',
@@ -1642,6 +1756,8 @@ const ar: Dict = {
   'market.topRated': 'الأعلى تقييماً',
   'market.empty': 'لا مطاعم قريبة منك بعد.',
   'market.searchPlaceholder': 'ابحث عن مطاعم أو مطابخ…',
+  'market.nearMe': 'بالقرب مني',
+  'market.locationTooWeak': 'دقة موقعك غير كافية لترتيب المطاعم بأمان. أعد المحاولة في مكان مفتوح.',
   'restaurant.menu': 'القائمة',
   'restaurant.owner': 'المالك',
   'restaurant.addToCart': 'أضف للسلة',
@@ -1737,6 +1853,39 @@ const ar: Dict = {
   'map.driverJump': 'تم رصد قفزة غير طبيعية في الموقع. أبقِ GPS مفعلاً لتوصيل موثوق.',
   'map.driverSyncFailed': 'تعذرت مزامنة GPS المباشرة. أبقِ هذه الصفحة مفتوحة وتحقق من إذن الموقع.',
   'map.driverPermissionRequired': 'إذن الموقع مطلوب أثناء الاتصال.',
+  'map.searchUnavailable': 'البحث عن العناوين غير متاح مؤقتاً. يمكنك تحريك الخريطة لاختيار النقطة الدقيقة.',
+  'map.addressStillLoading': 'خدمة العناوين ما زالت قيد التحميل. انتظر قليلاً ثم أعد المحاولة.',
+  'map.addressNotFound': 'لم يتم العثور على عنوان شارع دقيق هنا. حرّك الخريطة إلى المدخل الصحيح ثم أكد العلامة.',
+  'map.addressApproximate': 'هذه النتيجة تحدد منطقة وليست مدخلاً دقيقاً. حرّك الخريطة إلى النقطة الصحيحة قبل التأكيد.',
+  'map.locationSelector': 'اختيار موقع دقيق',
+  'map.restaurantMarker': 'موقع المطعم',
+  'map.currentPosition': 'موقع GPS الحالي',
+  'map.satelliteView': 'عرض صور الأقمار الصناعية',
+  'map.standardView': 'عرض الخريطة العادية',
+  'map.releaseToSelect': 'اترك الخريطة لاختيار هذه النقطة',
+  'map.outsideZoneShort': 'خارج نطاق التوصيل',
+  'map.movePinRequired': 'حرّك الخريطة إلى النقطة الدقيقة',
+  'map.selectionHelp': 'ابحث عن عنوان أو استخدم موقعك الحالي أو حرّك الخريطة إلى المدخل الدقيق.',
+  'map.permissionDenied': 'إذن الموقع محظور. اسمح بالوصول إلى الموقع من إعدادات المتصفح أو اختر النقطة يدوياً.',
+  'map.locationTimeout': 'تأخر GPS في الاستجابة. انتقل إلى مكان مفتوح وأعد المحاولة أو اختر النقطة يدوياً.',
+  'map.loadFailedTitle': 'تعذر تحميل الخريطة',
+  'map.loadFailedBody': 'تحقق من الاتصال ثم أعد المحاولة. لم يتم فقدان بيانات النموذج.',
+  'map.configurationMissingTitle': 'خدمة الخرائط غير متاحة',
+  'map.configurationMissingBody': 'اختيار الموقع غير متاح مؤقتاً. أعد المحاولة بعد قليل.',
+  'map.customerMarker': 'موقع التوصيل',
+  'map.driverMarker': 'موقع السائق',
+  'map.coverageTitle': 'خريطة نشاط التوصيل',
+  'map.coverageFilter': 'تصفية نشاط الخريطة',
+  'map.coverageAll': 'كل النشاط',
+  'map.coverageDestinations': 'وجهات التوصيل',
+  'map.coverageRestaurants': 'المطاعم',
+  'map.coverageAnalyzing': 'جارٍ تحليل نشاط المواقع...',
+  'map.coverageEmpty': 'لا توجد بيانات مواقع مؤكدة تطابق هذا التصفية بعد.',
+  'map.coverageSummary': 'نقطة موقع مؤكدة معروضة لتخطيط التغطية التشغيلية.',
+  'map.coverageLoadFailed': 'تعذر تحميل نشاط المواقع. تحقق من صلاحيات المالك ثم أعد المحاولة.',
+  'map.gpsLive': 'مباشر',
+  'map.gpsIdle': 'في الانتظار',
+  'map.gpsError': 'غير متاح',
   'cart.title': 'سلتك',
   'cart.empty': 'سلتك فارغة',
   'cart.emptyBody': 'تصفح المطاعم وأضف أطباقاً.',
@@ -1808,6 +1957,9 @@ const ar: Dict = {
   'wilaya.detectLocation': 'تحديد موقعي',
   'wilaya.detecting': 'جاري التحديد…',
   'wilaya.noResults': 'لم تُوجد ولاية.',
+  'wilaya.detectError': 'تعذر تحديد ولايتك بشكل موثوق. يرجى اختيارها يدوياً.',
+  'wilaya.permissionDenied': 'إذن الموقع محظور. اسمح به من إعدادات المتصفح أو اختر ولايتك يدوياً.',
+  'wilaya.locationTooWeak': 'دقة موقعك غير كافية لاختيار الولاية بأمان. يرجى اختيارها يدوياً.',
   'nav.controlCenter': 'مركز التحكم',
   'nav.driverDashboard': 'لوحة تحكم السائق',
   'nav.support': 'الدعم الفني',

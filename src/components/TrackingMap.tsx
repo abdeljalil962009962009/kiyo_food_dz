@@ -1,17 +1,9 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useMemo } from 'react';
-import { APIProvider, Map, AdvancedMarker, useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
+import { useEffect, useMemo, useState } from 'react';
+import { AdvancedMarker, Map, useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
+import { Clock3, Navigation } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
-import { AlertTriangle } from 'lucide-react';
-
-const API_KEY =
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  process.env.GOOGLE_MAPS_PLATFORM_KEY ||
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY ||
-  (globalThis as any).GOOGLE_MAPS_PLATFORM_KEY ||
-  '';
-const hasValidKey = Boolean(API_KEY) && API_KEY !== 'YOUR_API_KEY';
+import { isValidMapCoordinate } from '../lib/googleMaps';
+import { GoogleMapShell, GOOGLE_MAPS_MAP_ID, MapMarkerBadge } from './GoogleMapShell';
 
 type TrackingMapProps = {
   restaurantLat: number;
@@ -23,41 +15,16 @@ type TrackingMapProps = {
   status: string;
 };
 
-// Auto-fit bounds logic
-function FitMapBounds({ points }: { points: [number, number][] }) {
-  const map = useMap();
-  const maps = useMapsLibrary('core');
-  
-  useEffect(() => {
-    if (!map || !maps || points.length === 0) return;
-    
-    const validPoints = points.filter(p => !isNaN(p[0]) && !isNaN(p[1]) && p[0] !== 0);
-    if (validPoints.length === 0) return;
-    
-    const bounds = new maps.LatLngBounds();
-    validPoints.forEach(p => {
-      bounds.extend({ lat: p[0], lng: p[1] });
-    });
-    
-    map.fitBounds(bounds, 40); // 40px padding
-  }, [map, maps, points]);
-  return null;
-}
+type RouteSummary = {
+  distance: string;
+  duration: string;
+};
 
-export default function TrackingMapWrapper(props: TrackingMapProps) {
-  if (!hasValidKey) {
-    return (
-      <div className="flex h-[280px] flex-col items-center justify-center rounded-xl border border-warning-200 bg-warning-50 px-4 text-center">
-        <AlertTriangle className="mb-2 h-6 w-6 text-warning-500" />
-        <p className="text-sm text-warning-700">Google Maps API key missing.</p>
-      </div>
-    );
-  }
-
+export default function TrackingMap(props: TrackingMapProps) {
   return (
-    <APIProvider apiKey={API_KEY} version="weekly">
+    <GoogleMapShell fallbackHeightClass="h-[320px]">
       <TrackingMapInner {...props} />
-    </APIProvider>
+    </GoogleMapShell>
   );
 }
 
@@ -68,89 +35,167 @@ function TrackingMapInner({
   deliveryLng,
   driverLat,
   driverLng,
-  status
+  status,
 }: TrackingMapProps) {
   const { t } = useT();
-  
-  // Collect all coordinates for the map bounds
-  const mapPoints = useMemo(() => {
-    const pts: [number, number][] = [
-      [restaurantLat, restaurantLng],
-      [deliveryLat, deliveryLng]
-    ];
-    if (driverLat != null && driverLng != null && driverLat !== 0) {
-      pts.push([driverLat, driverLng]);
-    }
-    return pts;
-  }, [restaurantLat, restaurantLng, deliveryLat, deliveryLng, driverLat, driverLng]);
+  const [tilesReady, setTilesReady] = useState(false);
+  const [routeSummary, setRouteSummary] = useState<RouteSummary | null>(null);
 
-  // Fallback default center is Constantine, Algeria
-  const center = useMemo(() => {
-    if (driverLat != null && driverLng != null && driverLat !== 0) {
-      return { lat: driverLat, lng: driverLng };
-    }
-    return { lat: restaurantLat || 36.3650, lng: restaurantLng || 6.6147 };
-  }, [restaurantLat, restaurantLng, driverLat, driverLng]);
+  const restaurant = useMemo(() => ({ lat: restaurantLat, lng: restaurantLng }), [restaurantLat, restaurantLng]);
+  const delivery = useMemo(() => ({ lat: deliveryLat, lng: deliveryLng }), [deliveryLat, deliveryLng]);
+  const driver = useMemo(() => (
+    isValidMapCoordinate(driverLat, driverLng)
+      ? { lat: driverLat as number, lng: driverLng as number }
+      : null
+  ), [driverLat, driverLng]);
+
+  const hasRequiredCoordinates = isValidMapCoordinate(restaurant.lat, restaurant.lng)
+    && isValidMapCoordinate(delivery.lat, delivery.lng);
+  const points = useMemo(
+    () => driver ? [restaurant, delivery, driver] : [restaurant, delivery],
+    [delivery, driver, restaurant],
+  );
+
+  if (!hasRequiredCoordinates) {
+    return (
+      <div className="flex h-[320px] items-center justify-center rounded-xl border border-ink-200 bg-ink-50 px-5 text-center text-sm text-ink-500">
+        {t('map.locationUnavailableShort')}
+      </div>
+    );
+  }
+
+  const routeOrigin = driver ?? restaurant;
 
   return (
-    <div className="relative h-[280px] w-full overflow-hidden rounded-xl border border-ink-100 bg-ink-50 shadow-sm">
+    <div className="relative h-[320px] w-full overflow-hidden rounded-xl border border-ink-200 bg-ink-100 shadow-card sm:h-[360px]">
       <Map
-        defaultCenter={center}
+        defaultCenter={driver ?? restaurant}
         defaultZoom={14}
-        mapId="TRACKING_MAP_ID"
-        gestureHandling="greedy"
-        disableDefaultUI={false}
-        zoomControl={true}
-        fullscreenControl={true}
-        mapTypeControl={false}
-        streetViewControl={false}
-        internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
+        mapId={GOOGLE_MAPS_MAP_ID}
+        gestureHandling="cooperative"
+        disableDefaultUI
+        zoomControl
+        fullscreenControl
+        minZoom={5}
+        maxZoom={20}
+        reuseMaps
+        onTilesLoaded={() => setTilesReady(true)}
         style={{ width: '100%', height: '100%' }}
       >
-        {/* Restaurant Pin */}
-        <AdvancedMarker position={{ lat: restaurantLat, lng: restaurantLng }} title="Restaurant" zIndex={1}>
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg border-2 border-white bg-slate-900 text-[11px] text-white shadow-md">
-            🍳
-          </div>
+        <AdvancedMarker position={restaurant} title={t('map.restaurantMarker')} zIndex={1}>
+          <MapMarkerBadge kind="restaurant" />
         </AdvancedMarker>
-        
-        {/* Customer Delivery Pin */}
-        <AdvancedMarker position={{ lat: deliveryLat, lng: deliveryLng }} title="Delivery" zIndex={2}>
-          <div className="relative flex items-center justify-center">
-            <div className="absolute h-8 w-8 animate-ping rounded-full bg-ember-500/30" />
-            <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-ember-600 text-[11px] text-white shadow-lg">
-              🏠
-            </div>
-          </div>
+        <AdvancedMarker position={delivery} title={t('map.customerMarker')} zIndex={2}>
+          <MapMarkerBadge kind="customer" />
         </AdvancedMarker>
-        
-        {/* Driver Pin (Show only if assigned or en route) */}
-        {driverLat != null && driverLng != null && driverLat !== 0 && (
-          <AdvancedMarker position={{ lat: driverLat, lng: driverLng }} title="Rider" zIndex={3}>
-            <div className="relative flex items-center justify-center transition-all duration-500">
-              <div className="absolute h-10 w-10 animate-pulse rounded-full bg-emerald-500/40" />
-              <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-emerald-500 text-sm text-white shadow-lg">
-                🛵
-              </div>
-            </div>
+        {driver && (
+          <AdvancedMarker position={driver} title={t('map.driverMarker')} zIndex={3}>
+            <span className="relative flex items-center justify-center">
+              <span className="absolute h-12 w-12 animate-pulse rounded-full bg-sage-500/25" />
+              <MapMarkerBadge kind="driver" />
+            </span>
           </AdvancedMarker>
         )}
-        
-        {/* Auto fit layout to show all active objects */}
-        <FitMapBounds points={mapPoints} />
+        <FitMapBounds points={points} />
+        <DeliveryRoute origin={routeOrigin} destination={delivery} onSummary={setRouteSummary} />
       </Map>
-      
-      {/* Small floating HUD */}
-      <div className="absolute bottom-2 left-2 z-20 flex items-center gap-1.5 rounded-lg border border-ink-100 bg-white/95 px-2.5 py-1 text-[10px] font-bold text-ink-800 shadow-md backdrop-blur-sm">
-        <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-        <span>
-          {status === 'out_for_delivery' || status === 'delivering'
-            ? t('map.trackingRiderEnRoute')
-            : status === 'preparing'
-            ? t('map.trackingPreparing')
-            : t('map.trackingLive')}
-        </span>
+
+      {!tilesReady && (
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-ink-50/90 text-xs font-semibold text-ink-500">
+          <span className="mr-2 h-2.5 w-2.5 animate-pulse rounded-full bg-ember-500" />
+          {t('map.loading')}
+        </div>
+      )}
+
+      <div className="absolute inset-x-3 bottom-3 z-20 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2 rounded-lg border border-white/70 bg-white/95 px-3 py-2 text-[11px] font-bold text-ink-800 shadow-card backdrop-blur">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-sage-500" />
+          {trackingStatusLabel(status, t)}
+        </div>
+        {routeSummary && (
+          <div className="flex items-center gap-2 rounded-lg border border-white/70 bg-white/95 px-3 py-2 text-[11px] font-semibold text-ink-700 shadow-card backdrop-blur" dir="ltr">
+            <Navigation className="h-3.5 w-3.5 text-ember-600" />
+            <span>{routeSummary.distance}</span>
+            <Clock3 className="h-3.5 w-3.5 text-ink-400" />
+            <span>{routeSummary.duration}</span>
+          </div>
+        )}
       </div>
     </div>
   );
+}
+
+function FitMapBounds({ points }: { points: google.maps.LatLngLiteral[] }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!map || points.length === 0) return;
+    const bounds = new google.maps.LatLngBounds();
+    points.forEach((point) => bounds.extend(point));
+    map.fitBounds(bounds, 64);
+  }, [map, points]);
+
+  return null;
+}
+
+function DeliveryRoute({
+  origin,
+  destination,
+  onSummary,
+}: {
+  origin: google.maps.LatLngLiteral;
+  destination: google.maps.LatLngLiteral;
+  onSummary: (summary: RouteSummary | null) => void;
+}) {
+  const map = useMap();
+  const routesLibrary = useMapsLibrary('routes');
+
+  useEffect(() => {
+    if (!map || !routesLibrary) return;
+    const service = new routesLibrary.DirectionsService();
+    const renderer = new routesLibrary.DirectionsRenderer({
+      map,
+      suppressMarkers: true,
+      preserveViewport: true,
+      polylineOptions: {
+        strokeColor: '#ec3804',
+        strokeOpacity: 0.9,
+        strokeWeight: 5,
+      },
+    });
+    let active = true;
+
+    service.route({
+      origin,
+      destination,
+      travelMode: google.maps.TravelMode.DRIVING,
+      provideRouteAlternatives: false,
+    }).then((result) => {
+      if (!active) return;
+      renderer.setDirections(result);
+      const leg = result.routes[0]?.legs[0];
+      onSummary(leg?.distance?.text && leg?.duration?.text
+        ? { distance: leg.distance.text, duration: leg.duration.text }
+        : null);
+    }).catch((error) => {
+      console.warn('[Kiyo Maps] Route is temporarily unavailable', error);
+      if (active) onSummary(null);
+    });
+
+    return () => {
+      active = false;
+      renderer.setMap(null);
+    };
+  }, [destination, map, onSummary, origin, routesLibrary]);
+
+  return null;
+}
+
+function trackingStatusLabel(
+  status: string,
+  t: ReturnType<typeof useT>['t'],
+): string {
+  if (['out_for_delivery', 'delivering', 'en_route'].includes(status)) return t('map.trackingRiderEnRoute');
+  if (['preparing', 'accepted'].includes(status)) return t('map.trackingPreparing');
+  return t('map.trackingLive');
 }

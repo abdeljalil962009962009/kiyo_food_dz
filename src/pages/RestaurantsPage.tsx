@@ -23,6 +23,7 @@ export default function RestaurantsPage() {
   const [items, setItems] = useState<RestaurantWithDistance[]>([]);
   const [loading, setLoading] = useState(true);
   const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'open' | 'top'>('all');
@@ -67,14 +68,22 @@ export default function RestaurantsPage() {
 
   const locateRestaurants = () => {
     setLocating(true);
+    setLocationError(null);
     requestBestCurrentPosition({
       purpose: 'customer',
-      onResult: ({ point }) => {
-        setCurrentLocation({ lat: point.lat, lng: point.lng });
+      onResult: ({ point, accepted }) => {
+        if (accepted) {
+          setCurrentLocation({ lat: point.lat, lng: point.lng });
+        } else {
+          setLocationError(t('market.locationTooWeak'));
+        }
         setLocating(false);
       },
-      onError: () => setLocating(false),
-      waitMs: 5000,
+      onError: () => {
+        setLocationError(t('map.locationUnavailable'));
+        setLocating(false);
+      },
+      waitMs: 8000,
     });
   };
 
@@ -130,10 +139,10 @@ export default function RestaurantsPage() {
               className={`inline-flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
                 currentLocation ? 'bg-ember-600 text-white' : 'bg-white text-ink-600 hover:bg-ink-100'
               } disabled:cursor-not-allowed disabled:opacity-60`}
-              title="Show restaurants near me"
+              title={t('market.nearMe')}
             >
               <Locate className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">{locating ? '...' : 'Near me'}</span>
+              <span className="hidden sm:inline">{locating ? t('map.locating') : t('market.nearMe')}</span>
             </button>
           )}
           {[
@@ -153,6 +162,13 @@ export default function RestaurantsPage() {
           ))}
         </div>
       </div>
+
+      {locationError && (
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-warning-500/20 bg-warning-500/10 px-3 py-2 text-xs font-medium text-warning-700">
+          <MapPin className="mt-0.5 h-4 w-4 flex-none" />
+          <span>{locationError}</span>
+        </div>
+      )}
 
       <ErrorBoundary variant="inline">
         {loading ? (

@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { supabase } from '../lib/supabase';
 import { requestBestCurrentPosition, reverseGeocode } from '../lib/geo';
+import { translate } from '../lib/i18n';
 
 export type Wilaya = {
   id: number;
@@ -169,7 +170,13 @@ export function WilayaProvider({ children, locale = 'fr' }: { children: ReactNod
         requestBestCurrentPosition({
           purpose: 'wilaya',
           waitMs: 5000,
-          onResult: ({ point: bestPoint }) => resolve({ lat: bestPoint.lat, lng: bestPoint.lng }),
+          onResult: ({ point: bestPoint, accepted }) => {
+            if (!accepted) {
+              reject(new Error('weak_accuracy'));
+              return;
+            }
+            resolve({ lat: bestPoint.lat, lng: bestPoint.lng });
+          },
           onError: reject,
         });
       });
@@ -194,17 +201,19 @@ export function WilayaProvider({ children, locale = 'fr' }: { children: ReactNod
         }
       }
 
-      setError('Could not determine your wilaya. Please select manually.');
+      setError(translate(locale, 'wilaya.detectError'));
     } catch (err) {
       if ((err as GeolocationPositionError).code === 1) {
-        setError('Location permission denied. Please select your wilaya manually.');
+        setError(translate(locale, 'wilaya.permissionDenied'));
+      } else if (err instanceof Error && err.message === 'weak_accuracy') {
+        setError(translate(locale, 'wilaya.locationTooWeak'));
       } else {
-        setError('Could not detect location. Please select your wilaya manually.');
+        setError(translate(locale, 'wilaya.detectError'));
       }
     } finally {
       setDetectionInProgress(false);
     }
-  }, [wilayas, detectionInProgress, setSelectedWilaya]);
+  }, [wilayas, detectionInProgress, locale, setSelectedWilaya]);
 
   const value = useMemo(
     () => ({
