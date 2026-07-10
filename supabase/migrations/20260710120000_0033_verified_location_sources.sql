@@ -5,10 +5,23 @@
 BEGIN;
 
 ALTER TABLE public.saved_addresses
+  ADD COLUMN IF NOT EXISTS place_id text,
+  ADD COLUMN IF NOT EXISTS street text,
+  ADD COLUMN IF NOT EXISTS neighborhood text,
+  ADD COLUMN IF NOT EXISTS commune text,
+  ADD COLUMN IF NOT EXISTS city text,
+  ADD COLUMN IF NOT EXISTS province text,
+  ADD COLUMN IF NOT EXISTS postal_code text,
+  ADD COLUMN IF NOT EXISTS country text DEFAULT 'Algeria',
+  ADD COLUMN IF NOT EXISTS geohash text,
+  ADD COLUMN IF NOT EXISTS is_archived boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS is_favorite boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS last_used_at timestamptz,
   ADD COLUMN IF NOT EXISTS location_source text,
   ADD COLUMN IF NOT EXISTS location_confirmed boolean NOT NULL DEFAULT false;
 
 ALTER TABLE public.restaurants
+  ADD COLUMN IF NOT EXISTS place_id text,
   ADD COLUMN IF NOT EXISTS location_source text;
 
 ALTER TABLE public.restaurant_applications
