@@ -79,7 +79,7 @@ export function isCoordinateInAlgeria(lat: number, lng: number): boolean {
 }
 
 export function isUsableAccuracy(accuracy: number | null | undefined, purpose: LocationCapturePurpose): boolean {
-  if (accuracy == null) return purpose !== 'restaurant';
+  if (accuracy == null || !Number.isFinite(accuracy) || accuracy <= 0) return false;
   if (purpose === 'restaurant') return accuracy <= LOCATION_ACCURACY_METERS.restaurantStrict;
   if (purpose === 'driver') return accuracy <= LOCATION_ACCURACY_METERS.customerUsable;
   if (purpose === 'wilaya') return accuracy <= LOCATION_ACCURACY_METERS.customerUsable;
@@ -302,6 +302,7 @@ export function requestBestCurrentPosition(params: {
   options?: PositionOptions;
 }): () => void {
   let best: LiveGeoPoint | null = null;
+  let lastError: GeolocationPositionError | Error | null = null;
   let completed = false;
   let stopWatching: (() => void) | null = null;
 
@@ -310,7 +311,7 @@ export function requestBestCurrentPosition(params: {
     if (!best) {
       completed = true;
       stopWatching?.();
-      params.onError(new Error('location_timeout'));
+      params.onError(lastError ?? new Error('location_timeout'));
       return;
     }
     completed = true;
@@ -326,6 +327,7 @@ export function requestBestCurrentPosition(params: {
 
   stopWatching = watchCurrentPosition(
     (point) => {
+      if (Date.now() - point.timestamp > 60000) return;
       if (!isBetterPoint(point, best)) return;
       best = point;
       params.onCandidate?.(point);
@@ -335,6 +337,11 @@ export function requestBestCurrentPosition(params: {
       }
     },
     (error) => {
+      lastError = error;
+      if ('code' in error && error.code !== 1 && !best) {
+        // GPS warm-up can emit transient unavailable/timeout events before a fix.
+        return;
+      }
       if (best) {
         finish(true);
         return;

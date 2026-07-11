@@ -73,6 +73,21 @@ describe('high-accuracy geolocation capture', () => {
     failure({ code: 1, message: 'denied', PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3 } as GeolocationPositionError);
     expect(onError).toHaveBeenCalledOnce();
   });
+
+  it('keeps waiting after a transient unavailable signal and accepts a later GPS fix', () => {
+    const results: LocationCaptureResult[] = [];
+    const onError = vi.fn();
+    requestBestCurrentPosition({
+      purpose: 'customer',
+      waitMs: 8000,
+      onResult: (value) => { results.push(value); },
+      onError,
+    });
+    failure({ code: 2, message: 'warming up', PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3 } as GeolocationPositionError);
+    expect(onError).not.toHaveBeenCalled();
+    success(position(36.365, 6.6147, 22));
+    expect(results[0]?.accepted).toBe(true);
+  });
 });
 
 function position(lat: number, lng: number, accuracy: number): GeolocationPosition {

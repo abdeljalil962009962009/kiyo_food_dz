@@ -17,6 +17,7 @@ import {
   getAccuracyQuality,
   haversineKm,
   isCoordinateInAlgeria,
+  isUsableAccuracy,
   requestBestCurrentPosition,
   type AddressParts,
   type LiveGeoPoint,
@@ -29,7 +30,13 @@ import {
 } from '../lib/googleMaps';
 import { useT } from '../lib/i18n-react';
 import type { TranslationKey } from '../lib/i18n';
-import type { DeliveryLocation } from '../lib/location';
+import {
+  LAST_MAP_STATE_STORAGE_KEY,
+  restoreLastMapState,
+  saveLastMapState,
+  type DeliveryLocation,
+} from '../lib/location';
+import { withExponentialBackoff } from '../lib/locationNetwork';
 import { GoogleMapShell, GOOGLE_MAPS_MAP_ID, MapCircle, MapMarkerBadge } from './GoogleMapShell';
 
 export type DeliveryMapLocation = DeliveryLocation;
@@ -41,6 +48,7 @@ type Props = {
   initialAddress?: string;
   initialLocation?: DeliveryMapLocation | null;
   purpose?: 'customer' | 'restaurant' | 'driver';
+  gpsFirst?: boolean;
   onLocationChange: (location: DeliveryMapLocation) => void;
 };
 
@@ -83,6 +91,7 @@ function DeliveryMapInner({
   initialAddress,
   initialLocation,
   purpose = 'customer',
+  gpsFirst = false,
   onLocationChange,
 }: Props) {
   const { t, locale } = useT();
@@ -96,17 +105,23 @@ function DeliveryMapInner({
       : null
   ), [restaurantLat, restaurantLng]);
 
-  const initialCenter = initialLocation
-    ? { lat: initialLocation.lat, lng: initialLocation.lng }
+  const [initialSnapshot] = useState<DeliveryMapLocation | null>(() => {
+    if (initialLocation) return initialLocation;
+    if (typeof window === 'undefined') return null;
+    return restoreLastMapState(localStorage.getItem(LAST_MAP_STATE_STORAGE_KEY));
+  });
+  const initialCenter = initialSnapshot
+    ? { lat: initialSnapshot.lat, lng: initialSnapshot.lng }
     : restaurantPosition ?? CONSTANTINE_MAP_CENTER;
   const [cameraTarget, setCameraTarget] = useState<CameraTarget>({
     center: initialCenter,
-    zoom: initialLocation ? 18 : restaurantPosition ? 15 : 12,
+    zoom: initialSnapshot ? 17 : restaurantPosition ? 15 : 12,
     nonce: 0,
   });
   const mapCenterRef = useRef(initialCenter);
   const [mapType, setMapType] = useState<'roadmap' | 'satellite'>('roadmap');
   const [tilesReady, setTilesReady] = useState(false);
+  const [tilesSlow, setTilesSlow] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
   const [search, setSearch] = useState('');
@@ -120,6 +135,7 @@ function DeliveryMapInner({
   const [gpsLoading, setGpsLoading] = useState(false);
   const [improvingGps, setImprovingGps] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [gpsRecovery, setGpsRecovery] = useState<'weak' | 'permission' | 'timeout' | 'unavailable' | null>(null);
 
   const geocoderRef = useRef<google.maps.Geocoder | null>(null);
   const sessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | null>(null);
@@ -127,6 +143,8 @@ function DeliveryMapInner({
   const latestGeocodeRequestRef = useRef(0);
   const selectedSearchLabelRef = useRef<string | null>(null);
   const cancelGpsRef = useRef<(() => void) | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const manualGestureVersionRef = useRef(0);
 
   useEffect(() => {
     if (geocodingLibrary && !geocoderRef.current) {
@@ -141,6 +159,15 @@ function DeliveryMapInner({
   }, [placesLibrary]);
 
   useEffect(() => () => cancelGpsRef.current?.(), []);
+
+  useEffect(() => {
+    if (tilesReady) {
+      setTilesSlow(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setTilesSlow(true), 8000);
+    return () => window.clearTimeout(timer);
+  }, [tilesReady, cameraTarget.nonce, mapType]);
 
   useEffect(() => {
     const query = search.trim();
@@ -163,15 +190,17 @@ function DeliveryMapInner({
         if (!sessionTokenRef.current) {
           sessionTokenRef.current = new placesLibrary.AutocompleteSessionToken();
         }
-        const response = await placesLibrary.AutocompleteSuggestion.fetchAutocompleteSuggestions({
-          input: query,
-          includedRegionCodes: ['dz'],
-          language: locale,
-          region: 'dz',
-          locationRestriction: ALGERIA_MAP_BOUNDS,
-          origin: mapCenterRef.current,
-          sessionToken: sessionTokenRef.current,
-        });
+        const response = await withExponentialBackoff(() => (
+          placesLibrary.AutocompleteSuggestion.fetchAutocompleteSuggestions({
+            input: query,
+            includedRegionCodes: ['dz'],
+            language: locale,
+            region: 'dz',
+            locationRestriction: ALGERIA_MAP_BOUNDS,
+            origin: mapCenterRef.current,
+            sessionToken: sessionTokenRef.current!,
+          })
+        ));
         if (requestId !== latestSearchRequestRef.current) return;
         setSuggestions(response.suggestions.flatMap((suggestion) => {
           const prediction = suggestion.placePrediction;
@@ -202,16 +231,10 @@ function DeliveryMapInner({
     setCameraTarget((current) => ({ center, zoom, nonce: current.nonce + 1 }));
   }, []);
 
-  useEffect(() => {
-    if (!initialLocation) return;
-    setSelectedLocation(initialLocation);
-    setAddressText(initialLocation.address);
-    moveCamera({ lat: initialLocation.lat, lng: initialLocation.lng }, 18);
-  }, [initialLocation, moveCamera]);
-
   const publishLocation = useCallback((location: DeliveryMapLocation) => {
     setSelectedLocation(location);
     setAddressText(location.address);
+    saveLastMapState(location);
     onLocationChange(location);
   }, [onLocationChange]);
 
@@ -241,11 +264,11 @@ function DeliveryMapInner({
     setSearching(true);
     setSearchError(null);
     try {
-      const response = await geocoder.geocode({
-        location: { lat, lng },
-        language: locale,
-        region: 'DZ',
-      });
+      const response = await withExponentialBackoff(() => geocoder.geocode({
+          location: { lat, lng },
+          language: locale,
+          region: 'DZ',
+        }));
       if (requestId !== latestGeocodeRequestRef.current) return;
       const result = pickBestGeocodeResult(response.results);
       if (!result) {
@@ -289,6 +312,7 @@ function DeliveryMapInner({
   }, [locale, publishLocation, t]);
 
   const selectSuggestion = useCallback(async (suggestion: SearchSuggestion) => {
+    const gestureVersion = manualGestureVersionRef.current;
     setSearching(true);
     setSearchError(null);
     setSuggestions([]);
@@ -296,9 +320,10 @@ function DeliveryMapInner({
     setSearch(suggestion.label);
     try {
       const place = suggestion.prediction.toPlace();
-      await place.fetchFields({
-        fields: ['id', 'formattedAddress', 'location', 'viewport', 'addressComponents', 'types'],
-      });
+      await withExponentialBackoff(() => place.fetchFields({
+          fields: ['id', 'formattedAddress', 'location', 'viewport', 'addressComponents', 'types'],
+        }));
+      if (gestureVersion !== manualGestureVersionRef.current) return;
       if (!place.location) throw new Error('Place has no coordinates');
 
       const lat = place.location.lat();
@@ -346,14 +371,16 @@ function DeliveryMapInner({
 
     setSearching(true);
     setSearchError(null);
+    const gestureVersion = manualGestureVersionRef.current;
     try {
-      const response = await geocoder.geocode({
-        address: query,
-        componentRestrictions: { country: 'DZ' },
-        region: 'DZ',
-        language: locale,
-        bounds: ALGERIA_MAP_BOUNDS,
-      });
+      const response = await withExponentialBackoff(() => geocoder.geocode({
+          address: query,
+          componentRestrictions: { country: 'DZ' },
+          region: 'DZ',
+          language: locale,
+          bounds: ALGERIA_MAP_BOUNDS,
+        }));
+      if (gestureVersion !== manualGestureVersionRef.current) return;
       const result = pickBestGeocodeResult(response.results);
       if (!result) throw new Error('No matching address');
       const lat = result.geometry.location.lat();
@@ -385,25 +412,33 @@ function DeliveryMapInner({
   }, [locale, moveCamera, publishLocation, search, selectSuggestion, suggestions, t]);
 
   const locateWithGps = useCallback(() => {
+    const gestureVersion = manualGestureVersionRef.current;
     cancelGpsRef.current?.();
     setGpsLoading(true);
     setImprovingGps(true);
+    setGpsRecovery(null);
     setNotice(t('map.improvingAccuracy'));
     setSearchError(null);
 
     cancelGpsRef.current = requestBestCurrentPosition({
       purpose,
-      waitMs: purpose === 'restaurant' ? 12000 : 10000,
+      waitMs: purpose === 'restaurant' ? 18000 : 15000,
       options: GEOLOCATION_DEFAULT_OPTIONS,
       onCandidate: (point) => {
         setLivePosition(point);
-        moveCamera({ lat: point.lat, lng: point.lng }, point.accuracy != null && point.accuracy < 100 ? 18 : 16);
       },
-      onResult: ({ point }) => {
+      onResult: ({ point, accepted }) => {
         cancelGpsRef.current = null;
         setGpsLoading(false);
         setImprovingGps(false);
         setLivePosition(point);
+        if (gestureVersion !== manualGestureVersionRef.current) return;
+        if (!accepted || !isUsableAccuracy(point.accuracy, purpose)) {
+          setGpsRecovery('weak');
+          setNotice(`${t('map.gpsWeakMeasured')} ${Math.round(point.accuracy ?? 0).toLocaleString(locale)} m. ${t('map.gpsWeakAction')}`);
+          return;
+        }
+        setGpsRecovery(null);
         const center = { lat: point.lat, lng: point.lng };
         moveCamera(center, point.accuracy != null && point.accuracy < 100 ? 18 : 16);
         void reverseGeocodePoint({
@@ -416,13 +451,15 @@ function DeliveryMapInner({
         cancelGpsRef.current = null;
         setGpsLoading(false);
         setImprovingGps(false);
+        setGpsRecovery(geolocationErrorKind(error));
         setNotice(geolocationErrorMessage(error, t));
       },
     });
-  }, [moveCamera, purpose, reverseGeocodePoint, t]);
+  }, [locale, moveCamera, purpose, reverseGeocodePoint, t]);
 
   const handleMapDragEnd = useCallback((event: { map: google.maps.Map }) => {
     setIsDragging(false);
+    setGpsRecovery(null);
     const center = event.map.getCenter();
     if (!center) return;
     const next = { lat: center.lat(), lng: center.lng() };
@@ -434,16 +471,16 @@ function DeliveryMapInner({
     });
   }, [reverseGeocodePoint]);
 
-  const handleMapClick = useCallback((event: { detail: { latLng: google.maps.LatLngLiteral | null } }) => {
-    const point = event.detail.latLng;
-    if (!point) return;
-    moveCamera(point, 18);
-    void reverseGeocodePoint({
-      ...point,
-      accuracy: null,
-      source: 'manual',
-    });
-  }, [moveCamera, reverseGeocodePoint]);
+  const handleMapDragStart = useCallback(() => {
+    manualGestureVersionRef.current += 1;
+    cancelGpsRef.current?.();
+    cancelGpsRef.current = null;
+    setGpsLoading(false);
+    setImprovingGps(false);
+    setGpsRecovery(null);
+    setSuggestions([]);
+    setIsDragging(true);
+  }, []);
 
   const confirmPin = useCallback(() => {
     if (!selectedLocation || outOfAlgeria(selectedLocation)) return;
@@ -458,11 +495,14 @@ function DeliveryMapInner({
     return haversineKm(selectedLocation, restaurantPosition);
   }, [purpose, restaurantPosition, selectedLocation]);
   const outOfZone = distanceKm != null && maxDeliveryKm != null && distanceKm > maxDeliveryKm;
+  const outsideByKm = outOfZone && distanceKm != null && maxDeliveryKm != null
+    ? Math.max(0, distanceKm - maxDeliveryKm)
+    : null;
   const requiresMapAdjustment = selectedLocation?.requiresManualAdjustment === true;
   const canConfirm = selectedLocation != null && !outOfZone && !requiresMapAdjustment;
 
   const accuracyLabel = livePosition?.accuracy != null
-    ? `${t('map.gpsAccuracy')}: ${Math.round(livePosition.accuracy).toLocaleString(locale)} m · ${t(`map.accuracy.${getAccuracyQuality(livePosition.accuracy)}` as TranslationKey)}`
+    ? `${t('map.gpsAccuracy')}: ${Math.round(livePosition.accuracy).toLocaleString(locale)} m | ${t(`map.accuracy.${getAccuracyQuality(livePosition.accuracy)}` as TranslationKey)}`
     : null;
   const accuracyQuality = getAccuracyQuality(livePosition?.accuracy);
   const accuracyClass = accuracyQuality === 'excellent' || accuracyQuality === 'good'
@@ -474,10 +514,23 @@ function DeliveryMapInner({
   return (
     <section className="overflow-hidden rounded-xl border border-ink-200 bg-white shadow-card" aria-label={t('map.locationSelector')}>
       <div className="border-b border-ink-100 bg-white p-3 sm:p-4">
-        <form onSubmit={submitSearch} className="flex flex-col gap-2 sm:flex-row">
+        <form onSubmit={submitSearch} className={`flex flex-col gap-2 ${gpsFirst ? '' : 'sm:flex-row'}`}>
+          {gpsFirst && (
+            <button
+              type="button"
+              onClick={locateWithGps}
+              disabled={gpsLoading}
+              className="kiyo-btn-primary min-h-12 w-full px-4 text-sm"
+              data-testid="primary-gps-action"
+            >
+              <LocateFixed className={`h-4 w-4 ${gpsLoading ? 'animate-pulse' : ''}`} />
+              {gpsLoading ? t('map.locating') : t('map.useCurrentLocation')}
+            </button>
+          )}
           <div className="relative min-w-0 flex-1">
             <Search className={`pointer-events-none absolute top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-ink-400 ${isRtl ? 'right-3.5' : 'left-3.5'}`} />
             <input
+              ref={searchInputRef}
               value={search}
               onChange={(event) => {
                 selectedSearchLabelRef.current = null;
@@ -488,7 +541,7 @@ function DeliveryMapInner({
               aria-label={t('map.searchPlaceholder')}
               autoComplete="off"
               dir={isRtl ? 'rtl' : 'ltr'}
-              className={`kiyo-input h-12 py-2.5 ${isRtl ? 'pr-10 text-right' : 'pl-10'}`}
+              className={`kiyo-input h-12 py-2.5 ${gpsFirst ? 'border-ink-200 bg-ink-50' : ''} ${isRtl ? 'pr-10 text-right' : 'pl-10'}`}
             />
             {suggestions.length > 0 && (
               <div className="absolute inset-x-0 top-full z-[1001] mt-1 max-h-72 overflow-y-auto rounded-lg border border-ink-100 bg-white p-1 shadow-card-lg" role="listbox">
@@ -513,15 +566,17 @@ function DeliveryMapInner({
               </div>
             )}
           </div>
-          <button
-            type="button"
-            onClick={locateWithGps}
-            disabled={gpsLoading}
-            className="kiyo-btn-primary h-12 shrink-0 px-4 sm:min-w-44"
-          >
-            <LocateFixed className={`h-4 w-4 ${gpsLoading ? 'animate-pulse' : ''}`} />
-            {gpsLoading ? t('map.locating') : t('map.useCurrentLocation')}
-          </button>
+          {!gpsFirst && (
+            <button
+              type="button"
+              onClick={locateWithGps}
+              disabled={gpsLoading}
+              className="kiyo-btn-primary min-h-12 shrink-0 px-4 sm:min-w-44"
+            >
+              <LocateFixed className={`h-4 w-4 ${gpsLoading ? 'animate-pulse' : ''}`} />
+              {gpsLoading ? t('map.locating') : t('map.useCurrentLocation')}
+            </button>
+          )}
         </form>
 
         {(searching || improvingGps || searchError) && (
@@ -534,12 +589,22 @@ function DeliveryMapInner({
                 </span>
               </>
             )}
-            {searchError && <span className="font-medium text-error-600">{searchError}</span>}
+            {searchError && (
+              <span className="flex flex-wrap items-center gap-2 font-medium text-error-600">
+                <span>{searchError}</span>
+                <button type="button" onClick={() => searchInputRef.current?.focus()} className="min-h-11 rounded-md px-2 font-bold underline underline-offset-2">
+                  {t('map.enterManually')}
+                </button>
+              </span>
+            )}
           </div>
         )}
       </div>
 
-      <div className="relative h-[380px] w-full bg-ink-100 sm:h-[440px]">
+      <div
+        className="relative h-[clamp(220px,42dvh,440px)] min-h-[220px] w-full bg-ink-100 sm:h-[440px]"
+        data-testid="delivery-map-canvas"
+      >
         <Map
           defaultCenter={initialCenter}
           defaultZoom={initialLocation ? 18 : restaurantPosition ? 15 : 12}
@@ -549,15 +614,19 @@ function DeliveryMapInner({
           disableDefaultUI
           zoomControl
           fullscreenControl
+          zoomControlOptions={{ position: google.maps.ControlPosition.LEFT_CENTER }}
+          fullscreenControlOptions={{ position: google.maps.ControlPosition.LEFT_TOP }}
           streetViewControl={false}
           minZoom={5}
           maxZoom={20}
           restriction={{ latLngBounds: ALGERIA_MAP_BOUNDS, strictBounds: false }}
           reuseMaps
-          onTilesLoaded={() => setTilesReady(true)}
+          onTilesLoaded={() => {
+            setTilesReady(true);
+            setTilesSlow(false);
+          }}
           onCameraChanged={(event) => { mapCenterRef.current = event.detail.center; }}
-          onClick={handleMapClick}
-          onDragstart={() => setIsDragging(true)}
+          onDragstart={handleMapDragStart}
           onDragend={handleMapDragEnd}
           style={{ width: '100%', height: '100%' }}
         >
@@ -582,7 +651,7 @@ function DeliveryMapInner({
                 <MapCircle
                   center={{ lat: livePosition.lat, lng: livePosition.lng }}
                   radius={livePosition.accuracy}
-                  color="#2563eb"
+                  color="#ec3804"
                   fillOpacity={0.1}
                 />
               )}
@@ -594,7 +663,7 @@ function DeliveryMapInner({
           <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-ink-50/90">
             <span className="flex items-center gap-2 text-xs font-semibold text-ink-500">
               <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-ember-500" />
-              {t('map.loading')}
+              {tilesSlow ? t('map.tilesSlow') : t('map.loading')}
             </span>
           </div>
         )}
@@ -610,10 +679,15 @@ function DeliveryMapInner({
 
         <button
           type="button"
-          onClick={() => setMapType((current) => current === 'roadmap' ? 'satellite' : 'roadmap')}
-          className={`absolute top-3 z-30 flex h-11 w-11 items-center justify-center rounded-lg border border-ink-200 bg-white text-ink-700 shadow-card transition-colors hover:bg-ink-50 ${isRtl ? 'left-3' : 'right-3'}`}
+          onClick={() => {
+            setTilesReady(false);
+            setTilesSlow(false);
+            setMapType((current) => current === 'roadmap' ? 'satellite' : 'roadmap');
+          }}
+          className="absolute right-[max(0.75rem,env(safe-area-inset-right))] top-[max(0.75rem,env(safe-area-inset-top))] z-30 flex h-11 w-11 items-center justify-center rounded-lg border border-ink-200 bg-white text-ink-700 shadow-card transition-colors hover:bg-ink-50"
           title={mapType === 'roadmap' ? t('map.satelliteView') : t('map.standardView')}
           aria-label={mapType === 'roadmap' ? t('map.satelliteView') : t('map.standardView')}
+          data-testid="map-layer-control"
         >
           <Layers3 className="h-5 w-5" />
         </button>
@@ -624,21 +698,22 @@ function DeliveryMapInner({
             if (livePosition) moveCamera({ lat: livePosition.lat, lng: livePosition.lng }, 18);
             else locateWithGps();
           }}
-          className={`absolute bottom-3 z-30 flex h-11 w-11 items-center justify-center rounded-lg border border-ink-200 bg-white text-ink-700 shadow-card transition-colors hover:bg-ink-50 ${isRtl ? 'left-3' : 'right-3'}`}
+          className="absolute bottom-[max(2.25rem,env(safe-area-inset-bottom))] right-[max(0.75rem,env(safe-area-inset-right))] z-30 flex h-11 w-11 items-center justify-center rounded-lg border border-ink-200 bg-white text-ink-700 shadow-card transition-colors hover:bg-ink-50"
           title={t('map.recenter')}
           aria-label={t('map.recenter')}
+          data-testid="map-recenter-control"
         >
           <LocateFixed className="h-5 w-5" />
         </button>
 
         {accuracyLabel && (
-          <div className={`absolute top-3 z-30 rounded-full border bg-white/95 px-3 py-1.5 text-[11px] font-bold shadow-card backdrop-blur ${accuracyClass} ${isRtl ? 'right-3' : 'left-3'}`} role="status">
+          <div className={`absolute left-1/2 top-[max(0.75rem,env(safe-area-inset-top))] z-30 max-w-[calc(100%-8rem)] -translate-x-1/2 truncate rounded-full border bg-white/95 px-3 py-1.5 text-[11px] font-bold shadow-card backdrop-blur ${accuracyClass}`} role="status">
             {accuracyLabel}
           </div>
         )}
 
         {isDragging && (
-          <div className="pointer-events-none absolute inset-x-3 bottom-3 z-30 mx-auto max-w-xs rounded-lg bg-ink-900/90 px-3 py-2 text-center text-xs font-semibold text-white shadow-card-lg backdrop-blur">
+          <div className="pointer-events-none absolute left-1/2 top-16 z-30 w-[min(18rem,calc(100%-6rem))] -translate-x-1/2 rounded-lg bg-ink-900/90 px-3 py-2 text-center text-xs font-semibold text-white shadow-card-lg backdrop-blur">
             {t('map.releaseToSelect')}
           </div>
         )}
@@ -646,9 +721,19 @@ function DeliveryMapInner({
 
       <div className="border-t border-ink-100 bg-white p-3 sm:p-4">
         {notice && (
-          <div className="mb-3 flex items-start gap-2 rounded-lg border border-warning-500/20 bg-warning-500/10 px-3 py-2.5 text-xs font-medium leading-5 text-warning-700">
+          <div className="mb-3 flex flex-wrap items-start gap-2 rounded-lg border border-warning-500/20 bg-warning-500/10 px-3 py-2.5 text-xs font-medium leading-5 text-warning-700" role="alert">
             <AlertTriangle className="mt-0.5 h-4 w-4 flex-none" />
-            <span>{notice}</span>
+            <span className="min-w-0 flex-1">{notice}</span>
+            {gpsRecovery && (
+              <span className="flex w-full flex-wrap gap-2 ps-6">
+                <button type="button" onClick={locateWithGps} className="min-h-11 rounded-md bg-white px-3 font-bold text-ink-800 shadow-sm">
+                  {t('map.retryGps')}
+                </button>
+                <button type="button" onClick={() => searchInputRef.current?.focus()} className="min-h-11 rounded-md px-3 font-bold underline underline-offset-2">
+                  {t('map.enterManually')}
+                </button>
+              </span>
+            )}
           </div>
         )}
 
@@ -697,8 +782,13 @@ function DeliveryMapInner({
         )}
 
         {outOfZone && distanceKm != null && (
-          <div className="mt-3 rounded-lg bg-error-50 px-3 py-2.5 text-xs font-medium leading-5 text-error-700">
-            {t('map.outsideZone')} ({formatDistanceKm(distanceKm)} / {maxDeliveryKm} km {t('map.max')}).
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-error-50 px-3 py-2.5 text-xs font-medium leading-5 text-error-700">
+            <span className="min-w-0 flex-1">
+              {t('map.outsideZone')} ({outsideByKm != null ? `${formatDistanceKm(outsideByKm)} ${t('map.outsideBy')}` : `${formatDistanceKm(distanceKm)} / ${maxDeliveryKm} km ${t('map.max')}`}).
+            </span>
+            <a href="/restaurants" className="inline-flex min-h-11 items-center rounded-md bg-white px-3 font-bold text-error-700 shadow-sm">
+              {t('map.findAvailableRestaurants')}
+            </a>
           </div>
         )}
       </div>
@@ -713,7 +803,7 @@ function MapCamera({ target }: { target: CameraTarget }) {
     if (!map) return;
     map.panTo(target.center);
     map.setZoom(target.zoom);
-  }, [map, target]);
+  }, [map, target.center, target.nonce, target.zoom]);
 
   return null;
 }
@@ -774,4 +864,15 @@ function geolocationErrorMessage(
     if (error.code === 3) return t('map.locationTimeout');
   }
   return t('map.locationUnavailable');
+}
+
+function geolocationErrorKind(
+  error: GeolocationPositionError | Error,
+): 'permission' | 'timeout' | 'unavailable' {
+  if (error instanceof Error && error.message === 'location_timeout') return 'timeout';
+  if ('code' in error) {
+    if (error.code === 1) return 'permission';
+    if (error.code === 3) return 'timeout';
+  }
+  return 'unavailable';
 }

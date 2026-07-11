@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isConfirmedDeliveryLocation, locationPrimaryLine, restoreDeliveryLocation, type DeliveryLocation } from './location';
+import { isConfirmedDeliveryLocation, locationPrimaryLine, restoreDeliveryLocation, restoreLastMapState, type DeliveryLocation } from './location';
 
 const LOCATION: DeliveryLocation = {
   lat: 36.365,
@@ -44,5 +44,11 @@ describe('confirmed delivery location', () => {
   it('uses neighborhood or street instead of displaying only the wilaya', () => {
     expect(locationPrimaryLine(LOCATION)).toBe('Ali Mendjeli');
   });
-});
 
+  it('restores a recent map state without treating it as confirmed', () => {
+    const cached = restoreLastMapState(JSON.stringify({ ...LOCATION, cachedAt: new Date().toISOString() }));
+    expect(cached?.lat).toBe(36.365);
+    expect(cached?.confirmed).toBe(false);
+    expect(cached?.requiresManualAdjustment).toBe(true);
+  });
+});

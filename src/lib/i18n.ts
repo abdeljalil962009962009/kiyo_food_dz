@@ -264,6 +264,14 @@ export type TranslationKey =
   | 'map.gpsIdle'
   | 'map.gpsError'
   | 'map.recenter'
+  | 'map.weakConnection'
+  | 'map.tilesSlow'
+  | 'map.gpsWeakMeasured'
+  | 'map.gpsWeakAction'
+  | 'map.retryGps'
+  | 'map.enterManually'
+  | 'map.outsideBy'
+  | 'map.findAvailableRestaurants'
   | 'map.accuracy.excellent'
   | 'map.accuracy.good'
   | 'map.accuracy.acceptable'
@@ -289,6 +297,20 @@ export type TranslationKey =
   | 'location.customLabel'
   | 'location.quoteSummary'
   | 'location.etaMinutes'
+  | 'location.useSaved'
+  | 'location.defaultAddress'
+  | 'location.differentLocation'
+  | 'location.recent'
+  | 'location.recentNeedsConfirmation'
+  | 'location.confirmedSuccess'
+  | 'location.restaurantsDeliverHere'
+  | 'location.restaurantDeliversHere'
+  | 'location.etaRange'
+  | 'location.minutesShort'
+  | 'location.savePrompt'
+  | 'location.saveAsHome'
+  | 'location.saveAsWork'
+  | 'location.notNow'
   // cart + checkout
   | 'cart.title'
   | 'cart.empty'
@@ -841,6 +863,14 @@ const en: Dict = {
   'map.offlineTitle': 'You are offline',
   'map.offlineBody': 'Reconnect to load the interactive map. Your selected address and form details are still saved.',
   'map.recenter': 'Recenter on my location',
+  'map.weakConnection': 'Weak connection — map features may take a little longer.',
+  'map.tilesSlow': 'The map is loading on a slow connection. Your last location is ready while we keep trying.',
+  'map.gpsWeakMeasured': 'GPS could only locate you to approximately',
+  'map.gpsWeakAction': 'Try again in an open area or enter the address manually; this reading was not selected.',
+  'map.retryGps': 'Try GPS again',
+  'map.enterManually': 'Enter address manually',
+  'map.outsideBy': 'outside this delivery area',
+  'map.findAvailableRestaurants': 'See restaurants that deliver here',
   'map.accuracy.excellent': 'Excellent',
   'map.accuracy.good': 'Good',
   'map.accuracy.acceptable': 'Confirm carefully',
@@ -866,6 +896,20 @@ const en: Dict = {
   'location.customLabel': 'Address name (optional)',
   'location.quoteSummary': 'Verified delivery distance',
   'location.etaMinutes': 'Estimated arrival (minutes)',
+  'location.useSaved': 'Use a saved address',
+  'location.defaultAddress': 'Default',
+  'location.differentLocation': 'Deliver to a different location',
+  'location.recent': 'Recent location',
+  'location.recentNeedsConfirmation': 'Review this recent point on the map before confirming it.',
+  'location.confirmedSuccess': 'Location confirmed',
+  'location.restaurantsDeliverHere': 'restaurants deliver to this location',
+  'location.restaurantDeliversHere': 'restaurant delivers to this location',
+  'location.etaRange': 'Estimated delivery',
+  'location.minutesShort': 'min',
+  'location.savePrompt': 'Save this address as Home or Work for faster checkout next time?',
+  'location.saveAsHome': 'Save as Home',
+  'location.saveAsWork': 'Save as Work',
+  'location.notNow': 'Not now',
   'cart.title': 'Your cart',
   'cart.empty': 'Your cart is empty',
   'cart.emptyBody': 'Browse restaurants and add items to get started.',
@@ -1413,6 +1457,14 @@ const fr: Dict = {
   'map.offlineTitle': 'Vous êtes hors ligne',
   'map.offlineBody': 'Reconnectez-vous pour charger la carte. Votre adresse et les informations du formulaire sont conservées.',
   'map.recenter': 'Recentrer sur ma position',
+  'map.weakConnection': 'Connexion faible — certaines fonctions de la carte peuvent être retardées.',
+  'map.tilesSlow': 'La carte charge sur une connexion lente. Votre dernière position reste disponible pendant la nouvelle tentative.',
+  'map.gpsWeakMeasured': 'Le GPS ne vous localise qu’à environ',
+  'map.gpsWeakAction': 'Réessayez dans un endroit dégagé ou saisissez l’adresse manuellement ; cette mesure n’a pas été sélectionnée.',
+  'map.retryGps': 'Réessayer le GPS',
+  'map.enterManually': 'Saisir l’adresse',
+  'map.outsideBy': 'hors de cette zone de livraison',
+  'map.findAvailableRestaurants': 'Voir les restaurants disponibles',
   'map.accuracy.excellent': 'Excellente',
   'map.accuracy.good': 'Bonne',
   'map.accuracy.acceptable': 'À confirmer',
@@ -1438,6 +1490,20 @@ const fr: Dict = {
   'location.customLabel': 'Nom de l’adresse (facultatif)',
   'location.quoteSummary': 'Distance de livraison vérifiée',
   'location.etaMinutes': 'Arrivée estimée (minutes)',
+  'location.useSaved': 'Utiliser une adresse enregistrée',
+  'location.defaultAddress': 'Par défaut',
+  'location.differentLocation': 'Livrer à une autre adresse',
+  'location.recent': 'Position récente',
+  'location.recentNeedsConfirmation': 'Vérifiez ce point récent sur la carte avant de le confirmer.',
+  'location.confirmedSuccess': 'Adresse confirmée',
+  'location.restaurantsDeliverHere': 'restaurants livrent à cette adresse',
+  'location.restaurantDeliversHere': 'restaurant livre à cette adresse',
+  'location.etaRange': 'Livraison estimée',
+  'location.minutesShort': 'min',
+  'location.savePrompt': 'Enregistrer cette adresse comme Maison ou Travail pour commander plus vite la prochaine fois ?',
+  'location.saveAsHome': 'Maison',
+  'location.saveAsWork': 'Travail',
+  'location.notNow': 'Pas maintenant',
   'cart.title': 'Votre panier',
   'cart.empty': 'Votre panier est vide',
   'cart.emptyBody': 'Parcourez les restaurants pour ajouter des plats.',
@@ -1985,6 +2051,14 @@ const ar: Dict = {
   'map.offlineTitle': 'أنت غير متصل بالإنترنت',
   'map.offlineBody': 'أعد الاتصال لتحميل الخريطة. ما زال العنوان المختار وبيانات النموذج محفوظين.',
   'map.recenter': 'إعادة التمركز على موقعي',
+  'map.weakConnection': 'الاتصال ضعيف — قد تتأخر بعض ميزات الخريطة قليلاً.',
+  'map.tilesSlow': 'يتم تحميل الخريطة عبر اتصال بطيء. موقعك الأخير متاح بينما نواصل المحاولة.',
+  'map.gpsWeakMeasured': 'لم يتمكن GPS من تحديد موقعك إلا بدقة تقارب',
+  'map.gpsWeakAction': 'أعد المحاولة في مكان مفتوح أو أدخل العنوان يدوياً؛ لم يتم اختيار هذه القراءة.',
+  'map.retryGps': 'إعادة محاولة GPS',
+  'map.enterManually': 'إدخال العنوان يدوياً',
+  'map.outsideBy': 'خارج نطاق التوصيل هذا',
+  'map.findAvailableRestaurants': 'عرض المطاعم التي توصل إلى هنا',
   'map.accuracy.excellent': 'ممتازة',
   'map.accuracy.good': 'جيدة',
   'map.accuracy.acceptable': 'تحتاج إلى تأكيد',
@@ -2010,6 +2084,20 @@ const ar: Dict = {
   'location.customLabel': 'اسم العنوان (اختياري)',
   'location.quoteSummary': 'مسافة التوصيل المؤكدة',
   'location.etaMinutes': 'الوصول المتوقع (بالدقائق)',
+  'location.useSaved': 'استخدام عنوان محفوظ',
+  'location.defaultAddress': 'الافتراضي',
+  'location.differentLocation': 'التوصيل إلى موقع آخر',
+  'location.recent': 'موقع حديث',
+  'location.recentNeedsConfirmation': 'راجع هذه النقطة الحديثة على الخريطة قبل تأكيدها.',
+  'location.confirmedSuccess': 'تم تأكيد الموقع',
+  'location.restaurantsDeliverHere': 'مطاعم توصل إلى هذا الموقع',
+  'location.restaurantDeliversHere': 'مطعم يوصل إلى هذا الموقع',
+  'location.etaRange': 'مدة التوصيل المتوقعة',
+  'location.minutesShort': 'د',
+  'location.savePrompt': 'هل تريد حفظ هذا العنوان كمنزل أو عمل لتسريع الطلب في المرة القادمة؟',
+  'location.saveAsHome': 'حفظ كمنزل',
+  'location.saveAsWork': 'حفظ كعمل',
+  'location.notNow': 'ليس الآن',
   'cart.title': 'سلتك',
   'cart.empty': 'سلتك فارغة',
   'cart.emptyBody': 'تصفح المطاعم وأضف أطباقاً.',

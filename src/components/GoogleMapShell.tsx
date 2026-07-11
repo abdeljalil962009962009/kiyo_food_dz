@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { APIProvider, useMap } from '@vis.gl/react-google-maps';
-import { AlertTriangle, Bike, Home, MapPin, RefreshCw, Store } from 'lucide-react';
+import { AlertTriangle, Bike, Home, MapPin, RefreshCw, SignalLow, Store } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
 import {
   GOOGLE_MAPS_API_KEY,
@@ -9,6 +9,7 @@ import {
   hasGoogleMapsKey,
   mapLanguage,
 } from '../lib/googleMaps';
+import { getConnectionQuality, type NetworkInformationLike } from '../lib/locationNetwork';
 
 type GoogleMapShellProps = {
   children: ReactNode;
@@ -20,17 +21,37 @@ export function GoogleMapShell({ children, fallbackHeightClass = 'h-[360px]' }: 
   const [loadFailed, setLoadFailed] = useState(false);
   const [online, setOnline] = useState(() => navigator.onLine);
   const [attempt, setAttempt] = useState(0);
+  const [automaticRetries, setAutomaticRetries] = useState(0);
+  const [connectionQuality, setConnectionQuality] = useState(() => readConnectionQuality());
 
   useEffect(() => {
-    const handleOnline = () => setOnline(true);
-    const handleOffline = () => setOnline(false);
+    const connection = getNetworkInformation();
+    const updateConnection = () => {
+      setOnline(navigator.onLine);
+      setConnectionQuality(readConnectionQuality());
+    };
+    const handleOnline = () => updateConnection();
+    const handleOffline = () => updateConnection();
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    connection?.addEventListener?.('change', updateConnection);
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      connection?.removeEventListener?.('change', updateConnection);
     };
   }, []);
+
+  useEffect(() => {
+    if (!loadFailed || !online || automaticRetries >= 3) return;
+    const delay = 1500 * 2 ** automaticRetries;
+    const timer = window.setTimeout(() => {
+      setAutomaticRetries((value) => value + 1);
+      setLoadFailed(false);
+      setAttempt((value) => value + 1);
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [automaticRetries, loadFailed, online]);
 
   if (!hasGoogleMapsKey() || loadFailed || !online) {
     const title = !online
@@ -59,7 +80,9 @@ export function GoogleMapShell({ children, fallbackHeightClass = 'h-[360px]' }: 
             type="button"
             onClick={() => {
               setOnline(navigator.onLine);
+              setConnectionQuality(readConnectionQuality());
               setLoadFailed(false);
+              setAutomaticRetries(0);
               setAttempt((value) => value + 1);
             }}
             className="kiyo-btn-secondary mt-4 px-4 py-2 text-xs"
@@ -73,20 +96,43 @@ export function GoogleMapShell({ children, fallbackHeightClass = 'h-[360px]' }: 
   }
 
   return (
-    <APIProvider
-      key={`${mapLanguage(locale)}-${attempt}`}
-      apiKey={GOOGLE_MAPS_API_KEY}
-      version="weekly"
-      language={mapLanguage(locale)}
-      region={GOOGLE_MAPS_REGION}
-      onError={(error) => {
-        console.error('[Kiyo Maps] Google Maps failed to load', error);
-        setLoadFailed(true);
-      }}
-    >
-      {children}
-    </APIProvider>
+    <div className="min-w-0">
+      {connectionQuality === 'slow' && (
+        <div className="mb-2 flex min-h-11 items-center gap-2 rounded-lg border border-warning-200 bg-warning-50 px-3 py-2 text-xs font-medium text-warning-800" role="status">
+          <SignalLow className="h-4 w-4 flex-none" />
+          <span>{t('map.weakConnection')}</span>
+        </div>
+      )}
+      <APIProvider
+        key={`${mapLanguage(locale)}-${attempt}`}
+        apiKey={GOOGLE_MAPS_API_KEY}
+        version="weekly"
+        language={mapLanguage(locale)}
+        region={GOOGLE_MAPS_REGION}
+        onError={(error) => {
+          console.error('[Kiyo Maps] Google Maps failed to load', error);
+          setLoadFailed(true);
+        }}
+      >
+        {children}
+      </APIProvider>
+    </div>
   );
+}
+
+type NavigatorWithConnection = Navigator & {
+  connection?: NetworkInformationLike & {
+    addEventListener?: (type: string, listener: () => void) => void;
+    removeEventListener?: (type: string, listener: () => void) => void;
+  };
+};
+
+function getNetworkInformation() {
+  return (navigator as NavigatorWithConnection).connection ?? null;
+}
+
+function readConnectionQuality() {
+  return getConnectionQuality(navigator.onLine, getNetworkInformation());
 }
 
 export function MapCircle({

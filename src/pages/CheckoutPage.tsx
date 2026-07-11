@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, Check, ShieldCheck, AlertCircle, ShoppingCart, Truck } from 'lucide-react';
+import { ChevronLeft, Check, ShieldCheck, AlertCircle, ShoppingCart, Truck, Home, Building2 } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -11,6 +11,7 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Spinner, ErrorState } from '../components/feedback';
 import { PriceTag } from '../components/ui';
 import DeliveryMap, { type DeliveryMapLocation } from '../components/DeliveryMap';
+import { withExponentialBackoff } from '../lib/locationNetwork';
 
 type Step = 'details' | 'review' | 'success';
 type Finance = {
@@ -22,6 +23,14 @@ type Finance = {
   distance_km?: number;
   duration_minutes?: number;
   max_delivery_km?: number;
+};
+
+type LocationInsights = {
+  serviceable_restaurant_count: number;
+  repeat_order_count: number;
+  has_saved_address: boolean;
+  prompt_responded: boolean;
+  location_key: string;
 };
 
 const SUBMIT_TIMEOUT_MS = 12000;
@@ -50,6 +59,8 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [placedOrderId, setPlacedOrderId] = useState<string | null>(null);
+  const [saveAddressPrompt, setSaveAddressPrompt] = useState<LocationInsights | null>(null);
+  const [savingRepeatedAddress, setSavingRepeatedAddress] = useState(false);
 
   // Restaurant coords for delivery zone + map
   type RestaurantGeo = { lat: number; lng: number; max_km: number };
@@ -97,14 +108,17 @@ export default function CheckoutPage() {
         menu_item_id: l.item.id,
         quantity: l.quantity,
       }));
-      const { data, error: e } = await supabase.rpc('quote_delivery_order', {
-        p_restaurant_id: cart.restaurantId,
-        p_items: itemsPayload,
-        p_delivery_lat: mapLocation.lat,
-        p_delivery_lng: mapLocation.lng,
-      });
-      if (e) throw e;
-      setFinance(data as Finance);
+      const data = await withExponentialBackoff(async () => {
+        const { data: quote, error } = await supabase.rpc('quote_delivery_order', {
+          p_restaurant_id: cart.restaurantId,
+          p_items: itemsPayload,
+          p_delivery_lat: mapLocation.lat,
+          p_delivery_lng: mapLocation.lng,
+        });
+        if (error) throw error;
+        return quote as Finance;
+      }, { attempts: 2, timeoutMs: 15000 });
+      setFinance(data);
     } catch (err) {
       console.error('Failed to calculate checkout financials', err);
       setCalcError(formatWorkflowError(err, t('checkout.errorCalc')));
@@ -114,11 +128,85 @@ export default function CheckoutPage() {
   }, [cart.lines, cart.restaurantId, t, mapLocation]);
 
   useEffect(() => {
-    if (step === 'review' && !calcLoading) {
-      void recalcFinancials();
+    if (!mapLocation?.confirmed || !restaurantGeo) {
+      setFinance(null);
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, mapLocation, restaurantGeo]);
+    const timer = window.setTimeout(() => void recalcFinancials(), 350);
+    return () => window.clearTimeout(timer);
+  }, [mapLocation?.confirmed, mapLocation?.lat, mapLocation?.lng, recalcFinancials, restaurantGeo]);
+
+  useEffect(() => {
+    if (step !== 'success' || !profile || !mapLocation?.confirmed) return;
+    let active = true;
+    void withExponentialBackoff(async () => {
+      const { data, error } = await supabase.rpc('get_location_insights', {
+        p_lat: mapLocation.lat,
+        p_lng: mapLocation.lng,
+      });
+      if (error) throw error;
+      return data as LocationInsights;
+    }, { attempts: 2, timeoutMs: 12000 }).then((insights) => {
+      if (
+        active
+        && insights.repeat_order_count >= 2
+        && !insights.has_saved_address
+        && !insights.prompt_responded
+      ) {
+        setSaveAddressPrompt(insights);
+      }
+    }, () => undefined);
+    return () => { active = false; };
+  }, [mapLocation, profile, step]);
+
+  const respondToAddressPrompt = useCallback(async (label: 'home' | 'work' | 'dismissed') => {
+    if (!profile || !mapLocation?.confirmed || !saveAddressPrompt || savingRepeatedAddress) return;
+    setSavingRepeatedAddress(true);
+    try {
+      if (label !== 'dismissed') {
+        const parts = mapLocation.addressParts;
+        const details = mapLocation.details;
+        const { error: addressError } = await supabase.from('saved_addresses').insert({
+          customer_id: profile.id,
+          label,
+          address: mapLocation.address,
+          latitude: mapLocation.lat,
+          longitude: mapLocation.lng,
+          accuracy_m: mapLocation.accuracy,
+          place_id: mapLocation.placeId,
+          street: parts?.street ?? null,
+          neighborhood: parts?.neighborhood ?? null,
+          commune: parts?.commune ?? null,
+          city: parts?.city ?? null,
+          province: parts?.province ?? null,
+          postal_code: parts?.postalCode ?? null,
+          country: parts?.country ?? 'Algeria',
+          location_source: mapLocation.source,
+          building: details?.building || null,
+          floor: details?.floor || null,
+          apartment: details?.apartment || null,
+          entrance: details?.entrance || null,
+          landmark: details?.landmark || null,
+          driver_instructions: details?.instructions || null,
+        });
+        if (addressError) throw addressError;
+      }
+
+      const response = label === 'dismissed' ? 'dismissed' : `saved_${label}`;
+      const { error: responseError } = await supabase.from('location_save_prompt_responses').upsert({
+        customer_id: profile.id,
+        location_key: saveAddressPrompt.location_key,
+        response,
+        responded_at: new Date().toISOString(),
+      });
+      if (responseError) throw responseError;
+      setSaveAddressPrompt(null);
+    } catch (error) {
+      console.error('Failed to save repeated delivery address', error);
+    } finally {
+      setSavingRepeatedAddress(false);
+    }
+  }, [mapLocation, profile, saveAddressPrompt, savingRepeatedAddress]);
 
   // ----- Validation -----
   const detailsValid = useMemo(() => {
@@ -241,6 +329,24 @@ export default function CheckoutPage() {
             <Truck className="h-3.5 w-3.5" />
             {t('checkout.deliveryByRestaurant')}
           </div>
+          {saveAddressPrompt && (
+            <div className="mt-4 rounded-xl border border-ink-100 bg-ink-50 p-4 text-left">
+              <p className="text-sm font-bold text-ink-900">{t('location.savePrompt')}</p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button type="button" disabled={savingRepeatedAddress} onClick={() => void respondToAddressPrompt('home')} className="kiyo-btn-secondary min-h-11 px-3 text-xs">
+                  <Home className="h-4 w-4" />
+                  {t('location.saveAsHome')}
+                </button>
+                <button type="button" disabled={savingRepeatedAddress} onClick={() => void respondToAddressPrompt('work')} className="kiyo-btn-secondary min-h-11 px-3 text-xs">
+                  <Building2 className="h-4 w-4" />
+                  {t('location.saveAsWork')}
+                </button>
+              </div>
+              <button type="button" disabled={savingRepeatedAddress} onClick={() => void respondToAddressPrompt('dismissed')} className="mt-2 min-h-11 w-full text-xs font-semibold text-ink-500 hover:text-ink-800">
+                {t('location.notNow')}
+              </button>
+            </div>
+          )}
           {placedOrderId && (
             <p className="mt-2 text-xs text-ink-400">
               {t('orders.id')} #{placedOrderId.slice(0, 8)}
@@ -309,6 +415,23 @@ export default function CheckoutPage() {
                 <input type="hidden" value={address} onChange={() => {}} />
                 {mapLocation && !mapLocation.confirmed && (
                   <p className="mt-1 text-xs text-warning-700">{t('map.confirmRequired')}</p>
+                )}
+                {mapLocation?.confirmed && calcLoading && (
+                  <div className="mt-2 flex min-h-11 items-center gap-2 rounded-lg bg-ink-50 px-3 text-xs text-ink-500" role="status">
+                    <Spinner className="h-4 w-4 text-ember-600" />
+                    {t('common.loading')}
+                  </div>
+                )}
+                {mapLocation?.confirmed && !calcLoading && finance?.duration_minutes != null && (
+                  <div className="mt-2 flex min-h-11 items-center justify-between rounded-lg bg-sage-50 px-3 text-xs text-sage-800">
+                    <span>{t('location.etaRange')}</span>
+                    <span className="font-bold" data-testid="delivery-eta-range">{formatEtaRange(finance.duration_minutes, t('location.minutesShort'))}</span>
+                  </div>
+                )}
+                {mapLocation?.confirmed && !calcLoading && calcError && (
+                  <button type="button" onClick={() => void recalcFinancials()} className="mt-2 min-h-11 w-full rounded-lg bg-warning-50 px-3 text-xs font-bold text-warning-800">
+                    {calcError} {t('error.retry')}
+                  </button>
                 )}
                 {!detailsValid && address && address.trim().length < 5 && (
                   <p className="mt-1 text-xs text-error-600">{t('checkout.invalidAddress')}</p>
@@ -387,7 +510,7 @@ export default function CheckoutPage() {
                       </div>
                       <div>
                         <span className="block text-sage-700">{t('location.etaMinutes')}</span>
-                        <span className="mt-1 block font-bold text-sage-900">{finance.duration_minutes ?? '—'}</span>
+                        <span className="mt-1 block font-bold text-sage-900">{finance.duration_minutes != null ? formatEtaRange(finance.duration_minutes, t('location.minutesShort')) : '—'}</span>
                       </div>
                     </div>
                   )}
@@ -513,4 +636,11 @@ function formatWorkflowError(err: unknown, fallback: string): string {
     if (typeof message === 'string' && message.trim()) return message;
   }
   return fallback;
+}
+
+function formatEtaRange(durationMinutes: number, unit: string): string {
+  const midpoint = Math.max(8, Math.round(durationMinutes));
+  const lower = Math.max(8, midpoint - 3);
+  const upper = midpoint + 6;
+  return `${lower}–${upper} ${unit}`;
 }

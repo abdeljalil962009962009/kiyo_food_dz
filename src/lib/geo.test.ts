@@ -25,6 +25,12 @@ describe('geolocation safety', () => {
     expect(isUsableAccuracy(42, 'wilaya')).toBe(true);
   });
 
+  it('never treats missing, zero, or invalid accuracy as precise', () => {
+    expect(isUsableAccuracy(null, 'customer')).toBe(false);
+    expect(isUsableAccuracy(0, 'customer')).toBe(false);
+    expect(isUsableAccuracy(Number.NaN, 'restaurant')).toBe(false);
+  });
+
   it('calculates a stable short distance', () => {
     const distance = haversineKm(
       { lat: 36.365, lng: 6.6147 },
@@ -34,4 +40,3 @@ describe('geolocation safety', () => {
     expect(distance).toBeLessThan(2);
   });
 });
-
