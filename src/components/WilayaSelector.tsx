@@ -244,7 +244,7 @@ function LocationDialog({ onClose }: { onClose: () => void }) {
             <LocateFixed className="h-5 w-5" />
           </span>
           <div className="min-w-0 flex-1">
-            <h2 id="location-dialog-title" className="font-display text-base font-bold text-ink-900 sm:text-lg">{t('location.title')}</h2>
+            <h2 id="location-dialog-title" className="font-display text-sm font-bold text-ink-900 min-[360px]:text-base sm:text-lg">{t('location.title')}</h2>
             <p className="mt-0.5 text-xs text-ink-500">{t('location.privacy')}</p>
           </div>
           <button type="button" onClick={onClose} className="flex h-11 w-11 items-center justify-center rounded-lg text-ink-500 hover:bg-ink-100" aria-label={t('common.close')}>
