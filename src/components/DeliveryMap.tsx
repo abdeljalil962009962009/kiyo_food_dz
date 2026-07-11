@@ -125,6 +125,7 @@ function DeliveryMapInner({
   const sessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | null>(null);
   const latestSearchRequestRef = useRef(0);
   const latestGeocodeRequestRef = useRef(0);
+  const selectedSearchLabelRef = useRef<string | null>(null);
   const cancelGpsRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
@@ -143,6 +144,11 @@ function DeliveryMapInner({
 
   useEffect(() => {
     const query = search.trim();
+    if (selectedSearchLabelRef.current === query) {
+      setSuggestions([]);
+      setSearching(false);
+      return;
+    }
     if (query.length < 2 || !placesLibrary) {
       setSuggestions([]);
       setSearching(false);
@@ -286,6 +292,7 @@ function DeliveryMapInner({
     setSearching(true);
     setSearchError(null);
     setSuggestions([]);
+    selectedSearchLabelRef.current = suggestion.label;
     setSearch(suggestion.label);
     try {
       const place = suggestion.prediction.toPlace();
@@ -367,6 +374,7 @@ function DeliveryMapInner({
       publishLocation(location);
       moveCamera({ lat, lng }, precise ? 18 : 16);
       setSearch(result.formatted_address);
+      selectedSearchLabelRef.current = result.formatted_address;
       setNotice(precise ? t('map.confirmSearchPin') : t('map.addressApproximate'));
     } catch (error) {
       console.error('[Kiyo Maps] Address search failed', error);
@@ -472,6 +480,7 @@ function DeliveryMapInner({
             <input
               value={search}
               onChange={(event) => {
+                selectedSearchLabelRef.current = null;
                 setSearch(event.target.value);
                 setSearchError(null);
               }}
