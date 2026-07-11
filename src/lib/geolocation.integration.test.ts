@@ -43,6 +43,8 @@ describe('high-accuracy geolocation capture', () => {
     success(position(36.37, 6.62, 120));
     expect(results).toHaveLength(0);
     success(position(36.365, 6.6147, 18));
+    expect(results).toHaveLength(0);
+    vi.advanceTimersByTime(4000);
     expect(results[0]?.accepted).toBe(true);
     expect(results[0]?.point.accuracy).toBe(18);
     expect(clearWatch).toHaveBeenCalledWith(7);
@@ -86,7 +88,24 @@ describe('high-accuracy geolocation capture', () => {
     failure({ code: 2, message: 'warming up', PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3 } as GeolocationPositionError);
     expect(onError).not.toHaveBeenCalled();
     success(position(36.365, 6.6147, 22));
+    vi.advanceTimersByTime(4000);
     expect(results[0]?.accepted).toBe(true);
+  });
+
+  it('does not accept the first good reading before the refinement window', () => {
+    const results: LocationCaptureResult[] = [];
+    requestBestCurrentPosition({
+      purpose: 'customer',
+      waitMs: 8000,
+      minWatchMs: 4000,
+      onResult: (value) => { results.push(value); },
+      onError: () => undefined,
+    });
+    success(position(36.365, 6.6147, 45));
+    vi.advanceTimersByTime(3999);
+    expect(results).toHaveLength(0);
+    vi.advanceTimersByTime(1);
+    expect(results[0]?.point.accuracy).toBe(45);
   });
 });
 

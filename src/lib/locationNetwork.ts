@@ -13,7 +13,7 @@ export function getConnectionQuality(
   if (!online) return 'offline';
   if (!connection) return 'online';
   if (connection.saveData) return 'slow';
-  if (connection.effectiveType === 'slow-2g' || connection.effectiveType === '2g') return 'slow';
+  if (connection.effectiveType === 'slow-2g' || connection.effectiveType === '2g' || connection.effectiveType === '3g') return 'slow';
   if (typeof connection.downlink === 'number' && connection.downlink > 0 && connection.downlink < 1) return 'slow';
   return 'online';
 }

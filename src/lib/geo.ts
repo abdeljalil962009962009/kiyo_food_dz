@@ -21,6 +21,14 @@ export type LocationCaptureResult = {
   timedOut: boolean;
 };
 
+export type GeolocationFailureKind =
+  | 'permission_denied'
+  | 'position_unavailable'
+  | 'timeout'
+  | 'unsupported'
+  | 'outside_algeria'
+  | 'unknown';
+
 export type AddressParts = {
   displayName: string;
   street?: string;
@@ -48,16 +56,17 @@ export const GEOLOCATION_DEFAULT_OPTIONS: PositionOptions = {
 };
 
 export const LOCATION_ACCURACY_METERS = {
-  excellent: 15,
-  good: 30,
-  confirmable: 50,
+  excellent: 20,
+  good: 50,
+  confirmable: 150,
   restaurantStrict: 30,
-  customerGood: 30,
-  customerUsable: 50,
+  customerGood: 50,
+  customerUsable: 150,
   driverSuspicious: 250,
 };
 
-const BEST_READING_WAIT_MS = 8000;
+const BEST_READING_WAIT_MS = 15000;
+const MIN_REFINEMENT_WINDOW_MS = 4000;
 let lastNominatimRequestAt = 0;
 
 export const ALGERIA_GEO_BOUNDS = {
@@ -94,6 +103,23 @@ export function getAccuracyQuality(accuracy: number | null | undefined): Accurac
   if (accuracy <= LOCATION_ACCURACY_METERS.good) return 'good';
   if (accuracy <= LOCATION_ACCURACY_METERS.confirmable) return 'acceptable';
   return 'weak';
+}
+
+export function classifyGeolocationError(error: GeolocationPositionError | Error): GeolocationFailureKind {
+  const message = String(error.message ?? '').toLowerCase();
+  if (message === 'location_timeout' || message.includes('timed out')) return 'timeout';
+  if (message.includes('not supported')) return 'unsupported';
+  if (message.includes('outside algeria')) return 'outside_algeria';
+
+  const rawCode = 'code' in error ? Number(error.code) : Number.NaN;
+  if (rawCode === 1) return 'permission_denied';
+  if (rawCode === 2) return 'position_unavailable';
+  if (rawCode === 3) return 'timeout';
+  return 'unknown';
+}
+
+export function shouldPrioritizeGps(gpsFirst: boolean, coarsePointer: boolean, viewportWidth: number): boolean {
+  return gpsFirst && coarsePointer && viewportWidth < 768;
 }
 
 function toLiveGeoPoint(pos: GeolocationPosition): LiveGeoPoint {
@@ -299,15 +325,25 @@ export function requestBestCurrentPosition(params: {
   onResult: (result: LocationCaptureResult) => void;
   onError: (error: GeolocationPositionError | Error) => void;
   waitMs?: number;
+  minWatchMs?: number;
   options?: PositionOptions;
 }): () => void {
   let best: LiveGeoPoint | null = null;
   let lastError: GeolocationPositionError | Error | null = null;
   let completed = false;
   let stopWatching: (() => void) | null = null;
+  let firstCandidateAt: number | null = null;
+  let refinementTimer: number | null = null;
+  let overallTimer: number | null = null;
+
+  const clearTimers = () => {
+    if (overallTimer) window.clearTimeout(overallTimer);
+    if (refinementTimer) window.clearTimeout(refinementTimer);
+  };
 
   const finish = (timedOut: boolean) => {
     if (completed) return;
+    clearTimers();
     if (!best) {
       completed = true;
       stopWatching?.();
@@ -323,31 +359,39 @@ export function requestBestCurrentPosition(params: {
     });
   };
 
-  const timer = window.setTimeout(() => finish(true), params.waitMs ?? BEST_READING_WAIT_MS);
+  const minimumWatchMs = params.minWatchMs ?? MIN_REFINEMENT_WINDOW_MS;
+  overallTimer = window.setTimeout(() => finish(true), params.waitMs ?? BEST_READING_WAIT_MS);
 
   stopWatching = watchCurrentPosition(
     (point) => {
       if (Date.now() - point.timestamp > 60000) return;
+      if (firstCandidateAt == null) {
+        firstCandidateAt = Date.now();
+        refinementTimer = window.setTimeout(() => {
+          if (best && isUsableAccuracy(best.accuracy, params.purpose)) finish(false);
+        }, minimumWatchMs);
+      }
       if (!isBetterPoint(point, best)) return;
       best = point;
       params.onCandidate?.(point);
-      if (isUsableAccuracy(point.accuracy, params.purpose)) {
-        window.clearTimeout(timer);
+      if (
+        isUsableAccuracy(point.accuracy, params.purpose)
+        && firstCandidateAt != null
+        && Date.now() - firstCandidateAt >= minimumWatchMs
+      ) {
         finish(false);
       }
     },
     (error) => {
       lastError = error;
-      if ('code' in error && error.code !== 1 && !best) {
+      const kind = classifyGeolocationError(error);
+      if (kind === 'position_unavailable' || kind === 'timeout') {
         // GPS warm-up can emit transient unavailable/timeout events before a fix.
         return;
       }
-      if (best) {
-        finish(true);
-        return;
-      }
-      window.clearTimeout(timer);
+      clearTimers();
       completed = true;
+      stopWatching?.();
       params.onError(error);
     },
     params.options ?? GEOLOCATION_DEFAULT_OPTIONS,
@@ -355,7 +399,7 @@ export function requestBestCurrentPosition(params: {
 
   return () => {
     completed = true;
-    window.clearTimeout(timer);
+    clearTimers();
     stopWatching?.();
   };
 }

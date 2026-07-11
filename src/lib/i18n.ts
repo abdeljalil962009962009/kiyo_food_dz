@@ -242,7 +242,11 @@ export type TranslationKey =
   | 'map.movePinRequired'
   | 'map.selectionHelp'
   | 'map.permissionDenied'
+  | 'map.iosLocationRequestFailed'
+  | 'map.positionUnavailable'
+  | 'map.locationUnsupported'
   | 'map.locationTimeout'
+  | 'map.confirmGpsPin'
   | 'map.loadFailedTitle'
   | 'map.loadFailedBody'
   | 'map.configurationMissingTitle'
@@ -842,8 +846,12 @@ const en: Dict = {
   'map.outsideZoneShort': 'Outside delivery zone',
   'map.movePinRequired': 'Move the map to the exact point',
   'map.selectionHelp': 'Search for an address, use your current location, or move the map to the exact entrance.',
-  'map.permissionDenied': 'Location permission is blocked. Allow location access in your browser settings, or choose the point manually.',
+  'map.permissionDenied': 'The location request was not authorized. Check both this site’s permission and your device Location Services, then retry or enter the address manually.',
+  'map.iosLocationRequestFailed': 'Safari could not authorize this location request. In iPhone Settings, check Privacy & Security → Location Services → Safari Websites and enable Precise Location, then retry or enter the address manually.',
+  'map.positionUnavailable': 'Location permission may be enabled, but the device could not determine a position. Turn on Location Services, move to an open area, then retry or enter the address manually.',
+  'map.locationUnsupported': 'This browser does not provide location. Search for the address or choose the point manually.',
   'map.locationTimeout': 'GPS took too long to respond. Move to an open area and retry, or choose the point manually.',
+  'map.confirmGpsPin': 'GPS found this point. Verify the entrance on the map, then confirm the pin.',
   'map.loadFailedTitle': 'The map could not load',
   'map.loadFailedBody': 'Check your connection and retry. Your form data has not been lost.',
   'map.configurationMissingTitle': 'Map service is unavailable',
@@ -1438,8 +1446,12 @@ const fr: Dict = {
   'map.outsideZoneShort': 'Hors zone de livraison',
   'map.movePinRequired': 'Déplacez la carte jusqu’au point exact',
   'map.selectionHelp': 'Recherchez une adresse, utilisez votre position actuelle ou déplacez la carte jusqu’à l’entrée exacte.',
-  'map.permissionDenied': 'L’accès à la position est bloqué. Autorisez-le dans les réglages du navigateur ou choisissez le point manuellement.',
+  'map.permissionDenied': 'La demande de localisation n’a pas été autorisée. Vérifiez l’autorisation du site et les services de localisation de l’appareil, puis réessayez ou saisissez l’adresse.',
+  'map.iosLocationRequestFailed': 'Safari n’a pas pu autoriser cette demande. Dans Réglages iPhone, vérifiez Confidentialité et sécurité → Service de localisation → Sites web Safari, activez Position exacte, puis réessayez ou saisissez l’adresse.',
+  'map.positionUnavailable': 'L’autorisation peut être accordée, mais l’appareil n’a pas pu déterminer la position. Activez le service de localisation, placez-vous dans un endroit dégagé, puis réessayez ou saisissez l’adresse.',
+  'map.locationUnsupported': 'Ce navigateur ne fournit pas la position. Recherchez l’adresse ou choisissez le point manuellement.',
   'map.locationTimeout': 'Le GPS a mis trop de temps à répondre. Placez-vous dans un endroit dégagé et réessayez, ou choisissez le point manuellement.',
+  'map.confirmGpsPin': 'Le GPS a trouvé ce point. Vérifiez l’entrée sur la carte, puis confirmez l’épingle.',
   'map.loadFailedTitle': 'Impossible de charger la carte',
   'map.loadFailedBody': 'Vérifiez votre connexion puis réessayez. Les données du formulaire sont conservées.',
   'map.configurationMissingTitle': 'Le service de carte est indisponible',
@@ -2034,8 +2046,12 @@ const ar: Dict = {
   'map.outsideZoneShort': 'خارج نطاق التوصيل',
   'map.movePinRequired': 'حرّك الخريطة إلى النقطة الدقيقة',
   'map.selectionHelp': 'ابحث عن عنوان أو استخدم موقعك الحالي أو حرّك الخريطة إلى المدخل الدقيق.',
-  'map.permissionDenied': 'إذن الموقع محظور. اسمح بالوصول إلى الموقع من إعدادات المتصفح أو اختر النقطة يدوياً.',
+  'map.permissionDenied': 'لم تتم الموافقة على طلب الموقع. تحقق من إذن الموقع لهذا الموقع ومن خدمات الموقع في الجهاز، ثم أعد المحاولة أو أدخل العنوان يدوياً.',
+  'map.iosLocationRequestFailed': 'لم يتمكن Safari من السماح بطلب الموقع. من إعدادات iPhone افتح الخصوصية والأمان ثم خدمات الموقع ثم مواقع Safari وفعّل الموقع الدقيق، أو أدخل العنوان يدوياً.',
+  'map.positionUnavailable': 'قد يكون الإذن مفعلاً، لكن الجهاز لم يتمكن من تحديد الموقع. فعّل خدمات الموقع وانتقل إلى مكان مفتوح ثم أعد المحاولة أو أدخل العنوان يدوياً.',
+  'map.locationUnsupported': 'هذا المتصفح لا يوفر الموقع. ابحث عن العنوان أو اختر النقطة يدوياً.',
   'map.locationTimeout': 'تأخر GPS في الاستجابة. انتقل إلى مكان مفتوح وأعد المحاولة أو اختر النقطة يدوياً.',
+  'map.confirmGpsPin': 'حدد GPS هذه النقطة. تحقق من المدخل على الخريطة ثم أكد الدبوس.',
   'map.loadFailedTitle': 'تعذر تحميل الخريطة',
   'map.loadFailedBody': 'تحقق من الاتصال ثم أعد المحاولة. لم يتم فقدان بيانات النموذج.',
   'map.configurationMissingTitle': 'خدمة الخرائط غير متاحة',

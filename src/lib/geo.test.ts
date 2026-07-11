@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getAccuracyQuality, haversineKm, isCoordinateInAlgeria, isUsableAccuracy } from './geo';
+import { classifyGeolocationError, getAccuracyQuality, haversineKm, isCoordinateInAlgeria, isUsableAccuracy, shouldPrioritizeGps } from './geo';
 
 describe('geolocation safety', () => {
   it('accepts Constantine coordinates in latitude-longitude order', () => {
@@ -12,9 +12,12 @@ describe('geolocation safety', () => {
 
   it.each([
     [8, 'excellent'],
+    [20, 'excellent'],
     [24, 'good'],
-    [45, 'acceptable'],
-    [85, 'weak'],
+    [50, 'good'],
+    [51, 'acceptable'],
+    [150, 'acceptable'],
+    [151, 'weak'],
     [null, 'unknown'],
   ] as const)('classifies %s metre accuracy as %s', (accuracy, expected) => {
     expect(getAccuracyQuality(accuracy)).toBe(expected);
@@ -23,6 +26,8 @@ describe('geolocation safety', () => {
   it('never accepts kilometre-level accuracy for automatic wilaya detection', () => {
     expect(isUsableAccuracy(4000, 'wilaya')).toBe(false);
     expect(isUsableAccuracy(42, 'wilaya')).toBe(true);
+    expect(isUsableAccuracy(150, 'customer')).toBe(true);
+    expect(isUsableAccuracy(151, 'customer')).toBe(false);
   });
 
   it('never treats missing, zero, or invalid accuracy as precise', () => {
@@ -39,4 +44,22 @@ describe('geolocation safety', () => {
     expect(distance).toBeGreaterThan(1);
     expect(distance).toBeLessThan(2);
   });
+
+  it('classifies denied, unavailable, and timeout as distinct failures', () => {
+    expect(classifyGeolocationError(geoError(1))).toBe('permission_denied');
+    expect(classifyGeolocationError(geoError(2))).toBe('position_unavailable');
+    expect(classifyGeolocationError(geoError(3))).toBe('timeout');
+    expect(classifyGeolocationError({ ...geoError(2), code: '2' } as unknown as GeolocationPositionError)).toBe('position_unavailable');
+  });
+
+  it('prioritizes GPS only for compact coarse-pointer devices', () => {
+    expect(shouldPrioritizeGps(true, true, 390)).toBe(true);
+    expect(shouldPrioritizeGps(true, false, 1440)).toBe(false);
+    expect(shouldPrioritizeGps(true, true, 1024)).toBe(false);
+    expect(shouldPrioritizeGps(false, true, 390)).toBe(false);
+  });
 });
+
+function geoError(code: number): GeolocationPositionError {
+  return { code, message: `error ${code}`, PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3 } as GeolocationPositionError;
+}

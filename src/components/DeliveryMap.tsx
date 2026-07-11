@@ -15,12 +15,14 @@ import {
 import {
   GEOLOCATION_DEFAULT_OPTIONS,
   LOCATION_ACCURACY_METERS,
+  classifyGeolocationError,
   formatDistanceKm,
   getAccuracyQuality,
   haversineKm,
   isCoordinateInAlgeria,
   isUsableAccuracy,
   requestBestCurrentPosition,
+  shouldPrioritizeGps,
   type AddressParts,
   type LiveGeoPoint,
 } from '../lib/geo';
@@ -100,6 +102,8 @@ function DeliveryMapInner({
   const isRtl = locale === 'ar';
   const placesLibrary = useMapsLibrary('places');
   const geocodingLibrary = useMapsLibrary('geocoding');
+  const [mobileGpsPriority, setMobileGpsPriority] = useState(() => readMobileGpsPriority(gpsFirst));
+  const prioritizeGps = gpsFirst && mobileGpsPriority;
 
   const restaurantPosition = useMemo(() => (
     isValidMapCoordinate(restaurantLat, restaurantLng)
@@ -161,6 +165,18 @@ function DeliveryMapInner({
   }, [placesLibrary]);
 
   useEffect(() => () => cancelGpsRef.current?.(), []);
+
+  useEffect(() => {
+    const media = window.matchMedia('(pointer: coarse)');
+    const update = () => setMobileGpsPriority(shouldPrioritizeGps(gpsFirst, media.matches, window.innerWidth));
+    update();
+    media.addEventListener?.('change', update);
+    window.addEventListener('resize', update);
+    return () => {
+      media.removeEventListener?.('change', update);
+      window.removeEventListener('resize', update);
+    };
+  }, [gpsFirst]);
 
   useEffect(() => {
     if (tilesReady) {
@@ -281,7 +297,11 @@ function DeliveryMapInner({
       const quality = isPreciseGeocodeResult(result) ? 'precise' : 'approximate';
       const weakGps = (source === 'gps' || source === 'network')
         && (accuracy == null || accuracy > LOCATION_ACCURACY_METERS.confirmable);
-      const needsManualAdjustment = source !== 'manual' && (quality !== 'precise' || weakGps);
+      const restaurantGpsNeedsManualPlacement = purpose === 'restaurant'
+        && source !== 'manual'
+        && (accuracy == null || accuracy > LOCATION_ACCURACY_METERS.restaurantStrict);
+      const needsManualAdjustment = source !== 'manual'
+        && (quality !== 'precise' || weakGps || restaurantGpsNeedsManualPlacement);
       const location: DeliveryMapLocation = {
         lat,
         lng,
@@ -301,7 +321,7 @@ function DeliveryMapInner({
       } else if (source === 'manual') {
         setNotice(t('map.confirmDraggedPin'));
       } else {
-        setNotice(t('map.confirmWeakGps'));
+        setNotice(t('map.confirmGpsPin'));
       }
     } catch (error) {
       console.error('[Kiyo Maps] Reverse geocoding failed', error);
@@ -311,7 +331,7 @@ function DeliveryMapInner({
     } finally {
       if (requestId === latestGeocodeRequestRef.current) setSearching(false);
     }
-  }, [locale, publishLocation, t]);
+  }, [locale, publishLocation, purpose, t]);
 
   const selectSuggestion = useCallback(async (suggestion: SearchSuggestion) => {
     const gestureVersion = manualGestureVersionRef.current;
@@ -435,13 +455,24 @@ function DeliveryMapInner({
         setImprovingGps(false);
         setLivePosition(point);
         if (gestureVersion !== manualGestureVersionRef.current) return;
+        const center = { lat: point.lat, lng: point.lng };
         if (!accepted || !isUsableAccuracy(point.accuracy, purpose)) {
           setGpsRecovery('weak');
-          setNotice(`${t('map.gpsWeakMeasured')} ${Math.round(point.accuracy ?? 0).toLocaleString(locale)} m. ${t('map.gpsWeakAction')}`);
+          moveCamera(center, point.accuracy != null && point.accuracy > 1000 ? 12 : 14);
+          void reverseGeocodePoint({
+            ...center,
+            accuracy: point.accuracy,
+            source: point.source,
+          }).finally(() => {
+            if (gestureVersion === manualGestureVersionRef.current) {
+              setGpsRecovery('weak');
+              const measured = `${t('map.gpsWeakMeasured')} ${Math.round(point.accuracy ?? 0).toLocaleString(locale)} m.`;
+              setNotice(`${measured} ${purpose === 'restaurant' && getAccuracyQuality(point.accuracy) !== 'weak' ? t('map.restaurantConfirmRequired') : t('map.gpsWeakAction')}`);
+            }
+          });
           return;
         }
         setGpsRecovery(null);
-        const center = { lat: point.lat, lng: point.lng };
         moveCamera(center, point.accuracy != null && point.accuracy < 100 ? 18 : 16);
         void reverseGeocodePoint({
           ...center,
@@ -453,7 +484,8 @@ function DeliveryMapInner({
         cancelGpsRef.current = null;
         setGpsLoading(false);
         setImprovingGps(false);
-        setGpsRecovery(geolocationErrorKind(error));
+        const failureKind = classifyGeolocationError(error);
+        setGpsRecovery(geolocationRecoveryKind(failureKind));
         setNotice(geolocationErrorMessage(error, t));
       },
     });
@@ -514,10 +546,10 @@ function DeliveryMapInner({
       : 'border-error-200 text-error-700';
 
   return (
-    <section className="overflow-hidden rounded-xl border border-ink-200 bg-white shadow-card" aria-label={t('map.locationSelector')}>
+    <section className={`overflow-hidden rounded-xl border bg-white shadow-card ${gpsRecovery === 'weak' ? 'border-warning-300 ring-2 ring-warning-200' : 'border-ink-200'}`} aria-label={t('map.locationSelector')}>
       <div className="border-b border-ink-100 bg-white p-3 sm:p-4">
-        <form onSubmit={submitSearch} className={`flex gap-2 ${gpsFirst ? 'flex-col' : 'flex-row'}`}>
-          {gpsFirst && (
+        <form onSubmit={submitSearch} className={`flex gap-2 ${prioritizeGps ? 'flex-col' : 'flex-row'}`}>
+          {prioritizeGps && (
             <button
               type="button"
               onClick={locateWithGps}
@@ -543,7 +575,7 @@ function DeliveryMapInner({
               aria-label={t('map.searchPlaceholder')}
               autoComplete="off"
               dir={isRtl ? 'rtl' : 'ltr'}
-              className={`kiyo-input h-12 py-2.5 ${gpsFirst ? 'border-ink-200 bg-ink-50' : ''} ${isRtl ? 'pr-10 text-right' : 'pl-10'}`}
+              className={`kiyo-input h-12 py-2.5 ${prioritizeGps ? 'border-ink-200 bg-ink-50' : ''} ${isRtl ? 'pr-10 text-right' : 'pl-10'}`}
             />
             {suggestions.length > 0 && (
               <div className="absolute inset-x-0 top-full z-[1001] mt-1 max-h-72 overflow-y-auto rounded-lg border border-ink-100 bg-white p-1 shadow-card-lg" role="listbox">
@@ -568,7 +600,7 @@ function DeliveryMapInner({
               </div>
             )}
           </div>
-          {!gpsFirst && (
+          {!prioritizeGps && (
             <button
               type="button"
               onClick={locateWithGps}
@@ -886,21 +918,38 @@ function geolocationErrorMessage(
   error: GeolocationPositionError | Error,
   t: (key: TranslationKey) => string,
 ): string {
-  if (error instanceof Error && error.message === 'location_timeout') return t('map.locationTimeout');
-  if ('code' in error) {
-    if (error.code === 1) return t('map.permissionDenied');
-    if (error.code === 3) return t('map.locationTimeout');
+  const kind = classifyGeolocationError(error);
+  switch (kind) {
+    case 'permission_denied':
+      return isIosWebKit() ? t('map.iosLocationRequestFailed') : t('map.permissionDenied');
+    case 'position_unavailable':
+      return t('map.positionUnavailable');
+    case 'timeout':
+      return t('map.locationTimeout');
+    case 'unsupported':
+      return t('map.locationUnsupported');
+    case 'outside_algeria':
+      return t('map.locationOutsideAlgeria');
+    default:
+      return t('map.locationUnavailable');
   }
-  return t('map.locationUnavailable');
 }
 
-function geolocationErrorKind(
-  error: GeolocationPositionError | Error,
+function geolocationRecoveryKind(
+  kind: ReturnType<typeof classifyGeolocationError>,
 ): 'permission' | 'timeout' | 'unavailable' {
-  if (error instanceof Error && error.message === 'location_timeout') return 'timeout';
-  if ('code' in error) {
-    if (error.code === 1) return 'permission';
-    if (error.code === 3) return 'timeout';
-  }
+  if (kind === 'permission_denied') return 'permission';
+  if (kind === 'timeout') return 'timeout';
   return 'unavailable';
+}
+
+function isIosWebKit(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const userAgent = navigator.userAgent;
+  return /iP(?:hone|ad|od)/.test(userAgent) && /WebKit/.test(userAgent);
+}
+
+function readMobileGpsPriority(gpsFirst: boolean): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+  return shouldPrioritizeGps(gpsFirst, window.matchMedia('(pointer: coarse)').matches, window.innerWidth);
 }

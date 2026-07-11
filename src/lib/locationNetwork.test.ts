@@ -5,6 +5,7 @@ describe('location network resilience', () => {
   it('classifies offline, constrained, and normal connections', () => {
     expect(getConnectionQuality(false)).toBe('offline');
     expect(getConnectionQuality(true, { effectiveType: '2g' })).toBe('slow');
+    expect(getConnectionQuality(true, { effectiveType: '3g' })).toBe('slow');
     expect(getConnectionQuality(true, { downlink: 0.7 })).toBe('slow');
     expect(getConnectionQuality(true, { effectiveType: '4g', downlink: 8 })).toBe('online');
   });
