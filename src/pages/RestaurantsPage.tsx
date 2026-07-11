@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Star, Clock, MapPin, Locate } from 'lucide-react';
+import { Search, Star, Clock, MapPin } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
 import { supabase, type Restaurant } from '../lib/supabase';
 import { useWilaya, getWilayaName } from '../context/WilayaContext';
@@ -8,9 +8,7 @@ import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { ErrorState } from '../components/feedback';
 import { RestaurantImage } from '../components/ui';
-import { WilayaSelector } from '../components/WilayaSelector';
-import { haversineKm, formatDistanceKm, requestBestCurrentPosition } from '../lib/geo';
-import { useSettings } from '../context/SettingsContext';
+import { haversineKm, formatDistanceKm } from '../lib/geo';
 
 type RestaurantWithDistance = Restaurant & {
   distance_km?: number | null;
@@ -18,16 +16,15 @@ type RestaurantWithDistance = Restaurant & {
 
 export default function RestaurantsPage() {
   const { t } = useT();
-  const { selectedWilaya, loading: wilayaLoading, locale } = useWilaya();
-  const { features } = useSettings();
+  const { selectedWilaya, deliveryLocation, loading: wilayaLoading, locale } = useWilaya();
   const [items, setItems] = useState<RestaurantWithDistance[]>([]);
   const [loading, setLoading] = useState(true);
-  const [locating, setLocating] = useState(false);
-  const [locationError, setLocationError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'open' | 'top'>('all');
-  const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const currentLocation = useMemo(() => deliveryLocation
+    ? { lat: deliveryLocation.lat, lng: deliveryLocation.lng }
+    : null, [deliveryLocation]);
 
   const load = async () => {
     setLoading(true);
@@ -66,27 +63,6 @@ export default function RestaurantsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedWilaya?.id, wilayaLoading, currentLocation?.lat, currentLocation?.lng]);
 
-  const locateRestaurants = () => {
-    setLocating(true);
-    setLocationError(null);
-    requestBestCurrentPosition({
-      purpose: 'customer',
-      onResult: ({ point, accepted }) => {
-        if (accepted) {
-          setCurrentLocation({ lat: point.lat, lng: point.lng });
-        } else {
-          setLocationError(t('market.locationTooWeak'));
-        }
-        setLocating(false);
-      },
-      onError: () => {
-        setLocationError(t('map.locationUnavailable'));
-        setLocating(false);
-      },
-      waitMs: 8000,
-    });
-  };
-
   const filtered = useMemo(() => {
     let list = items;
     if (filter === 'open') list = list.filter((r) => r.operational_status === 'open');
@@ -116,7 +92,6 @@ export default function RestaurantsPage() {
             {selectedWilaya ? getWilayaName(selectedWilaya, locale) : t('brand.areaServed')}
           </p>
         </div>
-        <WilayaSelector />
       </div>
 
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -131,20 +106,6 @@ export default function RestaurantsPage() {
           />
         </div>
         <div className="flex gap-2">
-          {features.maps && (
-            <button
-              type="button"
-              onClick={locateRestaurants}
-              disabled={locating}
-              className={`inline-flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
-                currentLocation ? 'bg-ember-600 text-white' : 'bg-white text-ink-600 hover:bg-ink-100'
-              } disabled:cursor-not-allowed disabled:opacity-60`}
-              title={t('market.nearMe')}
-            >
-              <Locate className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">{locating ? t('map.locating') : t('market.nearMe')}</span>
-            </button>
-          )}
           {[
             { id: 'all', label: t('nav.restaurants') },
             { id: 'open', label: t('market.openNow') },
@@ -162,13 +123,6 @@ export default function RestaurantsPage() {
           ))}
         </div>
       </div>
-
-      {locationError && (
-        <div className="mb-4 flex items-start gap-2 rounded-lg border border-warning-500/20 bg-warning-500/10 px-3 py-2 text-xs font-medium text-warning-700">
-          <MapPin className="mt-0.5 h-4 w-4 flex-none" />
-          <span>{locationError}</span>
-        </div>
-      )}
 
       <ErrorBoundary variant="inline">
         {loading ? (
@@ -250,23 +204,24 @@ export default function RestaurantsPage() {
 }
 
 function StatusChip({ status }: { status: Restaurant['operational_status'] }) {
+  const { t } = useT();
   if (status === 'open') {
     return (
       <span className="rounded-full bg-sage-500/90 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur">
-        Open
+        {t('restaurant.open')}
       </span>
     );
   }
   if (status === 'busy') {
     return (
       <span className="rounded-full bg-warning-500/90 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur">
-        Busy
+        {t('restaurant.busy')}
       </span>
     );
   }
   return (
     <span className="rounded-full bg-ink-900/80 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur">
-      Closed
+      {t('restaurant.closed')}
     </span>
   );
 }

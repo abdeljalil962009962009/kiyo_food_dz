@@ -12,7 +12,9 @@ import {
 } from 'lucide-react';
 import {
   GEOLOCATION_DEFAULT_OPTIONS,
+  LOCATION_ACCURACY_METERS,
   formatDistanceKm,
+  getAccuracyQuality,
   haversineKm,
   isCoordinateInAlgeria,
   requestBestCurrentPosition,
@@ -21,31 +23,23 @@ import {
 } from '../lib/geo';
 import {
   ALGERIA_MAP_BOUNDS,
-  ALGIERS_MAP_CENTER,
+  CONSTANTINE_MAP_CENTER,
   isValidMapCoordinate,
+  parseGoogleAddressComponents,
 } from '../lib/googleMaps';
 import { useT } from '../lib/i18n-react';
 import type { TranslationKey } from '../lib/i18n';
+import type { DeliveryLocation } from '../lib/location';
 import { GoogleMapShell, GOOGLE_MAPS_MAP_ID, MapCircle, MapMarkerBadge } from './GoogleMapShell';
 
-export type DeliveryMapLocation = {
-  lat: number;
-  lng: number;
-  address: string;
-  accuracy: number | null;
-  source: LiveGeoPoint['source'] | 'search' | 'manual';
-  confirmed: boolean;
-  placeId: string | null;
-  addressQuality: 'precise' | 'approximate' | 'manual';
-  addressParts: AddressParts | null;
-  requiresManualAdjustment: boolean;
-};
+export type DeliveryMapLocation = DeliveryLocation;
 
 type Props = {
   restaurantLat?: number | null;
   restaurantLng?: number | null;
   maxDeliveryKm?: number;
   initialAddress?: string;
+  initialLocation?: DeliveryMapLocation | null;
   purpose?: 'customer' | 'restaurant' | 'driver';
   onLocationChange: (location: DeliveryMapLocation) => void;
 };
@@ -87,6 +81,7 @@ function DeliveryMapInner({
   restaurantLng,
   maxDeliveryKm,
   initialAddress,
+  initialLocation,
   purpose = 'customer',
   onLocationChange,
 }: Props) {
@@ -101,10 +96,12 @@ function DeliveryMapInner({
       : null
   ), [restaurantLat, restaurantLng]);
 
-  const initialCenter = restaurantPosition ?? ALGIERS_MAP_CENTER;
+  const initialCenter = initialLocation
+    ? { lat: initialLocation.lat, lng: initialLocation.lng }
+    : restaurantPosition ?? CONSTANTINE_MAP_CENTER;
   const [cameraTarget, setCameraTarget] = useState<CameraTarget>({
     center: initialCenter,
-    zoom: restaurantPosition ? 15 : 11,
+    zoom: initialLocation ? 18 : restaurantPosition ? 15 : 12,
     nonce: 0,
   });
   const mapCenterRef = useRef(initialCenter);
@@ -117,8 +114,8 @@ function DeliveryMapInner({
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
 
-  const [selectedLocation, setSelectedLocation] = useState<DeliveryMapLocation | null>(null);
-  const [addressText, setAddressText] = useState(initialAddress?.trim() ?? '');
+  const [selectedLocation, setSelectedLocation] = useState<DeliveryMapLocation | null>(initialLocation ?? null);
+  const [addressText, setAddressText] = useState(initialLocation?.address ?? initialAddress?.trim() ?? '');
   const [livePosition, setLivePosition] = useState<LiveGeoPoint | null>(null);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [improvingGps, setImprovingGps] = useState(false);
@@ -199,6 +196,13 @@ function DeliveryMapInner({
     setCameraTarget((current) => ({ center, zoom, nonce: current.nonce + 1 }));
   }, []);
 
+  useEffect(() => {
+    if (!initialLocation) return;
+    setSelectedLocation(initialLocation);
+    setAddressText(initialLocation.address);
+    moveCamera({ lat: initialLocation.lat, lng: initialLocation.lng }, 18);
+  }, [initialLocation, moveCamera]);
+
   const publishLocation = useCallback((location: DeliveryMapLocation) => {
     setSelectedLocation(location);
     setAddressText(location.address);
@@ -210,13 +214,11 @@ function DeliveryMapInner({
     lng,
     accuracy,
     source,
-    autoConfirm,
   }: {
     lat: number;
     lng: number;
     accuracy: number | null;
     source: DeliveryMapLocation['source'];
-    autoConfirm: boolean;
   }) => {
     if (!isCoordinateInAlgeria(lat, lng)) {
       setNotice(t('map.locationOutsideAlgeria'));
@@ -246,15 +248,16 @@ function DeliveryMapInner({
       }
 
       const quality = isPreciseGeocodeResult(result) ? 'precise' : 'approximate';
-      const needsManualAdjustment = source !== 'manual' && (quality !== 'precise' || !autoConfirm);
-      const confirmed = autoConfirm && !needsManualAdjustment;
+      const weakGps = (source === 'gps' || source === 'network')
+        && (accuracy == null || accuracy > LOCATION_ACCURACY_METERS.confirmable);
+      const needsManualAdjustment = source !== 'manual' && (quality !== 'precise' || weakGps);
       const location: DeliveryMapLocation = {
         lat,
         lng,
         address: result.formatted_address,
         accuracy,
         source,
-        confirmed,
+        confirmed: false,
         placeId: result.place_id || null,
         addressQuality: source === 'manual' ? 'manual' : quality,
         addressParts: addressPartsFromGeocoder(result),
@@ -262,9 +265,7 @@ function DeliveryMapInner({
       };
       publishLocation(location);
 
-      if (confirmed) {
-        setNotice(null);
-      } else if (needsManualAdjustment) {
+      if (needsManualAdjustment) {
         setNotice(t('map.addressApproximate'));
       } else if (source === 'manual') {
         setNotice(t('map.confirmDraggedPin'));
@@ -375,7 +376,7 @@ function DeliveryMapInner({
     }
   }, [locale, moveCamera, publishLocation, search, selectSuggestion, suggestions, t]);
 
-  const useGps = useCallback(() => {
+  const locateWithGps = useCallback(() => {
     cancelGpsRef.current?.();
     setGpsLoading(true);
     setImprovingGps(true);
@@ -390,7 +391,7 @@ function DeliveryMapInner({
         setLivePosition(point);
         moveCamera({ lat: point.lat, lng: point.lng }, point.accuracy != null && point.accuracy < 100 ? 18 : 16);
       },
-      onResult: ({ point, accepted }) => {
+      onResult: ({ point }) => {
         cancelGpsRef.current = null;
         setGpsLoading(false);
         setImprovingGps(false);
@@ -401,7 +402,6 @@ function DeliveryMapInner({
           ...center,
           accuracy: point.accuracy,
           source: point.source,
-          autoConfirm: accepted,
         });
       },
       onError: (error) => {
@@ -423,7 +423,6 @@ function DeliveryMapInner({
       ...next,
       accuracy: null,
       source: 'manual',
-      autoConfirm: false,
     });
   }, [reverseGeocodePoint]);
 
@@ -435,7 +434,6 @@ function DeliveryMapInner({
       ...point,
       accuracy: null,
       source: 'manual',
-      autoConfirm: false,
     });
   }, [moveCamera, reverseGeocodePoint]);
 
@@ -456,8 +454,14 @@ function DeliveryMapInner({
   const canConfirm = selectedLocation != null && !outOfZone && !requiresMapAdjustment;
 
   const accuracyLabel = livePosition?.accuracy != null
-    ? `${t('map.gpsAccuracy')}: ${Math.round(livePosition.accuracy).toLocaleString(locale)} m`
+    ? `${t('map.gpsAccuracy')}: ${Math.round(livePosition.accuracy).toLocaleString(locale)} m · ${t(`map.accuracy.${getAccuracyQuality(livePosition.accuracy)}` as TranslationKey)}`
     : null;
+  const accuracyQuality = getAccuracyQuality(livePosition?.accuracy);
+  const accuracyClass = accuracyQuality === 'excellent' || accuracyQuality === 'good'
+    ? 'border-sage-200 text-sage-700'
+    : accuracyQuality === 'acceptable'
+      ? 'border-warning-200 text-warning-700'
+      : 'border-error-200 text-error-700';
 
   return (
     <section className="overflow-hidden rounded-xl border border-ink-200 bg-white shadow-card" aria-label={t('map.locationSelector')}>
@@ -502,7 +506,7 @@ function DeliveryMapInner({
           </div>
           <button
             type="button"
-            onClick={useGps}
+            onClick={locateWithGps}
             disabled={gpsLoading}
             className="kiyo-btn-primary h-12 shrink-0 px-4 sm:min-w-44"
           >
@@ -529,7 +533,7 @@ function DeliveryMapInner({
       <div className="relative h-[380px] w-full bg-ink-100 sm:h-[440px]">
         <Map
           defaultCenter={initialCenter}
-          defaultZoom={restaurantPosition ? 15 : 11}
+          defaultZoom={initialLocation ? 18 : restaurantPosition ? 15 : 12}
           mapId={GOOGLE_MAPS_MAP_ID}
           mapTypeId={mapType}
           gestureHandling="greedy"
@@ -605,8 +609,21 @@ function DeliveryMapInner({
           <Layers3 className="h-5 w-5" />
         </button>
 
+        <button
+          type="button"
+          onClick={() => {
+            if (livePosition) moveCamera({ lat: livePosition.lat, lng: livePosition.lng }, 18);
+            else locateWithGps();
+          }}
+          className={`absolute bottom-3 z-30 flex h-11 w-11 items-center justify-center rounded-lg border border-ink-200 bg-white text-ink-700 shadow-card transition-colors hover:bg-ink-50 ${isRtl ? 'left-3' : 'right-3'}`}
+          title={t('map.recenter')}
+          aria-label={t('map.recenter')}
+        >
+          <LocateFixed className="h-5 w-5" />
+        </button>
+
         {accuracyLabel && (
-          <div className={`absolute top-3 z-30 rounded-full border border-blue-100 bg-white/95 px-3 py-1.5 text-[11px] font-bold text-blue-700 shadow-card backdrop-blur ${isRtl ? 'right-3' : 'left-3'}`}>
+          <div className={`absolute top-3 z-30 rounded-full border bg-white/95 px-3 py-1.5 text-[11px] font-bold shadow-card backdrop-blur ${accuracyClass} ${isRtl ? 'right-3' : 'left-3'}`} role="status">
             {accuracyLabel}
           </div>
         )}
@@ -719,36 +736,19 @@ function isPreciseGeocodeResult(result: google.maps.GeocoderResult): boolean {
 }
 
 function addressPartsFromGeocoder(result: google.maps.GeocoderResult): AddressParts {
-  const component = (type: string) => result.address_components.find((item) => item.types.includes(type))?.long_name;
-  return {
+  return parseGoogleAddressComponents({
+    components: result.address_components,
     displayName: result.formatted_address,
-    street: [component('street_number'), component('route')].filter(Boolean).join(' ') || undefined,
-    neighborhood: component('neighborhood') || component('sublocality') || undefined,
-    commune: component('locality') || component('administrative_area_level_2') || undefined,
-    city: component('locality') || component('administrative_area_level_2') || undefined,
-    province: component('administrative_area_level_1') || undefined,
-    postalCode: component('postal_code') || undefined,
-    country: component('country') || 'Algeria',
-    placeId: result.place_id || undefined,
-    provider: 'google',
-  };
+    placeId: result.place_id,
+  });
 }
 
 function addressPartsFromPlace(place: google.maps.places.Place, fallback: string): AddressParts {
-  const components = place.addressComponents ?? [];
-  const component = (type: string) => components.find((item) => item.types.includes(type))?.longText;
-  return {
+  return parseGoogleAddressComponents({
+    components: place.addressComponents ?? [],
     displayName: place.formattedAddress || fallback,
-    street: [component('street_number'), component('route')].filter(Boolean).join(' ') || undefined,
-    neighborhood: component('neighborhood') || component('sublocality') || undefined,
-    commune: component('locality') || component('administrative_area_level_2') || undefined,
-    city: component('locality') || component('administrative_area_level_2') || undefined,
-    province: component('administrative_area_level_1') || undefined,
-    postalCode: component('postal_code') || undefined,
-    country: component('country') || 'Algeria',
-    placeId: place.id || undefined,
-    provider: 'google',
-  };
+    placeId: place.id,
+  });
 }
 
 function outOfAlgeria(location: DeliveryMapLocation): boolean {
@@ -759,6 +759,7 @@ function geolocationErrorMessage(
   error: GeolocationPositionError | Error,
   t: (key: TranslationKey) => string,
 ): string {
+  if (error instanceof Error && error.message === 'location_timeout') return t('map.locationTimeout');
   if ('code' in error) {
     if (error.code === 1) return t('map.permissionDenied');
     if (error.code === 3) return t('map.locationTimeout');

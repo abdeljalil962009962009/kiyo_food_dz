@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { CheckCircle2, ImagePlus, MapPin, Send, Store, AlertCircle } from 'lucide-react';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -10,6 +10,7 @@ import { useT } from '../lib/i18n-react';
 import { supabase } from '../lib/supabase';
 
 type Location = DeliveryMapLocation;
+const RESTAURANT_APPLICATION_DRAFT_KEY = 'kiyo-restaurant-application-draft-v2';
 
 export default function RestaurantApplicationPage() {
   const { t } = useT();
@@ -29,6 +30,45 @@ export default function RestaurantApplicationPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(RESTAURANT_APPLICATION_DRAFT_KEY);
+      if (!raw) return;
+      const draft = JSON.parse(raw) as Record<string, unknown>;
+      if (typeof draft.restaurantName === 'string') setRestaurantName(draft.restaurantName);
+      if (typeof draft.legalName === 'string') setLegalName(draft.legalName);
+      if (typeof draft.description === 'string') setDescription(draft.description);
+      if (typeof draft.phone === 'string') setPhone(draft.phone);
+      if (typeof draft.address === 'string') setAddress(draft.address);
+      if (typeof draft.cuisine === 'string') setCuisine(draft.cuisine);
+      if (typeof draft.openingHours === 'string') setOpeningHours(draft.openingHours);
+      if (typeof draft.maxDeliveryKm === 'string') setMaxDeliveryKm(draft.maxDeliveryKm);
+      if (typeof draft.minOrderAmount === 'string') setMinOrderAmount(draft.minOrderAmount);
+      if (draft.location && typeof draft.location === 'object') setLocation(draft.location as Location);
+    } catch {
+      localStorage.removeItem(RESTAURANT_APPLICATION_DRAFT_KEY);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      localStorage.setItem(RESTAURANT_APPLICATION_DRAFT_KEY, JSON.stringify({
+        restaurantName,
+        legalName,
+        description,
+        phone,
+        address,
+        cuisine,
+        openingHours,
+        maxDeliveryKm,
+        minOrderAmount,
+        location,
+        updatedAt: new Date().toISOString(),
+      }));
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [restaurantName, legalName, description, phone, address, cuisine, openingHours, maxDeliveryKm, minOrderAmount, location]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -71,9 +111,17 @@ export default function RestaurantApplicationPage() {
         place_id: location.placeId,
         location_source: location.source,
         address_quality: location.addressQuality,
+        street: location.addressParts?.street ?? null,
+        neighborhood: location.addressParts?.neighborhood ?? null,
+        commune: location.addressParts?.commune ?? null,
+        city: location.addressParts?.city ?? null,
+        province: location.addressParts?.province ?? null,
+        postal_code: location.addressParts?.postalCode ?? null,
+        country: location.addressParts?.country ?? 'Algeria',
         status: 'pending',
       });
       if (insertError) throw insertError;
+      localStorage.removeItem(RESTAURANT_APPLICATION_DRAFT_KEY);
       setSuccess(true);
     } catch (err) {
       console.error('Failed to submit restaurant application', err);
@@ -159,6 +207,7 @@ export default function RestaurantApplicationPage() {
               <DeliveryMap
                 purpose="restaurant"
                 initialAddress={address}
+                initialLocation={location}
                 onLocationChange={(loc) => {
                   setLocation(loc);
                   setAddress(loc.address);

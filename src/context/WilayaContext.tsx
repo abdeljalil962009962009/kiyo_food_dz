@@ -8,8 +8,13 @@ import {
   type ReactNode,
 } from 'react';
 import { supabase } from '../lib/supabase';
-import { requestBestCurrentPosition, reverseGeocode } from '../lib/geo';
-import { translate } from '../lib/i18n';
+import { matchWilayaFromAddress } from '../lib/algeriaLocation';
+import {
+  DELIVERY_LOCATION_STORAGE_KEY,
+  isConfirmedDeliveryLocation,
+  restoreDeliveryLocation,
+  type DeliveryLocation,
+} from '../lib/location';
 
 export type Wilaya = {
   id: number;
@@ -24,10 +29,10 @@ type WilayaContextValue = {
   wilayas: Wilaya[];
   selectedWilaya: Wilaya | null;
   setSelectedWilaya: (wilaya: Wilaya | null) => void;
+  deliveryLocation: DeliveryLocation | null;
+  setDeliveryLocation: (location: DeliveryLocation) => void;
+  clearDeliveryLocation: () => void;
   loading: boolean;
-  error: string | null;
-  detectLocation: () => Promise<void>;
-  detectionInProgress: boolean;
   locale: 'en' | 'fr' | 'ar';
 };
 
@@ -99,9 +104,8 @@ export const FALLBACK_WILAYAS: Wilaya[] = [
 export function WilayaProvider({ children, locale = 'fr' }: { children: ReactNode; locale?: 'en' | 'fr' | 'ar' }) {
   const [wilayas, setWilayas] = useState<Wilaya[]>([]);
   const [selectedWilaya, setSelectedWilayaState] = useState<Wilaya | null>(null);
+  const [deliveryLocation, setDeliveryLocationState] = useState<DeliveryLocation | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [detectionInProgress, setDetectionInProgress] = useState(false);
 
   // Load wilayas on mount
   useEffect(() => {
@@ -121,20 +125,29 @@ export function WilayaProvider({ children, locale = 'fr' }: { children: ReactNod
         }
         setWilayas(finalWilayas);
 
-        // Restore saved wilaya
-        const savedId = localStorage.getItem(STORAGE_KEY);
-        if (savedId) {
-          const saved = finalWilayas.find((w: Wilaya) => w.id === parseInt(savedId, 10));
-          if (saved) setSelectedWilayaState(saved);
+        const restoredLocation = restoreDeliveryLocation(localStorage.getItem(DELIVERY_LOCATION_STORAGE_KEY));
+        if (restoredLocation) {
+          setDeliveryLocationState(restoredLocation);
+          const matched = matchWilayaFromAddress(restoredLocation.addressParts, finalWilayas);
+          if (matched) setSelectedWilayaState(matched as Wilaya);
+        } else {
+          // Legacy versions stored a broad wilaya inferred from readings up to
+          // 5 km accuracy. Never restore that value as a delivery location.
+          localStorage.removeItem(STORAGE_KEY);
+          setSelectedWilayaState(null);
         }
       } catch {
         // Fallback to static local list instead of failing
         setWilayas(FALLBACK_WILAYAS);
         
-        const savedId = localStorage.getItem(STORAGE_KEY);
-        if (savedId) {
-          const saved = FALLBACK_WILAYAS.find((w: Wilaya) => w.id === parseInt(savedId, 10));
-          if (saved) setSelectedWilayaState(saved);
+        const restoredLocation = restoreDeliveryLocation(localStorage.getItem(DELIVERY_LOCATION_STORAGE_KEY));
+        if (restoredLocation) {
+          setDeliveryLocationState(restoredLocation);
+          const matched = matchWilayaFromAddress(restoredLocation.addressParts, FALLBACK_WILAYAS);
+          if (matched) setSelectedWilayaState(matched as Wilaya);
+        } else {
+          localStorage.removeItem(STORAGE_KEY);
+          setSelectedWilayaState(null);
         }
       } finally {
         setLoading(false);
@@ -158,75 +171,36 @@ export function WilayaProvider({ children, locale = 'fr' }: { children: ReactNod
     }
   }, []);
 
-  // Geolocation detection with reverse geocoding
-  const detectLocation = useCallback(async () => {
-    if (!navigator.geolocation || detectionInProgress) return;
+  const setDeliveryLocation = useCallback((location: DeliveryLocation) => {
+    if (!isConfirmedDeliveryLocation(location)) return;
+    const confirmedLocation = {
+      ...location,
+      confirmedAt: new Date().toISOString(),
+    };
+    setDeliveryLocationState(confirmedLocation);
+    localStorage.setItem(DELIVERY_LOCATION_STORAGE_KEY, JSON.stringify(confirmedLocation));
 
-    setDetectionInProgress(true);
-    setError(null);
+    const matched = matchWilayaFromAddress(confirmedLocation.addressParts, wilayas);
+    if (matched) setSelectedWilaya(matched as Wilaya);
+  }, [setSelectedWilaya, wilayas]);
 
-    try {
-      const point = await new Promise<{ lat: number; lng: number }>((resolve, reject) => {
-        requestBestCurrentPosition({
-          purpose: 'wilaya',
-          waitMs: 5000,
-          onResult: ({ point: bestPoint, accepted }) => {
-            if (!accepted) {
-              reject(new Error('weak_accuracy'));
-              return;
-            }
-            resolve({ lat: bestPoint.lat, lng: bestPoint.lng });
-          },
-          onError: reject,
-        });
-      });
-
-      // Reverse geocode to get wilaya
-      const data = await reverseGeocode(point.lat, point.lng, 'en');
-      const state = data.province || data.city || data.commune;
-
-      if (state) {
-        // Match wilaya by name (in any language)
-        const normalizedState = state.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        const matched = wilayas.find((w) => {
-          const names = [w.name_en, w.name_fr, w.name_ar].map((n) =>
-            n.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-          );
-          return names.some((n) => n.includes(normalizedState) || normalizedState.includes(n));
-        });
-
-        if (matched) {
-          setSelectedWilaya(matched);
-          return;
-        }
-      }
-
-      setError(translate(locale, 'wilaya.detectError'));
-    } catch (err) {
-      if ((err as GeolocationPositionError).code === 1) {
-        setError(translate(locale, 'wilaya.permissionDenied'));
-      } else if (err instanceof Error && err.message === 'weak_accuracy') {
-        setError(translate(locale, 'wilaya.locationTooWeak'));
-      } else {
-        setError(translate(locale, 'wilaya.detectError'));
-      }
-    } finally {
-      setDetectionInProgress(false);
-    }
-  }, [wilayas, detectionInProgress, locale, setSelectedWilaya]);
+  const clearDeliveryLocation = useCallback(() => {
+    setDeliveryLocationState(null);
+    localStorage.removeItem(DELIVERY_LOCATION_STORAGE_KEY);
+  }, []);
 
   const value = useMemo(
     () => ({
       wilayas,
       selectedWilaya,
       setSelectedWilaya,
+      deliveryLocation,
+      setDeliveryLocation,
+      clearDeliveryLocation,
       loading,
-      error,
-      detectLocation,
-      detectionInProgress,
       locale,
     }),
-    [wilayas, selectedWilaya, setSelectedWilaya, loading, error, detectLocation, detectionInProgress, locale]
+    [wilayas, selectedWilaya, setSelectedWilaya, deliveryLocation, setDeliveryLocation, clearDeliveryLocation, loading, locale]
   );
 
   return <WilayaContext.Provider value={value}>{children}</WilayaContext.Provider>;

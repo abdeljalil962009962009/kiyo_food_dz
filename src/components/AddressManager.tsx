@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { MapPin, Home, Briefcase, Heart, Plus, Trash2, Check, X, Archive, Copy, Star } from 'lucide-react';
+import { MapPin, Home, Briefcase, Heart, Plus, Trash2, Check, X, Archive, Copy, Star, Pencil } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../lib/i18n-react';
 import { type TranslationKey } from '../lib/i18n';
 
 import DeliveryMap, { type DeliveryMapLocation } from './DeliveryMap';
+import { EMPTY_DELIVERY_DETAILS, type DeliveryDetails } from '../lib/location';
 
 type SavedAddress = {
   id: string;
@@ -28,6 +29,13 @@ type SavedAddress = {
   is_favorite?: boolean;
   is_archived?: boolean;
   last_used_at?: string | null;
+  custom_name?: string | null;
+  building?: string | null;
+  floor?: string | null;
+  apartment?: string | null;
+  entrance?: string | null;
+  landmark?: string | null;
+  driver_instructions?: string | null;
   created_at: string;
 };
 
@@ -53,6 +61,9 @@ export function AddressManager() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newLabel, setNewLabel] = useState<'home' | 'work' | 'family' | 'other'>('home');
   const [newLocation, setNewLocation] = useState<DeliveryMapLocation | null>(null);
+  const [customName, setCustomName] = useState('');
+  const [details, setDetails] = useState<DeliveryDetails>(EMPTY_DELIVERY_DETAILS);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyAddressId, setBusyAddressId] = useState<string | null>(null);
 
@@ -87,7 +98,7 @@ export function AddressManager() {
     }
   };
 
-  const addAddress = async () => {
+  const saveAddress = async () => {
     if (!user) return;
     if (!newLocation?.confirmed) {
       setActionError(t('map.confirmRequired'));
@@ -96,11 +107,10 @@ export function AddressManager() {
 
     setActionError(null);
     try {
-      const { error } = await supabase
-        .from('saved_addresses')
-        .insert({
+      const payload = {
           customer_id: user.id,
           label: newLabel,
+          custom_name: customName.trim() || null,
           address: newLocation.address,
           latitude: newLocation.lat,
           longitude: newLocation.lng,
@@ -115,18 +125,71 @@ export function AddressManager() {
           country: newLocation.addressParts?.country ?? 'Algeria',
           location_source: newLocation.source,
           location_confirmed: true,
-          is_default: addresses.length === 0,
+          is_default: editingId ? addresses.find((item) => item.id === editingId)?.is_default ?? false : addresses.length === 0,
+          building: details.building.trim() || null,
+          floor: details.floor.trim() || null,
+          apartment: details.apartment.trim() || null,
+          entrance: details.entrance.trim() || null,
+          landmark: details.landmark.trim() || null,
+          driver_instructions: details.instructions.trim() || null,
           last_used_at: new Date().toISOString(),
-        });
+        };
+      const request = editingId
+        ? supabase.from('saved_addresses').update(payload).eq('id', editingId).eq('customer_id', user.id)
+        : supabase.from('saved_addresses').insert(payload);
+      const { error } = await request;
 
       if (error) throw error;
       setShowAddForm(false);
       setNewLocation(null);
+      setEditingId(null);
+      setCustomName('');
+      setDetails(EMPTY_DELIVERY_DETAILS);
       await loadAddresses();
     } catch (err) {
       console.error('Failed to save address', err);
       setActionError(formatAddressError(err, t('error.genericBody')));
     }
+  };
+
+  const editAddress = (address: SavedAddress) => {
+    const nextDetails = {
+      building: address.building ?? '',
+      floor: address.floor ?? '',
+      apartment: address.apartment ?? '',
+      entrance: address.entrance ?? '',
+      landmark: address.landmark ?? '',
+      instructions: address.driver_instructions ?? '',
+    };
+    setEditingId(address.id);
+    setNewLabel(address.label);
+    setCustomName(address.custom_name ?? '');
+    setDetails(nextDetails);
+    setNewLocation({
+      lat: address.latitude,
+      lng: address.longitude,
+      address: address.address,
+      accuracy: address.accuracy_m ?? null,
+      placeId: address.place_id ?? null,
+      source: (address.location_source as DeliveryMapLocation['source']) ?? 'manual',
+      confirmed: true,
+      addressQuality: 'manual',
+      requiresManualAdjustment: false,
+      addressParts: {
+        displayName: address.address,
+        street: address.street ?? undefined,
+        neighborhood: address.neighborhood ?? undefined,
+        commune: address.commune ?? undefined,
+        city: address.city ?? undefined,
+        province: address.province ?? undefined,
+        postalCode: address.postal_code ?? undefined,
+        country: address.country ?? 'Algeria',
+        placeId: address.place_id ?? undefined,
+        provider: address.place_id ? 'google' : 'manual',
+      },
+      details: nextDetails,
+    });
+    setShowAddForm(true);
   };
 
   const setDefault = async (id: string) => {
@@ -324,6 +387,15 @@ export function AddressManager() {
                 </div>
                 <div className="flex items-center gap-1">
                   <button
+                    onClick={() => editAddress(addr)}
+                    disabled={busyAddressId === addr.id}
+                    className="rounded p-1.5 text-ink-400 hover:bg-ink-50 hover:text-ink-700"
+                    title={t('common.edit')}
+                    aria-label={t('common.edit')}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
                     onClick={() => toggleFavorite(addr)}
                     disabled={busyAddressId === addr.id}
                     className="rounded p-1.5 text-ink-400 hover:bg-sage-50 hover:text-sage-600"
@@ -407,8 +479,14 @@ export function AddressManager() {
             })}
           </div>
 
+          <label className="mb-3 block">
+            <span className="kiyo-label">{t('location.customLabel')}</span>
+            <input className="kiyo-input h-11" value={customName} onChange={(event) => setCustomName(event.target.value)} maxLength={60} />
+          </label>
+
           <DeliveryMap
             purpose="customer"
+            initialLocation={newLocation}
             onLocationChange={(loc) => setNewLocation(loc)}
           />
           {newLocation && !newLocation.confirmed && (
@@ -417,11 +495,23 @@ export function AddressManager() {
             </p>
           )}
 
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <AddressDetail label={t('location.building')} value={details.building} onChange={(building) => setDetails((current) => ({ ...current, building }))} />
+            <AddressDetail label={t('location.entrance')} value={details.entrance} onChange={(entrance) => setDetails((current) => ({ ...current, entrance }))} />
+            <AddressDetail label={t('location.floor')} value={details.floor} onChange={(floor) => setDetails((current) => ({ ...current, floor }))} />
+            <AddressDetail label={t('location.apartment')} value={details.apartment} onChange={(apartment) => setDetails((current) => ({ ...current, apartment }))} />
+            <AddressDetail label={t('location.landmark')} value={details.landmark} onChange={(landmark) => setDetails((current) => ({ ...current, landmark }))} className="sm:col-span-2" />
+            <AddressDetail label={t('location.instructions')} value={details.instructions} onChange={(instructions) => setDetails((current) => ({ ...current, instructions }))} className="sm:col-span-2" />
+          </div>
+
           <div className="mt-4 flex justify-end gap-2">
             <button
               onClick={() => {
                 setShowAddForm(false);
                 setNewLocation(null);
+                setEditingId(null);
+                setCustomName('');
+                setDetails(EMPTY_DELIVERY_DETAILS);
               }}
               className="kiyo-btn-ghost text-xs"
             >
@@ -429,7 +519,7 @@ export function AddressManager() {
               {t('common.cancel')}
             </button>
             <button
-              onClick={addAddress}
+              onClick={saveAddress}
               disabled={!newLocation?.confirmed}
               className="kiyo-btn-primary text-xs"
             >
@@ -440,6 +530,15 @@ export function AddressManager() {
         </div>
       )}
     </div>
+  );
+}
+
+function AddressDetail({ label, value, onChange, className = '' }: { label: string; value: string; onChange: (value: string) => void; className?: string }) {
+  return (
+    <label className={className}>
+      <span className="kiyo-label">{label}</span>
+      <input className="kiyo-input h-11" value={value} onChange={(event) => onChange(event.target.value)} maxLength={240} />
+    </label>
   );
 }
 

@@ -122,25 +122,9 @@ This is what makes the reset link in the email go somewhere real instead of bein
 
 ## 2. Google Maps setup
 
-**Important — read first:** The current production build uses **Leaflet + OpenStreetMap** (free, no API key required). The repo's `src/lib/geo.ts` and `src/components/DeliveryMap.tsx` call `nominatim.openstreetmap.org` directly. **You do not need any Google Maps setup to launch the app as it is today.**
+**Production architecture:** Google Maps Platform is the primary map, address search, geocoding, and route provider. The browser Geolocation API supplies coordinates; Google never replaces a weak GPS reading with an IP-derived delivery point. OpenStreetMap/Nominatim remains a limited text-geocoding fallback in `src/lib/geo.ts`, not the primary interactive map.
 
-What Google Maps would give you if you switched:
-- Better satellite imagery
-- More accurate local data in Algeria
-- Commercial-grade routing (the current ETA is estimated in code)
-- Costs: **pay per request** — can become significant at scale (≈$7 per 1,000 map loads + Places API calls)
-
-**Choose one of two paths below.**
-
-### Option A — Keep the free OSM/Leaflet setup (recommended for MVP)
-
-1. **Nothing to do.** The app already works.
-2. To verify: open your production URL → go to `/restaurant/apply` as an owner → click the map. You can drag the pin, search addresses in Algeria, and the location saves.
-3. If the search is slow or shows "Rate limited", that means Nominatim (public server) is throttled. Fix that by hosting your own Nominatim instance OR by switching to Mapbox (also has a generous free tier). Out of scope for this doc.
-
-### Option B — Switch to Google Maps Platform
-
-> ⚠️ Requires a billing-enabled Google Cloud account. Maps JavaScript API + Places API together cost about **$7 per 1,000 loads** after the free monthly credit.
+> Google Maps requires a billing-enabled Google Cloud account. Keep quotas, budget alerts, HTTP-referrer restrictions, and API restrictions enabled.
 
 #### 1. Google Cloud project
 
@@ -160,11 +144,13 @@ In the left menu → **APIs & Services** → **Library**. Search for and **Enabl
 
 1. **APIs & Services** → **Credentials** → **Create Credentials** → **API Key**.
 2. Copy the key (looks like `AIzaSy…`). Click **Edit Key** to restrict it:
-   - **Application restrictions**: HTTP referrers (web sites). Add:
-     ```
-     https://kiyo-food.store/*
-     http://localhost:5173/*
-     ```
+    - **Application restrictions**: HTTP referrers (web sites). Add:
+      ```
+      https://kiyo-food.store/*
+      https://www.kiyo-food.store/*
+      https://*.vercel.app/*
+      http://localhost:5173/*
+      ```
    - **API restrictions**: restrict to the four APIs you just enabled.
 3. Click **Save**.
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Clock, Truck, Settings, ChevronLeft,
-  AlertCircle, Save, Wallet,
+  AlertCircle, Save, Wallet, MapPin,
 } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
 import { supabase, type Restaurant } from '../lib/supabase';
@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Skeleton, ErrorState, Spinner } from '../components/feedback';
+import DeliveryMap, { type DeliveryMapLocation } from '../components/DeliveryMap';
 
 type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 const DAYS: { key: DayOfWeek; labelKey: 'day.0' | 'day.1' | 'day.2' | 'day.3' | 'day.4' | 'day.5' | 'day.6' }[] = [
@@ -43,6 +44,7 @@ export default function RestaurantSettingsPage() {
   const [minOrder, setMinOrder] = useState('0');
   const [estimatedDeliveryMin, setEstimatedDeliveryMin] = useState('45');
   const [commissionRate, setCommissionRate] = useState('7');
+  const [location, setLocation] = useState<DeliveryMapLocation | null>(null);
 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -72,6 +74,31 @@ export default function RestaurantSettingsPage() {
       setMinOrder(String(activeRes.min_order_amount || 0));
       setEstimatedDeliveryMin(String(activeRes.estimated_delivery_min || 45));
       setCommissionRate(String(Number(activeRes.commission_rate ?? 0.07) * 100));
+      if (activeRes.latitude != null && activeRes.longitude != null) {
+        setLocation({
+          lat: activeRes.latitude,
+          lng: activeRes.longitude,
+          address: activeRes.address ?? `${activeRes.latitude}, ${activeRes.longitude}`,
+          accuracy: activeRes.location_accuracy_m,
+          source: activeRes.location_source ?? 'manual',
+          confirmed: activeRes.location_verified,
+          placeId: activeRes.place_id,
+          addressQuality: 'manual',
+          requiresManualAdjustment: !activeRes.location_verified,
+          addressParts: {
+            displayName: activeRes.address ?? '',
+            street: activeRes.street ?? undefined,
+            neighborhood: activeRes.neighborhood ?? undefined,
+            commune: activeRes.commune ?? undefined,
+            city: activeRes.city ?? undefined,
+            province: activeRes.province ?? undefined,
+            postalCode: activeRes.postal_code ?? undefined,
+            country: activeRes.country ?? 'Algeria',
+            placeId: activeRes.place_id ?? undefined,
+            provider: activeRes.place_id ? 'google' : 'manual',
+          },
+        });
+      }
     } catch (err: unknown) {
       console.error(err);
       setError(err instanceof Error ? err.message : t('error.genericBody'));
@@ -95,6 +122,11 @@ export default function RestaurantSettingsPage() {
       setSaving(false);
       return;
     }
+    if (!location?.confirmed) {
+      setSaveError(t('map.confirmRequired'));
+      setSaving(false);
+      return;
+    }
 
     try {
       const { error: e } = await supabase
@@ -105,6 +137,21 @@ export default function RestaurantSettingsPage() {
           min_order_amount: Number(minOrder),
           estimated_delivery_min: Number(estimatedDeliveryMin),
           commission_rate: rateNum / 100,
+          address: location.address,
+          latitude: location.lat,
+          longitude: location.lng,
+          location_accuracy_m: location.accuracy,
+          location_verified: true,
+          location_source: location.source,
+          location_updated_at: new Date().toISOString(),
+          place_id: location.placeId,
+          street: location.addressParts?.street ?? null,
+          neighborhood: location.addressParts?.neighborhood ?? null,
+          commune: location.addressParts?.commune ?? null,
+          city: location.addressParts?.city ?? null,
+          province: location.addressParts?.province ?? null,
+          postal_code: location.addressParts?.postalCode ?? null,
+          country: location.addressParts?.country ?? 'Algeria',
           updated_at: new Date().toISOString(),
         })
         .eq('id', restaurant.id);
@@ -215,6 +262,23 @@ export default function RestaurantSettingsPage() {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Delivery Configuration */}
+          <div className="kiyo-card">
+            <div className="mb-4 flex items-start gap-2">
+              <MapPin className="mt-0.5 h-5 w-5 text-ember-600" />
+              <div>
+                <h2 className="font-display text-base font-bold text-ink-900">{t('restaurant.onboard.locationTitle')}</h2>
+                <p className="mt-0.5 text-xs text-ink-500">{t('restaurant.onboard.locationHelp')}</p>
+              </div>
+            </div>
+            <DeliveryMap
+              purpose="restaurant"
+              initialAddress={restaurant.address ?? ''}
+              initialLocation={location}
+              onLocationChange={setLocation}
+            />
           </div>
 
           {/* Delivery Configuration */}

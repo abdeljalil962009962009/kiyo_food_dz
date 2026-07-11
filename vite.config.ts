@@ -82,11 +82,6 @@ export default defineConfig(({ mode }) => {
           manualChunks(id) {
             if (!id.includes('node_modules')) return undefined;
             if (id.includes('@supabase')) return 'vendor-supabase';
-            if (id.includes('@deck.gl/google-maps')) return 'vendor-deck-google-maps';
-            if (id.includes('@deck.gl/layers')) return 'vendor-deck-layers';
-            if (id.includes('@deck.gl/core')) return 'vendor-deck-core';
-            if (id.includes('@luma.gl')) return 'vendor-luma';
-            if (id.includes('@math.gl')) return 'vendor-math';
             if (id.includes('@vis.gl/react-google-maps') || id.includes('@googlemaps')) {
               return 'vendor-google-maps';
             }

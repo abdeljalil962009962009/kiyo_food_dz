@@ -5,7 +5,6 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { useCart } from '../context/CartContext';
-import { useWilaya } from '../context/WilayaContext';
 import { useT } from '../lib/i18n-react';
 import { Logo } from './Logo';
 import { NotificationBell } from './NotificationBell';
@@ -15,7 +14,6 @@ import type { Locale } from '../lib/i18n';
 export function AppShell({ children }: { children: ReactNode }) {
   const { profile, signOut, locale, setLocale } = useAuth();
   const { totalItems } = useCart();
-  const { loading: wilayaLoading } = useWilaya();
   const { t } = useT();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -94,8 +92,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Link to="/dashboard" className="flex items-center">
               <Logo size={32} />
             </Link>
-            {role === 'customer' && !wilayaLoading && (
-              <div className="ml-2 hidden sm:block">
+            {role === 'customer' && (
+              <div className="ml-2 hidden md:block">
                 <WilayaSelector />
               </div>
             )}
@@ -162,13 +160,14 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </div>
 
+        {role === 'customer' && (
+          <div className="border-t border-ink-100/80 px-4 py-2 md:hidden">
+            <WilayaSelector variant="mobile" />
+          </div>
+        )}
+
         {mobileOpen && (
           <nav className="border-t border-ink-100 bg-white px-4 pb-4 pt-2 lg:hidden">
-            {role === 'customer' && (
-              <div className="mb-3 border-b border-ink-100 pb-3">
-                <WilayaSelector variant="inline" />
-              </div>
-            )}
             {navItems.map((item) => (
               <NavLink
                 key={item.to}

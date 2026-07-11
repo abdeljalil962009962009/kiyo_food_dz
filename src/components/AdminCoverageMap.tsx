@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Map, useMap } from '@vis.gl/react-google-maps';
-import { GoogleMapsOverlay } from '@deck.gl/google-maps';
-import { ScatterplotLayer } from '@deck.gl/layers';
 import { Activity, AlertTriangle, Layers3 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useT } from '../lib/i18n-react';
@@ -158,31 +156,54 @@ function CoverageOverlay({ points }: { points: LocationPoint[] }) {
 
   useEffect(() => {
     if (!map) return;
-    const overlay = new GoogleMapsOverlay({ interleaved: true });
-    overlay.setProps({
-      layers: [
-        new ScatterplotLayer<LocationPoint>({
-          id: 'kiyo-coverage-points',
-          data: points,
-          getPosition: (point) => [point.lng, point.lat],
-          getFillColor: (point) => point.type === 'restaurant'
-            ? [26, 26, 23, 190]
-            : [251, 79, 10, 120],
-          getLineColor: [255, 255, 255, 220],
-          getRadius: (point) => point.type === 'restaurant' ? 220 : 130,
-          radiusMinPixels: 4,
-          radiusMaxPixels: 24,
-          lineWidthMinPixels: 1,
-          stroked: true,
-          pickable: false,
-        }),
-      ],
-    });
-    overlay.setMap(map);
-    return () => {
-      overlay.setMap(null);
-      overlay.finalize();
+    const overlay = new google.maps.OverlayView();
+    let canvas: HTMLCanvasElement | null = null;
+
+    overlay.onAdd = () => {
+      canvas = document.createElement('canvas');
+      canvas.style.position = 'absolute';
+      canvas.style.pointerEvents = 'none';
+      overlay.getPanes()?.overlayLayer.appendChild(canvas);
     };
+
+    overlay.draw = () => {
+      if (!canvas) return;
+      const projection = overlay.getProjection();
+      const mapElement = map.getDiv();
+      const width = mapElement.clientWidth;
+      const height = mapElement.clientHeight;
+      const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.max(1, Math.round(width * pixelRatio));
+      canvas.height = Math.max(1, Math.round(height * pixelRatio));
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      canvas.style.left = '0';
+      canvas.style.top = '0';
+
+      const context = canvas.getContext('2d');
+      if (!context) return;
+      context.scale(pixelRatio, pixelRatio);
+      context.clearRect(0, 0, width, height);
+
+      for (const point of points) {
+        const pixel = projection.fromLatLngToDivPixel(new google.maps.LatLng(point.lat, point.lng));
+        if (!pixel || pixel.x < -20 || pixel.y < -20 || pixel.x > width + 20 || pixel.y > height + 20) continue;
+        context.beginPath();
+        context.arc(pixel.x, pixel.y, point.type === 'restaurant' ? 7 : 5, 0, Math.PI * 2);
+        context.fillStyle = point.type === 'restaurant' ? 'rgba(26,26,23,0.72)' : 'rgba(251,79,10,0.38)';
+        context.fill();
+        context.lineWidth = 1;
+        context.strokeStyle = 'rgba(255,255,255,0.75)';
+        context.stroke();
+      }
+    };
+
+    overlay.onRemove = () => {
+      canvas?.remove();
+      canvas = null;
+    };
+    overlay.setMap(map);
+    return () => overlay.setMap(null);
   }, [map, points]);
 
   return null;

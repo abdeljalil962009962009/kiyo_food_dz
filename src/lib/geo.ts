@@ -48,9 +48,12 @@ export const GEOLOCATION_DEFAULT_OPTIONS: PositionOptions = {
 };
 
 export const LOCATION_ACCURACY_METERS = {
-  restaurantStrict: 50,
-  customerGood: 80,
-  customerUsable: 250,
+  excellent: 15,
+  good: 30,
+  confirmable: 50,
+  restaurantStrict: 30,
+  customerGood: 30,
+  customerUsable: 50,
   driverSuspicious: 250,
 };
 
@@ -78,9 +81,19 @@ export function isCoordinateInAlgeria(lat: number, lng: number): boolean {
 export function isUsableAccuracy(accuracy: number | null | undefined, purpose: LocationCapturePurpose): boolean {
   if (accuracy == null) return purpose !== 'restaurant';
   if (purpose === 'restaurant') return accuracy <= LOCATION_ACCURACY_METERS.restaurantStrict;
-  if (purpose === 'driver') return accuracy <= LOCATION_ACCURACY_METERS.customerGood;
-  if (purpose === 'wilaya') return accuracy <= 5000;
-  return accuracy <= LOCATION_ACCURACY_METERS.customerGood;
+  if (purpose === 'driver') return accuracy <= LOCATION_ACCURACY_METERS.customerUsable;
+  if (purpose === 'wilaya') return accuracy <= LOCATION_ACCURACY_METERS.customerUsable;
+  return accuracy <= LOCATION_ACCURACY_METERS.customerUsable;
+}
+
+export type AccuracyQuality = 'excellent' | 'good' | 'acceptable' | 'weak' | 'unknown';
+
+export function getAccuracyQuality(accuracy: number | null | undefined): AccuracyQuality {
+  if (accuracy == null || !Number.isFinite(accuracy)) return 'unknown';
+  if (accuracy <= LOCATION_ACCURACY_METERS.excellent) return 'excellent';
+  if (accuracy <= LOCATION_ACCURACY_METERS.good) return 'good';
+  if (accuracy <= LOCATION_ACCURACY_METERS.confirmable) return 'acceptable';
+  return 'weak';
 }
 
 function toLiveGeoPoint(pos: GeolocationPosition): LiveGeoPoint {
@@ -93,7 +106,7 @@ function toLiveGeoPoint(pos: GeolocationPosition): LiveGeoPoint {
     heading: pos.coords.heading,
     speed: pos.coords.speed,
     timestamp: pos.timestamp,
-    source: pos.coords.accuracy && pos.coords.accuracy <= LOCATION_ACCURACY_METERS.customerGood ? 'gps' : 'network',
+    source: pos.coords.accuracy && pos.coords.accuracy <= LOCATION_ACCURACY_METERS.customerUsable ? 'gps' : 'network',
   };
 }
 
@@ -293,7 +306,13 @@ export function requestBestCurrentPosition(params: {
   let stopWatching: (() => void) | null = null;
 
   const finish = (timedOut: boolean) => {
-    if (completed || !best) return;
+    if (completed) return;
+    if (!best) {
+      completed = true;
+      stopWatching?.();
+      params.onError(new Error('location_timeout'));
+      return;
+    }
     completed = true;
     stopWatching?.();
     params.onResult({

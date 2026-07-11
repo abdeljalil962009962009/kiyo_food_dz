@@ -87,6 +87,13 @@ export default function RestaurantOnboardingPage() {
           place_id: location?.placeId ?? null,
           location_source: location?.source ?? null,
           location_updated_at: location ? new Date().toISOString() : null,
+          street: location?.addressParts?.street ?? null,
+          neighborhood: location?.addressParts?.neighborhood ?? null,
+          commune: location?.addressParts?.commune ?? null,
+          city: location?.addressParts?.city ?? null,
+          province: location?.addressParts?.province ?? null,
+          postal_code: location?.addressParts?.postalCode ?? null,
+          country: location?.addressParts?.country ?? 'Algeria',
           cuisine: cuisine.split(',').map((s) => s.trim()).filter(Boolean),
           image_url: imageUrl.trim() || PLACEHOLDER_IMG,
           status: 'pending_approval',
@@ -211,6 +218,7 @@ export default function RestaurantOnboardingPage() {
               <DeliveryMap
                 purpose="restaurant"
                 initialAddress={address}
+                initialLocation={location}
                 onLocationChange={(loc) => {
                   setLocation(loc);
                   setAddress(loc.address);

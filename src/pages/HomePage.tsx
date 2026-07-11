@@ -6,6 +6,7 @@ import { useT } from '../lib/i18n-react';
 import { Logo } from '../components/Logo';
 import { FullScreenLoader } from '../components/feedback';
 import { getPublicSiteUrl } from '../lib/siteUrl';
+import { WilayaSelector } from '../components/WilayaSelector';
 
 export function HomePage() {
   const { t } = useT();
@@ -42,6 +43,9 @@ export function HomePage() {
         <p className="mt-4 max-w-md text-sm text-ink-200 sm:text-base">
           {t('brand.heroSubtitle')}
         </p>
+        <div className="mt-6 w-full max-w-md rounded-xl bg-white p-2 shadow-card-lg">
+          <WilayaSelector variant="mobile" />
+        </div>
         <div className="mt-6 flex gap-3">
           <Link to="/signup" className="kiyo-btn-primary bg-ember-500 hover:bg-ember-600">
             {t('auth.signup')}

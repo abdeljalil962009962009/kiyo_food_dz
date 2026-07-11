@@ -109,6 +109,7 @@ export type TranslationKey =
   | 'common.loading'
   | 'common.cancel'
   | 'common.save'
+  | 'common.edit'
   | 'common.back'
   | 'common.close'
   | 'common.search'
@@ -244,6 +245,8 @@ export type TranslationKey =
   | 'map.loadFailedBody'
   | 'map.configurationMissingTitle'
   | 'map.configurationMissingBody'
+  | 'map.offlineTitle'
+  | 'map.offlineBody'
   | 'map.customerMarker'
   | 'map.driverMarker'
   | 'map.coverageTitle'
@@ -258,6 +261,32 @@ export type TranslationKey =
   | 'map.gpsLive'
   | 'map.gpsIdle'
   | 'map.gpsError'
+  | 'map.recenter'
+  | 'map.accuracy.excellent'
+  | 'map.accuracy.good'
+  | 'map.accuracy.acceptable'
+  | 'map.accuracy.weak'
+  | 'map.accuracy.unknown'
+  | 'location.deliverTo'
+  | 'location.chooseExact'
+  | 'location.title'
+  | 'location.privacy'
+  | 'location.saved'
+  | 'location.noSaved'
+  | 'location.privacyShort'
+  | 'location.building'
+  | 'location.entrance'
+  | 'location.floor'
+  | 'location.apartment'
+  | 'location.landmark'
+  | 'location.instructions'
+  | 'location.notConfirmed'
+  | 'location.ready'
+  | 'location.confirmOnMap'
+  | 'location.confirmDelivery'
+  | 'location.customLabel'
+  | 'location.quoteSummary'
+  | 'location.etaMinutes'
   // cart + checkout
   | 'cart.title'
   | 'cart.empty'
@@ -658,6 +687,7 @@ const en: Dict = {
   'common.loading': 'Loading…',
   'common.cancel': 'Cancel',
   'common.save': 'Save',
+  'common.edit': 'Edit',
   'common.back': 'Back',
   'common.close': 'Close',
   'common.search': 'Search',
@@ -804,6 +834,34 @@ const en: Dict = {
   'map.gpsLive': 'live',
   'map.gpsIdle': 'idle',
   'map.gpsError': 'unavailable',
+  'map.offlineTitle': 'You are offline',
+  'map.offlineBody': 'Reconnect to load the interactive map. Your selected address and form details are still saved.',
+  'map.recenter': 'Recenter on my location',
+  'map.accuracy.excellent': 'Excellent',
+  'map.accuracy.good': 'Good',
+  'map.accuracy.acceptable': 'Confirm carefully',
+  'map.accuracy.weak': 'Weak',
+  'map.accuracy.unknown': 'Unknown',
+  'location.deliverTo': 'Deliver to',
+  'location.chooseExact': 'Choose an exact location',
+  'location.title': 'Where should we deliver?',
+  'location.privacy': 'Search, use GPS, then confirm the exact entrance on the map.',
+  'location.saved': 'Saved and recent',
+  'location.noSaved': 'No saved addresses yet. Choose an exact point on the map.',
+  'location.privacyShort': 'Your precise location is used only to find serviceable restaurants and deliver your order.',
+  'location.building': 'Building',
+  'location.entrance': 'Entrance',
+  'location.floor': 'Floor',
+  'location.apartment': 'Apartment',
+  'location.landmark': 'Nearby landmark',
+  'location.instructions': 'Instructions for the driver',
+  'location.notConfirmed': 'No exact delivery point confirmed',
+  'location.ready': 'Exact coordinates are ready for delivery.',
+  'location.confirmOnMap': 'Confirm the pin on the map before continuing.',
+  'location.confirmDelivery': 'Confirm delivery location',
+  'location.customLabel': 'Address name (optional)',
+  'location.quoteSummary': 'Verified delivery distance',
+  'location.etaMinutes': 'Estimated arrival (minutes)',
   'cart.title': 'Your cart',
   'cart.empty': 'Your cart is empty',
   'cart.emptyBody': 'Browse restaurants and add items to get started.',
@@ -1199,6 +1257,7 @@ const fr: Dict = {
   'common.loading': 'Chargement…',
   'common.cancel': 'Annuler',
   'common.save': 'Enregistrer',
+  'common.edit': 'Modifier',
   'common.back': 'Retour',
   'common.close': 'Fermer',
   'common.search': 'Rechercher',
@@ -1345,6 +1404,34 @@ const fr: Dict = {
   'map.gpsLive': 'en direct',
   'map.gpsIdle': 'en attente',
   'map.gpsError': 'indisponible',
+  'map.offlineTitle': 'Vous êtes hors ligne',
+  'map.offlineBody': 'Reconnectez-vous pour charger la carte. Votre adresse et les informations du formulaire sont conservées.',
+  'map.recenter': 'Recentrer sur ma position',
+  'map.accuracy.excellent': 'Excellente',
+  'map.accuracy.good': 'Bonne',
+  'map.accuracy.acceptable': 'À confirmer',
+  'map.accuracy.weak': 'Faible',
+  'map.accuracy.unknown': 'Inconnue',
+  'location.deliverTo': 'Livrer à',
+  'location.chooseExact': 'Choisir une adresse exacte',
+  'location.title': 'Où devons-nous livrer ?',
+  'location.privacy': 'Recherchez, utilisez le GPS, puis confirmez l’entrée exacte sur la carte.',
+  'location.saved': 'Adresses enregistrées et récentes',
+  'location.noSaved': 'Aucune adresse enregistrée. Choisissez un point exact sur la carte.',
+  'location.privacyShort': 'Votre position précise sert uniquement à vérifier la livraison et à apporter votre commande.',
+  'location.building': 'Bâtiment',
+  'location.entrance': 'Entrée',
+  'location.floor': 'Étage',
+  'location.apartment': 'Appartement',
+  'location.landmark': 'Point de repère',
+  'location.instructions': 'Instructions pour le livreur',
+  'location.notConfirmed': 'Aucun point de livraison exact confirmé',
+  'location.ready': 'Les coordonnées exactes sont prêtes pour la livraison.',
+  'location.confirmOnMap': 'Confirmez l’épingle sur la carte avant de continuer.',
+  'location.confirmDelivery': 'Confirmer le lieu de livraison',
+  'location.customLabel': 'Nom de l’adresse (facultatif)',
+  'location.quoteSummary': 'Distance de livraison vérifiée',
+  'location.etaMinutes': 'Arrivée estimée (minutes)',
   'cart.title': 'Votre panier',
   'cart.empty': 'Votre panier est vide',
   'cart.emptyBody': 'Parcourez les restaurants pour ajouter des plats.',
@@ -1740,6 +1827,7 @@ const ar: Dict = {
   'common.loading': 'جاري التحميل…',
   'common.cancel': 'إلغاء',
   'common.save': 'حفظ',
+  'common.edit': 'تعديل',
   'common.back': 'رجوع',
   'common.close': 'إغلاق',
   'common.search': 'بحث',
@@ -1886,6 +1974,34 @@ const ar: Dict = {
   'map.gpsLive': 'مباشر',
   'map.gpsIdle': 'في الانتظار',
   'map.gpsError': 'غير متاح',
+  'map.offlineTitle': 'أنت غير متصل بالإنترنت',
+  'map.offlineBody': 'أعد الاتصال لتحميل الخريطة. ما زال العنوان المختار وبيانات النموذج محفوظين.',
+  'map.recenter': 'إعادة التمركز على موقعي',
+  'map.accuracy.excellent': 'ممتازة',
+  'map.accuracy.good': 'جيدة',
+  'map.accuracy.acceptable': 'تحتاج إلى تأكيد',
+  'map.accuracy.weak': 'ضعيفة',
+  'map.accuracy.unknown': 'غير معروفة',
+  'location.deliverTo': 'التوصيل إلى',
+  'location.chooseExact': 'اختر موقعاً دقيقاً',
+  'location.title': 'إلى أين تريد التوصيل؟',
+  'location.privacy': 'ابحث أو استخدم GPS ثم أكد المدخل الدقيق على الخريطة.',
+  'location.saved': 'العناوين المحفوظة والأخيرة',
+  'location.noSaved': 'لا توجد عناوين محفوظة. اختر نقطة دقيقة على الخريطة.',
+  'location.privacyShort': 'يُستخدم موقعك الدقيق فقط للتحقق من إمكانية التوصيل وإيصال طلبك.',
+  'location.building': 'المبنى',
+  'location.entrance': 'المدخل',
+  'location.floor': 'الطابق',
+  'location.apartment': 'الشقة',
+  'location.landmark': 'معلم قريب',
+  'location.instructions': 'تعليمات للسائق',
+  'location.notConfirmed': 'لم يتم تأكيد نقطة توصيل دقيقة',
+  'location.ready': 'الإحداثيات الدقيقة جاهزة للتوصيل.',
+  'location.confirmOnMap': 'أكد الدبوس على الخريطة قبل المتابعة.',
+  'location.confirmDelivery': 'تأكيد موقع التوصيل',
+  'location.customLabel': 'اسم العنوان (اختياري)',
+  'location.quoteSummary': 'مسافة التوصيل المؤكدة',
+  'location.etaMinutes': 'الوصول المتوقع (بالدقائق)',
   'cart.title': 'سلتك',
   'cart.empty': 'سلتك فارغة',
   'cart.emptyBody': 'تصفح المطاعم وأضف أطباقاً.',

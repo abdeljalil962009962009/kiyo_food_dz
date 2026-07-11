@@ -18,23 +18,50 @@ type GoogleMapShellProps = {
 export function GoogleMapShell({ children, fallbackHeightClass = 'h-[360px]' }: GoogleMapShellProps) {
   const { t, locale } = useT();
   const [loadFailed, setLoadFailed] = useState(false);
+  const [online, setOnline] = useState(() => navigator.onLine);
+  const [attempt, setAttempt] = useState(0);
 
-  if (!hasGoogleMapsKey() || loadFailed) {
+  useEffect(() => {
+    const handleOnline = () => setOnline(true);
+    const handleOffline = () => setOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  if (!hasGoogleMapsKey() || loadFailed || !online) {
+    const title = !online
+      ? t('map.offlineTitle')
+      : loadFailed
+        ? t('map.loadFailedTitle')
+        : t('map.configurationMissingTitle');
+    const body = !online
+      ? t('map.offlineBody')
+      : loadFailed
+        ? t('map.loadFailedBody')
+        : t('map.configurationMissingBody');
     return (
       <div className={`flex ${fallbackHeightClass} min-h-64 flex-col items-center justify-center rounded-xl border border-ink-200 bg-ink-50 px-6 text-center`}>
         <span className="flex h-11 w-11 items-center justify-center rounded-full bg-warning-500/10 text-warning-600">
           <AlertTriangle className="h-5 w-5" />
         </span>
         <p className="mt-3 text-sm font-bold text-ink-900">
-          {loadFailed ? t('map.loadFailedTitle') : t('map.configurationMissingTitle')}
+          {title}
         </p>
         <p className="mt-1 max-w-sm text-xs leading-5 text-ink-500">
-          {loadFailed ? t('map.loadFailedBody') : t('map.configurationMissingBody')}
+          {body}
         </p>
-        {loadFailed && (
+        {(loadFailed || !online) && (
           <button
             type="button"
-            onClick={() => window.location.reload()}
+            onClick={() => {
+              setOnline(navigator.onLine);
+              setLoadFailed(false);
+              setAttempt((value) => value + 1);
+            }}
             className="kiyo-btn-secondary mt-4 px-4 py-2 text-xs"
           >
             <RefreshCw className="h-3.5 w-3.5" />
@@ -47,6 +74,7 @@ export function GoogleMapShell({ children, fallbackHeightClass = 'h-[360px]' }: 
 
   return (
     <APIProvider
+      key={`${mapLanguage(locale)}-${attempt}`}
       apiKey={GOOGLE_MAPS_API_KEY}
       version="weekly"
       language={mapLanguage(locale)}

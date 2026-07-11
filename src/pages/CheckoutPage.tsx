@@ -5,6 +5,7 @@ import { useT } from '../lib/i18n-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { useWilaya } from '../context/WilayaContext';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Spinner, ErrorState } from '../components/feedback';
@@ -18,6 +19,9 @@ type Finance = {
   delivery_fee: number;
   service_fee: number;
   total: number;
+  distance_km?: number;
+  duration_minutes?: number;
+  max_delivery_km?: number;
 };
 
 const SUBMIT_TIMEOUT_MS = 12000;
@@ -28,6 +32,7 @@ export default function CheckoutPage() {
   const [search] = useSearchParams();
   const navigate = useNavigate();
   const { state: cart, clear } = useCart();
+  const { deliveryLocation, setDeliveryLocation } = useWilaya();
 
   const restaurantId = search.get('id') ?? cart.restaurantId;
   void restaurantId; // RLS will infer from menu_items rows themselves
@@ -35,7 +40,7 @@ export default function CheckoutPage() {
   const [step, setStep] = useState<Step>('details');
   const [name, setName] = useState(profile?.full_name ?? '');
   const [phone, setPhone] = useState(profile?.phone ?? '');
-  const [address, setAddress] = useState('');
+  const [address, setAddress] = useState(deliveryLocation?.address ?? '');
   const [notes, setNotes] = useState('');
 
   const [finance, setFinance] = useState<Finance | null>(null);
@@ -50,7 +55,7 @@ export default function CheckoutPage() {
   type RestaurantGeo = { lat: number; lng: number; max_km: number };
   const [restaurantGeo, setRestaurantGeo] = useState<RestaurantGeo | null>(null);
   // Customer-chosen delivery location from the map
-  const [mapLocation, setMapLocation] = useState<DeliveryMapLocation | null>(null);
+  const [mapLocation, setMapLocation] = useState<DeliveryMapLocation | null>(deliveryLocation);
 
   // Load restaurant coordinates + delivery zone (for the map + distance check).
   useEffect(() => {
@@ -83,7 +88,7 @@ export default function CheckoutPage() {
   // Distance is unknown without Google Maps (Phase 3); fall back to 0km so the
   // min delivery fee (100 DZD) applies. Server still enforces the rate.
   const recalcFinancials = useCallback(async () => {
-    if (cart.lines.length === 0) return;
+    if (cart.lines.length === 0 || !cart.restaurantId || !mapLocation?.confirmed) return;
     setCalcLoading(true);
     setCalcError(null);
     setFinance(null);
@@ -92,14 +97,11 @@ export default function CheckoutPage() {
         menu_item_id: l.item.id,
         quantity: l.quantity,
       }));
-      // Use the real delivery distance if we have map + restaurant coordinates,
-      // so the review-step price matches what the user will actually be charged.
-      const deliveryKm = mapLocation && restaurantGeo
-        ? haversineKm([mapLocation.lat, mapLocation.lng], [restaurantGeo.lat, restaurantGeo.lng])
-        : 0;
-      const { data, error: e } = await supabase.rpc('calculate_order_financials', {
+      const { data, error: e } = await supabase.rpc('quote_delivery_order', {
+        p_restaurant_id: cart.restaurantId,
         p_items: itemsPayload,
-        p_delivery_km: deliveryKm,
+        p_delivery_lat: mapLocation.lat,
+        p_delivery_lng: mapLocation.lng,
       });
       if (e) throw e;
       setFinance(data as Finance);
@@ -109,7 +111,7 @@ export default function CheckoutPage() {
     } finally {
       setCalcLoading(false);
     }
-  }, [cart.lines, t, mapLocation, restaurantGeo]);
+  }, [cart.lines, cart.restaurantId, t, mapLocation]);
 
   useEffect(() => {
     if (step === 'review' && !calcLoading) {
@@ -162,13 +164,19 @@ export default function CheckoutPage() {
         delivery_latitude: mapLocation.lat,
         delivery_longitude: mapLocation.lng,
         delivery_accuracy_m: mapLocation.accuracy,
+        delivery_confirmed: true,
+        delivery_location_source: mapLocation.source,
+        delivery_place_id: mapLocation.placeId,
+        delivery_commune: mapLocation.addressParts?.commune ?? mapLocation.addressParts?.city ?? null,
+        delivery_wilaya: mapLocation.addressParts?.province ?? null,
+        delivery_postal_code: mapLocation.addressParts?.postalCode ?? null,
+        delivery_building: mapLocation.details?.building || null,
+        delivery_floor: mapLocation.details?.floor || null,
+        delivery_apartment: mapLocation.details?.apartment || null,
+        delivery_entrance: mapLocation.details?.entrance || null,
+        delivery_landmark: mapLocation.details?.landmark || null,
+        delivery_instructions: mapLocation.details?.instructions || null,
         notes: notes.trim() || null,
-        delivery_km: mapLocation && restaurantGeo
-          ? haversineKm(
-              [mapLocation.lat, mapLocation.lng],
-              [restaurantGeo.lat, restaurantGeo.lng],
-            )
-          : 0,
         idempotency_key: idempotencyKey,
       };
 
@@ -190,17 +198,6 @@ export default function CheckoutPage() {
 
       const orderId = (data as { order_id?: string })?.order_id ?? null;
       setPlacedOrderId(orderId);
-      if (orderId && mapLocation) {
-        const { error: locationError } = await supabase
-          .from('orders')
-          .update({
-            delivery_latitude: mapLocation.lat,
-            delivery_longitude: mapLocation.lng,
-            delivery_accuracy_m: mapLocation.accuracy,
-          })
-          .eq('id', orderId);
-        if (locationError) throw locationError;
-      }
       setStep('success');
       clear();
     } catch (err) {
@@ -214,7 +211,7 @@ export default function CheckoutPage() {
       clearTimeout(t0);
       setSubmitting(false);
     }
-  }, [submitting, profile, cart, address, phone, notes, t, clear, mapLocation, restaurantGeo]);
+  }, [submitting, profile, cart, address, phone, notes, t, clear, mapLocation]);
 
   // Cart empty states for /checkout accessed without items.
   if (cart.lines.length === 0 && step !== 'success') {
@@ -302,9 +299,11 @@ export default function CheckoutPage() {
                   restaurantLng={restaurantGeo?.lng}
                   maxDeliveryKm={restaurantGeo?.max_km}
                   initialAddress={address}
+                  initialLocation={mapLocation}
                   onLocationChange={(loc) => {
                     setMapLocation(loc);
                     setAddress(loc.address);
+                    if (loc.confirmed) setDeliveryLocation(loc);
                   }}
                 />
                 <input type="hidden" value={address} onChange={() => {}} />
@@ -380,6 +379,18 @@ export default function CheckoutPage() {
                   ))}
                 </div>
                 <div className="kiyo-card mb-3 space-y-2 p-4 text-sm">
+                  {finance.distance_km != null && (
+                    <div className="mb-3 grid grid-cols-2 gap-2 rounded-lg bg-sage-50 p-3 text-xs">
+                      <div>
+                        <span className="block text-sage-700">{t('location.quoteSummary')}</span>
+                        <span className="mt-1 block font-bold text-sage-900">{Number(finance.distance_km).toFixed(1)} km</span>
+                      </div>
+                      <div>
+                        <span className="block text-sage-700">{t('location.etaMinutes')}</span>
+                        <span className="mt-1 block font-bold text-sage-900">{finance.duration_minutes ?? '—'}</span>
+                      </div>
+                    </div>
+                  )}
                   <Row label={t('cart.subtotal')} value={finance.subtotal} />
                   <Row label={t('cart.deliveryFee')} value={finance.delivery_fee} />
                   <Row label={t('cart.serviceFee')} value={finance.service_fee} muted />
@@ -493,20 +504,6 @@ async function makeIdempotencyKey(parts: string[]): Promise<string> {
   }
   const bucket = Math.floor(Date.now() / (5 * 60 * 1000));
   return `fallback-${h.toString(16)}-${bucket.toString(16)}`;
-}
-
-// Haversine distance in km — used to convert the customer's pin location to
-// an actual delivery distance for the financial calculation.
-function haversineKm(a: [number, number], b: [number, number]): number {
-  const R = 6371;
-  const dLat = ((b[0] - a[0]) * Math.PI) / 180;
-  const dLng = ((b[1] - a[1]) * Math.PI) / 180;
-  const s0 =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((a[0] * Math.PI) / 180) *
-      Math.cos((b[0] * Math.PI) / 180) *
-      Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(s0), Math.sqrt(1 - s0));
 }
 
 function formatWorkflowError(err: unknown, fallback: string): string {
