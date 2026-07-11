@@ -272,6 +272,8 @@ export type TranslationKey =
   | 'map.enterManually'
   | 'map.outsideBy'
   | 'map.findAvailableRestaurants'
+  | 'map.zoomIn'
+  | 'map.zoomOut'
   | 'map.accuracy.excellent'
   | 'map.accuracy.good'
   | 'map.accuracy.acceptable'
@@ -871,6 +873,8 @@ const en: Dict = {
   'map.enterManually': 'Enter address manually',
   'map.outsideBy': 'outside this delivery area',
   'map.findAvailableRestaurants': 'See restaurants that deliver here',
+  'map.zoomIn': 'Zoom in',
+  'map.zoomOut': 'Zoom out',
   'map.accuracy.excellent': 'Excellent',
   'map.accuracy.good': 'Good',
   'map.accuracy.acceptable': 'Confirm carefully',
@@ -1465,6 +1469,8 @@ const fr: Dict = {
   'map.enterManually': 'Saisir l’adresse',
   'map.outsideBy': 'hors de cette zone de livraison',
   'map.findAvailableRestaurants': 'Voir les restaurants disponibles',
+  'map.zoomIn': 'Zoom avant',
+  'map.zoomOut': 'Zoom arrière',
   'map.accuracy.excellent': 'Excellente',
   'map.accuracy.good': 'Bonne',
   'map.accuracy.acceptable': 'À confirmer',
@@ -2059,6 +2065,8 @@ const ar: Dict = {
   'map.enterManually': 'إدخال العنوان يدوياً',
   'map.outsideBy': 'خارج نطاق التوصيل هذا',
   'map.findAvailableRestaurants': 'عرض المطاعم التي توصل إلى هنا',
+  'map.zoomIn': 'تكبير الخريطة',
+  'map.zoomOut': 'تصغير الخريطة',
   'map.accuracy.excellent': 'ممتازة',
   'map.accuracy.good': 'جيدة',
   'map.accuracy.acceptable': 'تحتاج إلى تأكيد',

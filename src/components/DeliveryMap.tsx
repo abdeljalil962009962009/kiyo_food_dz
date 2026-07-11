@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { AdvancedMarker, Map, useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
+import { AdvancedMarker, ControlPosition, Map, MapControl, useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -8,6 +8,8 @@ import {
   LocateFixed,
   MapPin,
   Navigation,
+  Minus,
+  Plus,
   Search,
 } from 'lucide-react';
 import {
@@ -98,7 +100,6 @@ function DeliveryMapInner({
   const isRtl = locale === 'ar';
   const placesLibrary = useMapsLibrary('places');
   const geocodingLibrary = useMapsLibrary('geocoding');
-  const controlPositions = typeof google === 'undefined' ? null : google.maps.ControlPosition;
 
   const restaurantPosition = useMemo(() => (
     isValidMapCoordinate(restaurantLat, restaurantLng)
@@ -515,7 +516,7 @@ function DeliveryMapInner({
   return (
     <section className="overflow-hidden rounded-xl border border-ink-200 bg-white shadow-card" aria-label={t('map.locationSelector')}>
       <div className="border-b border-ink-100 bg-white p-3 sm:p-4">
-        <form onSubmit={submitSearch} className={`flex flex-col gap-2 ${gpsFirst ? '' : 'sm:flex-row'}`}>
+        <form onSubmit={submitSearch} className={`flex gap-2 ${gpsFirst ? 'flex-col' : 'flex-row'}`}>
           {gpsFirst && (
             <button
               type="button"
@@ -572,10 +573,10 @@ function DeliveryMapInner({
               type="button"
               onClick={locateWithGps}
               disabled={gpsLoading}
-              className="kiyo-btn-primary min-h-12 shrink-0 px-4 sm:min-w-44"
+              className="kiyo-btn-primary h-12 min-h-12 w-12 shrink-0 px-0 sm:w-auto sm:min-w-44 sm:px-4"
             >
               <LocateFixed className={`h-4 w-4 ${gpsLoading ? 'animate-pulse' : ''}`} />
-              {gpsLoading ? t('map.locating') : t('map.useCurrentLocation')}
+              <span className="hidden sm:inline">{gpsLoading ? t('map.locating') : t('map.useCurrentLocation')}</span>
             </button>
           )}
         </form>
@@ -603,7 +604,7 @@ function DeliveryMapInner({
       </div>
 
       <div
-        className="relative h-[clamp(220px,42dvh,440px)] min-h-[220px] w-full bg-ink-100 sm:h-[440px]"
+        className="relative h-[clamp(220px,42dvh,440px)] min-h-[220px] w-full bg-ink-100 [@media(max-height:650px)]:h-[150px] [@media(max-height:650px)]:min-h-[150px] sm:h-[440px]"
         data-testid="delivery-map-canvas"
       >
         <Map
@@ -613,10 +614,9 @@ function DeliveryMapInner({
           mapTypeId={mapType}
           gestureHandling="greedy"
           disableDefaultUI
-          zoomControl
+          zoomControl={false}
           fullscreenControl
-          zoomControlOptions={controlPositions ? { position: controlPositions.LEFT_CENTER } : undefined}
-          fullscreenControlOptions={controlPositions ? { position: controlPositions.LEFT_TOP } : undefined}
+          fullscreenControlOptions={{ position: ControlPosition.LEFT_TOP }}
           streetViewControl={false}
           minZoom={5}
           maxZoom={20}
@@ -632,6 +632,7 @@ function DeliveryMapInner({
           style={{ width: '100%', height: '100%' }}
         >
           <MapCamera target={cameraTarget} />
+          <MapZoomControls zoomInLabel={t('map.zoomIn')} zoomOutLabel={t('map.zoomOut')} />
           {restaurantPosition && (
             <AdvancedMarker position={restaurantPosition} title={t('map.restaurantMarker')} zIndex={2}>
               <MapMarkerBadge kind="restaurant" />
@@ -807,6 +808,29 @@ function MapCamera({ target }: { target: CameraTarget }) {
   }, [map, target.center, target.nonce, target.zoom]);
 
   return null;
+}
+
+function MapZoomControls({ zoomInLabel, zoomOutLabel }: { zoomInLabel: string; zoomOutLabel: string }) {
+  const map = useMap();
+  const adjustZoom = (delta: number) => {
+    if (!map) return;
+    const currentZoom = map.getZoom() ?? 12;
+    map.setZoom(Math.max(5, Math.min(20, currentZoom + delta)));
+  };
+
+  return (
+    <MapControl position={ControlPosition.LEFT_CENTER}>
+      <div className="ms-3 overflow-hidden rounded-lg border border-ink-200 bg-white shadow-card" data-testid="map-zoom-controls">
+        <button type="button" onClick={() => adjustZoom(1)} className="flex h-11 w-11 items-center justify-center text-ink-700 hover:bg-ink-50" aria-label={zoomInLabel}>
+          <Plus className="h-5 w-5" />
+        </button>
+        <span className="block h-px bg-ink-200" />
+        <button type="button" onClick={() => adjustZoom(-1)} className="flex h-11 w-11 items-center justify-center text-ink-700 hover:bg-ink-50" aria-label={zoomOutLabel}>
+          <Minus className="h-5 w-5" />
+        </button>
+      </div>
+    </MapControl>
+  );
 }
 
 function pickBestGeocodeResult(results: google.maps.GeocoderResult[]): google.maps.GeocoderResult | null {

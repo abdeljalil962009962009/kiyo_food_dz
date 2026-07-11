@@ -253,7 +253,7 @@ function LocationDialog({ onClose }: { onClose: () => void }) {
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain sm:grid sm:grid-cols-[280px_minmax(0,1fr)] sm:overflow-hidden">
-          <aside className="shrink-0 border-b border-ink-100 bg-ink-50/70 p-3 sm:overflow-y-auto sm:border-b-0 sm:border-r sm:p-5">
+          <aside className={`shrink-0 border-b border-ink-100 bg-ink-50/70 p-3 sm:overflow-y-auto sm:border-b-0 sm:border-r sm:p-5 ${!savedLoading && saved.length === 0 ? '[@media(max-height:650px)]:hidden' : ''}`}>
             <h3 className="text-xs font-bold uppercase text-ink-400">{t('location.useSaved')}</h3>
             <div className="mt-2 flex gap-2 overflow-x-auto pb-1 sm:block sm:space-y-2 sm:overflow-visible sm:pb-0">
               {savedLoading && <LocationSkeleton />}
