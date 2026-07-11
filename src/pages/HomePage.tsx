@@ -98,13 +98,13 @@ export function HomePage() {
         </div>
 
         <p className="mt-12 text-xs text-ink-400">
-          <Link to="/legal/terms" className="hover:text-ink-200">Terms</Link>
+          <Link to="/legal/terms" className="hover:text-ink-200">{t('auth.termsLink')}</Link>
           {' · '}
-          <Link to="/legal/privacy" className="hover:text-ink-200">Privacy</Link>
+          <Link to="/legal/privacy" className="hover:text-ink-200">{t('auth.privacyLink')}</Link>
           {' · '}
-          <Link to="/legal/refund" className="hover:text-ink-200">Refunds</Link>
+          <Link to="/legal/refund" className="hover:text-ink-200">{t('common.refunds')}</Link>
           {' · '}
-          <Link to="/legal/cookies" className="hover:text-ink-200">Cookies</Link>
+          <Link to="/legal/cookies" className="hover:text-ink-200">{t('common.cookies')}</Link>
         </p>
       </main>
 

@@ -114,6 +114,8 @@ export type TranslationKey =
   | 'common.close'
   | 'common.search'
   | 'common.none'
+  | 'common.refunds'
+  | 'common.cookies'
   | 'audit.title'
   | 'audit.actor'
   | 'audit.action'
@@ -692,6 +694,8 @@ const en: Dict = {
   'common.close': 'Close',
   'common.search': 'Search',
   'common.none': '—',
+  'common.refunds': 'Refunds',
+  'common.cookies': 'Cookies',
   'audit.title': 'Audit log',
   'audit.actor': 'Actor',
   'audit.action': 'Action',
@@ -1262,6 +1266,8 @@ const fr: Dict = {
   'common.close': 'Fermer',
   'common.search': 'Rechercher',
   'common.none': '—',
+  'common.refunds': 'Remboursements',
+  'common.cookies': 'Cookies',
   'audit.title': "Journal d'audit",
   'audit.actor': 'Acteur',
   'audit.action': 'Action',
@@ -1832,6 +1838,8 @@ const ar: Dict = {
   'common.close': 'إغلاق',
   'common.search': 'بحث',
   'common.none': '—',
+  'common.refunds': 'الاسترداد',
+  'common.cookies': 'ملفات تعريف الارتباط',
   'audit.title': 'سجل التدقيق',
   'audit.actor': 'الفاعل',
   'audit.action': 'الإجراء',
