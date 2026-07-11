@@ -98,6 +98,7 @@ function DeliveryMapInner({
   const isRtl = locale === 'ar';
   const placesLibrary = useMapsLibrary('places');
   const geocodingLibrary = useMapsLibrary('geocoding');
+  const controlPositions = typeof google === 'undefined' ? null : google.maps.ControlPosition;
 
   const restaurantPosition = useMemo(() => (
     isValidMapCoordinate(restaurantLat, restaurantLng)
@@ -614,8 +615,8 @@ function DeliveryMapInner({
           disableDefaultUI
           zoomControl
           fullscreenControl
-          zoomControlOptions={{ position: google.maps.ControlPosition.LEFT_CENTER }}
-          fullscreenControlOptions={{ position: google.maps.ControlPosition.LEFT_TOP }}
+          zoomControlOptions={controlPositions ? { position: controlPositions.LEFT_CENTER } : undefined}
+          fullscreenControlOptions={controlPositions ? { position: controlPositions.LEFT_TOP } : undefined}
           streetViewControl={false}
           minZoom={5}
           maxZoom={20}
