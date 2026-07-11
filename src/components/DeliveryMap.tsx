@@ -574,6 +574,9 @@ function DeliveryMapInner({
               onClick={locateWithGps}
               disabled={gpsLoading}
               className="kiyo-btn-primary h-12 min-h-12 w-12 shrink-0 px-0 sm:w-auto sm:min-w-44 sm:px-4"
+              aria-label={gpsLoading ? t('map.locating') : t('map.useCurrentLocation')}
+              title={gpsLoading ? t('map.locating') : t('map.useCurrentLocation')}
+              data-testid="map-gps-action"
             >
               <LocateFixed className={`h-4 w-4 ${gpsLoading ? 'animate-pulse' : ''}`} />
               <span className="hidden sm:inline">{gpsLoading ? t('map.locating') : t('map.useCurrentLocation')}</span>
