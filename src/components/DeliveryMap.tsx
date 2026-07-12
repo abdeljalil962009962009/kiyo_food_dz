@@ -670,24 +670,6 @@ function DeliveryMapInner({
           {restaurantPosition && maxDeliveryKm != null && maxDeliveryKm > 0 && (
             <MapCircle center={restaurantPosition} radius={maxDeliveryKm * 1000} color="#ec3804" fillOpacity={0.07} />
           )}
-          {livePosition && (
-            <>
-              <AdvancedMarker position={{ lat: livePosition.lat, lng: livePosition.lng }} title={t('map.currentPosition')} zIndex={3}>
-                <span className="relative flex h-5 w-5 items-center justify-center">
-                  <span className="absolute h-5 w-5 animate-ping rounded-full bg-blue-500/30" />
-                  <span className="relative h-3.5 w-3.5 rounded-full border-[3px] border-white bg-blue-600 shadow" />
-                </span>
-              </AdvancedMarker>
-              {livePosition.accuracy != null && livePosition.accuracy > 0 && (
-                <MapCircle
-                  center={{ lat: livePosition.lat, lng: livePosition.lng }}
-                  radius={livePosition.accuracy}
-                  color="#ec3804"
-                  fillOpacity={0.1}
-                />
-              )}
-            </>
-          )}
         </Map>
 
         {mapLoading && (
@@ -715,7 +697,7 @@ function DeliveryMapInner({
 
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center" aria-hidden="true">
           <div className={`relative -mt-8 flex flex-col items-center transition-transform duration-200 ${isDragging ? '-translate-y-2 scale-110' : ''}`}>
-            <span className="flex h-11 w-11 items-center justify-center rounded-full border-[4px] border-white bg-ember-600 text-white shadow-card-lg">
+            <span className="flex h-11 w-11 items-center justify-center rounded-full border-[4px] border-white bg-ember-600 text-white shadow-card-lg" data-testid="delivery-selection-pin">
               <Crosshair className="h-5 w-5" />
             </span>
             <span className="mt-1 h-2 w-4 rounded-full bg-ink-900/20 blur-[2px]" />

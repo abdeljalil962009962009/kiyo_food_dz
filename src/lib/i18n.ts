@@ -237,7 +237,6 @@ export type TranslationKey =
   | 'map.addressApproximate'
   | 'map.locationSelector'
   | 'map.restaurantMarker'
-  | 'map.currentPosition'
   | 'map.satelliteView'
   | 'map.standardView'
   | 'map.releaseToSelect'
@@ -848,7 +847,6 @@ const en: Dict = {
   'map.addressApproximate': 'This result identifies an area, not an exact entrance. Move the map to the correct point before confirming.',
   'map.locationSelector': 'Choose an exact location',
   'map.restaurantMarker': 'Restaurant location',
-  'map.currentPosition': 'Current GPS position',
   'map.satelliteView': 'Switch to satellite view',
   'map.standardView': 'Switch to standard map',
   'map.releaseToSelect': 'Release the map to select this point',
@@ -885,7 +883,7 @@ const en: Dict = {
   'map.weakConnection': 'Weak connection — map features may take a little longer.',
   'map.tilesSlow': 'The map is loading on a slow connection. Your last location is ready while we keep trying.',
   'map.gpsWeakMeasured': 'GPS could only locate you to approximately',
-  'map.gpsWeakAction': 'Try again in an open area or enter the address manually; this reading was not selected.',
+  'map.gpsWeakAction': 'Weak accuracy is a common browser limitation, not a Kiyo Food error. Search for your address or place the pin manually for best accuracy; our upcoming mobile app will provide much more precise location detection.',
   'map.retryGps': 'Try GPS again',
   'map.enterManually': 'Enter address manually',
   'map.outsideBy': 'outside this delivery area',
@@ -1454,7 +1452,6 @@ const fr: Dict = {
   'map.addressApproximate': 'Ce résultat indique une zone, pas une entrée précise. Déplacez la carte jusqu’au bon point avant de confirmer.',
   'map.locationSelector': 'Choisir un emplacement exact',
   'map.restaurantMarker': 'Emplacement du restaurant',
-  'map.currentPosition': 'Position GPS actuelle',
   'map.satelliteView': 'Afficher la vue satellite',
   'map.standardView': 'Afficher la carte standard',
   'map.releaseToSelect': 'Relâchez la carte pour sélectionner ce point',
@@ -1491,7 +1488,7 @@ const fr: Dict = {
   'map.weakConnection': 'Connexion faible — certaines fonctions de la carte peuvent être retardées.',
   'map.tilesSlow': 'La carte charge sur une connexion lente. Votre dernière position reste disponible pendant la nouvelle tentative.',
   'map.gpsWeakMeasured': 'Le GPS ne vous localise qu’à environ',
-  'map.gpsWeakAction': 'Réessayez dans un endroit dégagé ou saisissez l’adresse manuellement ; cette mesure n’a pas été sélectionnée.',
+  'map.gpsWeakAction': 'Une faible précision est une limite courante des navigateurs, pas une erreur de Kiyo Food. Recherchez votre adresse ou placez le repère manuellement ; notre prochaine application mobile offrira une localisation bien plus précise.',
   'map.retryGps': 'Réessayer le GPS',
   'map.enterManually': 'Saisir l’adresse',
   'map.outsideBy': 'hors de cette zone de livraison',
@@ -2060,7 +2057,6 @@ const ar: Dict = {
   'map.addressApproximate': 'هذه النتيجة تحدد منطقة وليست مدخلاً دقيقاً. حرّك الخريطة إلى النقطة الصحيحة قبل التأكيد.',
   'map.locationSelector': 'اختيار موقع دقيق',
   'map.restaurantMarker': 'موقع المطعم',
-  'map.currentPosition': 'موقع GPS الحالي',
   'map.satelliteView': 'عرض صور الأقمار الصناعية',
   'map.standardView': 'عرض الخريطة العادية',
   'map.releaseToSelect': 'اترك الخريطة لاختيار هذه النقطة',
@@ -2097,7 +2093,7 @@ const ar: Dict = {
   'map.weakConnection': 'الاتصال ضعيف — قد تتأخر بعض ميزات الخريطة قليلاً.',
   'map.tilesSlow': 'يتم تحميل الخريطة عبر اتصال بطيء. موقعك الأخير متاح بينما نواصل المحاولة.',
   'map.gpsWeakMeasured': 'لم يتمكن GPS من تحديد موقعك إلا بدقة تقارب',
-  'map.gpsWeakAction': 'أعد المحاولة في مكان مفتوح أو أدخل العنوان يدوياً؛ لم يتم اختيار هذه القراءة.',
+  'map.gpsWeakAction': 'ضعف الدقة أمر شائع في المتصفح وليس خطأً من كيو فود. ابحث عن عنوانك أو ضع الدبوس يدويًا للحصول على أفضل دقة؛ سيوفر تطبيقنا القادم تحديدًا أدق بكثير للموقع.',
   'map.retryGps': 'إعادة محاولة GPS',
   'map.enterManually': 'إدخال العنوان يدوياً',
   'map.outsideBy': 'خارج نطاق التوصيل هذا',
