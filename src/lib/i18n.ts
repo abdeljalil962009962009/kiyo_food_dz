@@ -31,6 +31,8 @@ export type TranslationKey =
   | 'auth.forgotPassword'
   | 'auth.resetPassword'
   | 'auth.resetPasswordCta'
+  | 'auth.resendResetEmail'
+  | 'auth.resetRetryCountdown'
   | 'auth.continueWithGoogle'
   | 'auth.continueWithApple'
   | 'auth.orContinueWith'
@@ -648,6 +650,8 @@ const en: Dict = {
   'auth.forgotPassword': 'Forgot password?',
   'auth.resetPassword': 'Reset password',
   'auth.resetPasswordCta': 'Send reset link',
+  'auth.resendResetEmail': 'Send another email',
+  'auth.resetRetryCountdown': 'Please wait {seconds} seconds before requesting another email.',
   'auth.continueWithGoogle': 'Continue with Google',
   'auth.continueWithApple': 'Continue with Apple',
   'auth.orContinueWith': 'or',
@@ -1253,6 +1257,8 @@ const fr: Dict = {
   'auth.forgotPassword': 'Mot de passe oublié ?',
   'auth.resetPassword': 'Réinitialiser le mot de passe',
   'auth.resetPasswordCta': 'Envoyer le lien',
+  'auth.resendResetEmail': 'Envoyer un autre e-mail',
+  'auth.resetRetryCountdown': 'Patientez {seconds} secondes avant de demander un autre e-mail.',
   'auth.continueWithGoogle': 'Continuer avec Google',
   'auth.continueWithApple': 'Continuer avec Apple',
   'auth.orContinueWith': 'ou',
@@ -1858,6 +1864,8 @@ const ar: Dict = {
   'auth.forgotPassword': 'نسيت كلمة المرور؟',
   'auth.resetPassword': 'إعادة تعيين كلمة المرور',
   'auth.resetPasswordCta': 'إرسال الرابط',
+  'auth.resendResetEmail': 'إرسال رسالة أخرى',
+  'auth.resetRetryCountdown': 'انتظر {seconds} ثانية قبل طلب رسالة أخرى.',
   'auth.continueWithGoogle': 'المتابعة عبر Google',
   'auth.continueWithApple': 'المتابعة عبر Apple',
   'auth.orContinueWith': 'أو',

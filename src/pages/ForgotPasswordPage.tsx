@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Mail, AlertCircle, ChevronLeft, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../lib/i18n-react';
@@ -8,6 +8,17 @@ import { Field } from '../components/Field';
 import { Spinner } from '../components/feedback';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { AuthLayout } from './LoginPage';
+import {
+  RECOVERY_REQUEST_COOLDOWN_SECONDS,
+  cooldownSecondsRemaining,
+} from '../lib/authRecovery';
+
+const RECOVERY_COOLDOWN_KEY = 'kiyo-recovery-cooldown-until';
+
+function readCooldownUntil() {
+  const value = Number.parseInt(localStorage.getItem(RECOVERY_COOLDOWN_KEY) ?? '0', 10);
+  return Number.isFinite(value) ? value : 0;
+}
 
 export default function ForgotPasswordPage() {
   const { t } = useT();
@@ -18,18 +29,51 @@ export default function ForgotPasswordPage() {
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [cooldownUntil, setCooldownUntil] = useState(readCooldownUntil);
+  const [cooldown, setCooldown] = useState(() => cooldownSecondsRemaining(readCooldownUntil()));
+
+  useEffect(() => {
+    if (cooldown <= 0) return undefined;
+    const timer = window.setInterval(() => {
+      const remaining = cooldownSecondsRemaining(cooldownUntil);
+      setCooldown(remaining);
+      if (remaining === 0) localStorage.removeItem(RECOVERY_COOLDOWN_KEY);
+    }, 250);
+    return () => window.clearInterval(timer);
+  }, [cooldown, cooldownUntil]);
+
+  const startCooldown = (seconds: number) => {
+    const until = Date.now() + seconds * 1000;
+    localStorage.setItem(RECOVERY_COOLDOWN_KEY, String(until));
+    setCooldownUntil(until);
+    setCooldown(seconds);
+  };
+
+  const countdownMessage = t('auth.resetRetryCountdown').replace('{seconds}', String(cooldown));
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (submitting) return;
     setLocalError(null);
+    if (cooldown > 0) {
+      setLocalError(countdownMessage);
+      return;
+    }
     const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
     if (!ok) return setLocalError(t('auth.error.invalidEmail'));
 
     setSubmitting(true);
-    const { ok: success } = await resetPassword(email.trim());
+    const result = await resetPassword(email.trim());
     setSubmitting(false);
-    if (success) setSent(true);
+    if (result.ok) {
+      startCooldown(RECOVERY_REQUEST_COOLDOWN_SECONDS);
+      setSent(true);
+    } else if (result.retryAfterSeconds) {
+      startCooldown(result.retryAfterSeconds);
+      setLocalError(
+        t('auth.resetRetryCountdown').replace('{seconds}', String(result.retryAfterSeconds)),
+      );
+    }
   };
 
   const shownError = localError ?? (error ? error.message : null);
@@ -47,8 +91,19 @@ export default function ForgotPasswordPage() {
           </h2>
           <p className="mt-1 text-sm text-ink-600">{t('auth.checkEmailReset')}</p>
           <button
+            type="button"
+            disabled={cooldown > 0}
+            onClick={() => {
+              setSent(false);
+              setLocalError(null);
+            }}
+            className="mt-5 min-h-11 w-full rounded-xl border border-ink-200 px-4 py-2.5 text-sm font-bold text-ink-800 transition hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {cooldown > 0 ? countdownMessage : t('auth.resendResetEmail')}
+          </button>
+          <button
             onClick={() => navigate('/login', { replace: true })}
-            className="kiyo-btn-primary mt-5 w-full"
+            className="kiyo-btn-primary mt-3 w-full"
           >
             {t('auth.backToLogin')}
           </button>
@@ -95,13 +150,13 @@ export default function ForgotPasswordPage() {
               <span className="font-medium">{shownError}</span>
             </div>
           )}
-          <button type="submit" disabled={submitting} className="kiyo-btn-primary w-full">
+          <button type="submit" disabled={submitting || cooldown > 0} className="kiyo-btn-primary w-full">
             {submitting ? (
               <>
                 <Spinner className="h-4 w-4" />
                 {t('auth.sendingReset')}
               </>
-            ) : t('auth.resetPasswordCta')}
+            ) : cooldown > 0 ? countdownMessage : t('auth.resetPasswordCta')}
           </button>
         </form>
       </ErrorBoundary>

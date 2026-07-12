@@ -8,6 +8,7 @@ import { getAuthRedirectUrl } from '../lib/siteUrl';
 import { translate, type Locale, type TranslationKey } from '../lib/i18n';
 import type { Profile } from '../lib/supabase';
 import { normalizeAlgerianPhone } from '../lib/phone';
+import { retryAfterSeconds } from '../lib/authRecovery';
 
 // ----- Auth error mapping -----
 export type AuthErrorCode =
@@ -148,7 +149,7 @@ type AuthContextValue = {
   signUp: (email: string, password: string, fullName: string, phone: string) => Promise<{ ok: boolean; needsEmailConfirmation?: boolean }>;
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
-  resetPassword: (email: string) => Promise<{ ok: boolean }>;
+  resetPassword: (email: string) => Promise<{ ok: boolean; retryAfterSeconds?: number }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 };
@@ -463,7 +464,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error('[Kiyo Auth] Password reset request failed', authDiagnostic(err));
         const code = mapSupabaseError(err);
         setError({ code, message: describeAuthError(code, locale) });
-        return { ok: false };
+        const retryAfter = retryAfterSeconds(err);
+        return { ok: false, ...(retryAfter ? { retryAfterSeconds: retryAfter } : {}) };
       }
     },
     [locale],

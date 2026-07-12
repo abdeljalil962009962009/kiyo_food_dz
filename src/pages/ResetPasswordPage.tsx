@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Lock, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -8,22 +8,27 @@ import { Field } from '../components/Field';
 import { Spinner } from '../components/feedback';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { AuthLayout } from './LoginPage';
+import { parsePendingRecovery, type PendingRecovery } from '../lib/authRecovery';
 
-const RECOVERY_SESSION_ATTEMPTS = 8;
-const RECOVERY_SESSION_DELAY_MS = 300;
+const PENDING_RECOVERY_KEY = 'kiyo-pending-recovery';
 
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+function capturePendingRecovery(): PendingRecovery | null {
+  const fromUrl = parsePendingRecovery(window.location.href);
+  if (fromUrl) {
+    sessionStorage.setItem(PENDING_RECOVERY_KEY, JSON.stringify(fromUrl));
+    window.history.replaceState({}, document.title, '/reset-password');
+    return fromUrl;
+  }
 
-function hasRecoveryParams() {
-  const search = new URLSearchParams(window.location.search);
-  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-  return (
-    search.has('code')
-    || search.get('type') === 'recovery'
-    || hash.get('type') === 'recovery'
-    || hash.has('access_token')
-    || hash.has('refresh_token')
-  );
+  try {
+    const saved = sessionStorage.getItem(PENDING_RECOVERY_KEY);
+    if (!saved) return null;
+    const parsed = JSON.parse(saved) as PendingRecovery;
+    if ((parsed.kind === 'token_hash' || parsed.kind === 'code') && parsed.value) return parsed;
+  } catch {
+    sessionStorage.removeItem(PENDING_RECOVERY_KEY);
+  }
+  return null;
 }
 
 export default function ResetPasswordPage() {
@@ -35,37 +40,25 @@ export default function ResetPasswordPage() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
-  const [recoveryState, setRecoveryState] = useState<'checking' | 'ready' | 'invalid'>('checking');
+  const [pendingRecovery] = useState(capturePendingRecovery);
+  const recoveryVerifiedRef = useRef(false);
+  const [recoveryState, setRecoveryState] = useState<'checking' | 'ready' | 'invalid'>(
+    pendingRecovery ? 'ready' : 'checking',
+  );
 
   useEffect(() => {
     let cancelled = false;
 
-    const verifyRecoverySession = async () => {
+    if (pendingRecovery) return undefined;
+
+    const restoreExistingRecoverySession = async () => {
       try {
-        const code = new URLSearchParams(window.location.search).get('code');
-        if (code) {
-          const exchanged = await supabase.auth.exchangeCodeForSession(code);
-          if (cancelled) return;
-          if (!exchanged.error && exchanged.data.session) {
-            setRecoveryState('ready');
-            window.history.replaceState({}, document.title, '/reset-password');
-            return;
-          }
+        const current = await supabase.auth.getSession();
+        if (cancelled) return;
+        if (current.data.session) {
+          setRecoveryState('ready');
+          return;
         }
-
-        for (let attempt = 0; attempt < RECOVERY_SESSION_ATTEMPTS; attempt += 1) {
-          const current = await supabase.auth.getSession();
-          if (cancelled) return;
-          if (current.data.session) {
-            setRecoveryState('ready');
-            if (hasRecoveryParams()) {
-              window.history.replaceState({}, document.title, '/reset-password');
-            }
-            return;
-          }
-          await wait(RECOVERY_SESSION_DELAY_MS);
-        }
-
         setRecoveryState('invalid');
       } catch (err) {
         console.error('Failed to verify password recovery session', err);
@@ -73,7 +66,7 @@ export default function ResetPasswordPage() {
       }
     };
 
-    void verifyRecoverySession();
+    void restoreExistingRecoverySession();
 
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       if (cancelled) return;
@@ -86,7 +79,7 @@ export default function ResetPasswordPage() {
       cancelled = true;
       data.subscription.unsubscribe();
     };
-  }, []);
+  }, [pendingRecovery]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -107,19 +100,46 @@ export default function ResetPasswordPage() {
 
     setSubmitting(true);
     try {
+      if (pendingRecovery?.kind === 'token_hash' && !recoveryVerifiedRef.current) {
+        const verified = await supabase.auth.verifyOtp({
+          token_hash: pendingRecovery.value,
+          type: 'recovery',
+        });
+        if (verified.error || !verified.data.session) {
+          sessionStorage.removeItem(PENDING_RECOVERY_KEY);
+          setRecoveryState('invalid');
+          return;
+        }
+        recoveryVerifiedRef.current = true;
+        sessionStorage.removeItem(PENDING_RECOVERY_KEY);
+      } else if (pendingRecovery?.kind === 'code' && !recoveryVerifiedRef.current) {
+        const current = await supabase.auth.getSession();
+        if (!current.data.session) {
+          const exchanged = await supabase.auth.exchangeCodeForSession(pendingRecovery.value);
+          if (exchanged.error || !exchanged.data.session) {
+            sessionStorage.removeItem(PENDING_RECOVERY_KEY);
+            setRecoveryState('invalid');
+            return;
+          }
+        }
+        recoveryVerifiedRef.current = true;
+        sessionStorage.removeItem(PENDING_RECOVERY_KEY);
+      }
+
       const { error } = await supabase.auth.updateUser({
-        password: password,
+        password,
       });
 
       if (error) {
         throw error;
       }
 
+      sessionStorage.removeItem(PENDING_RECOVERY_KEY);
+      await supabase.auth.signOut({ scope: 'local' });
       setSuccess(true);
     } catch (err) {
       console.error('Failed to update password from recovery session', err);
-      const message = err instanceof Error ? err.message : t('auth.error.unknown');
-      setLocalError(message);
+      setLocalError(t('auth.error.unknown'));
     } finally {
       setSubmitting(false);
     }

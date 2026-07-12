@@ -81,7 +81,7 @@ Step-by-step, click-by-click setup for the four external services the platform n
 
 1. Still in Supabase → **Authentication** → click **Email Templates** (under "Auth" sub-section).
 2. Click **Reset Password** in the list of templates.
-3. Replace the HTML with the branded template from `docs/supabase-auth-email-setup.md` (already in this repo — copy it verbatim).
+3. Replace the HTML with the branded, scanner-safe template from `docs/supabase-auth-email-setup.md` (already in this repo — copy it verbatim). Do not replace its `TokenHash` link with `ConfirmationURL`.
 4. Variables you may want to change: `Kiyo Food` text (top), the email subject, and the footer.
 5. Click **Save**.
 
@@ -108,7 +108,7 @@ This is what makes the reset link in the email go somewhere real instead of bein
 3. Type a real email you control → click **Send reset link**.
 4. Open that email inbox. You should see an email from `Kiyo Food <noreply@kiyo-food.store>` with subject "Reset your Kiyo Food password".
 5. Click the orange **Reset password** button.
-6. You land on `/reset-password`, which automatically forwards to the in-app password-reset screen.
+6. You land on `/reset-password`. The link remains unused until you explicitly submit the new password form.
 7. Type a new password → submit → you're redirected to `/login` and can log in.
 
 #### Common mistakes

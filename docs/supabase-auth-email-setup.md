@@ -40,7 +40,7 @@ Use these settings before public launch.
                 We received a request to reset your Kiyo Food password. Use the secure button below to choose a new password.
               </p>
               <p style="margin:0 0 26px;text-align:center;">
-                <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#fb4f0a;color:#ffffff;text-decoration:none;font-weight:700;border-radius:12px;padding:14px 22px;">
+                <a href="{{ .SiteURL }}/reset-password?token_hash={{ .TokenHash }}&amp;type=recovery" style="display:inline-block;background:#fb4f0a;color:#ffffff;text-decoration:none;font-weight:700;border-radius:12px;padding:14px 22px;">
                   Reset password
                 </a>
               </p>
@@ -49,7 +49,7 @@ Use these settings before public launch.
               </p>
               <p style="margin:0;font-size:12px;line-height:1.6;color:#9ca3af;">
                 If the button does not work, copy and paste this link into your browser:<br />
-                <span style="word-break:break-all;">{{ .ConfirmationURL }}</span>
+                <span style="word-break:break-all;">{{ .SiteURL }}/reset-password?token_hash={{ .TokenHash }}&amp;type=recovery</span>
               </p>
             </td>
           </tr>
@@ -60,6 +60,11 @@ Use these settings before public launch.
 </div>
 ```
 
+This template intentionally does not use `{{ .ConfirmationURL }}`. Security scanners can
+open that single-use URL before the customer does. The Kiyo Food reset page receives the
+token hash without consuming it and verifies it only when the customer submits a new password.
+Disable click tracking for authentication emails in the SMTP provider as well.
+
 ## Verification Checklist
 
 - Send a reset email to a real address.
@@ -67,3 +72,5 @@ Use these settings before public launch.
 - Confirm the link opens `/reset-password`.
 - Confirm an expired or already-used link shows the Kiyo Food expired-link screen.
 - Confirm a successful reset lets the user sign in with the new password.
+- Set the password recovery request cooldown to 60 seconds in Authentication > Rate Limits.
+- Set email OTP expiry to 3600 seconds (one hour).
