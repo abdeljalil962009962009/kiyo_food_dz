@@ -381,6 +381,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (e) throw e;
         return { ok: true, needsEmailConfirmation: Boolean(data.user && !data.session) };
       } catch (err) {
+        console.error('[Kiyo Auth] Sign-up failed', authDiagnostic(err));
         const code = mapSupabaseError(err);
         setError({ code, message: describeAuthError(code, locale) });
         return { ok: false };
