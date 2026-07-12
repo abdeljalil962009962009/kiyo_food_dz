@@ -31,9 +31,14 @@ describe('confirmed delivery location', () => {
   });
 
   it('restores a recent valid location with delivery details', () => {
-    const restored = restoreDeliveryLocation(JSON.stringify(LOCATION));
+    const restored = restoreDeliveryLocation(JSON.stringify({
+      ...LOCATION,
+      details: { building: 'legacy', floor: '4', landmark: 'Blue mosque', instructions: 'Call on arrival' },
+    }));
     expect(restored?.lat).toBe(36.365);
-    expect(restored?.details?.building).toBe('');
+    expect(restored?.details).toEqual({ landmark: 'Blue mosque', instructions: 'Call on arrival' });
+    expect(restored?.details).not.toHaveProperty('building');
+    expect(restored?.details).not.toHaveProperty('floor');
   });
 
   it('rejects stale persisted coordinates', () => {

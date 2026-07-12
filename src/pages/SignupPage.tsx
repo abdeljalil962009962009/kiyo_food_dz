@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, type FormEvent } from 'react';
-import { Mail, Lock, User as UserIcon, AlertCircle, Store, CheckCircle2 } from 'lucide-react';
+import { Mail, Lock, User as UserIcon, AlertCircle, Store, CheckCircle2, Phone } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../lib/i18n-react';
 import { Logo } from '../components/Logo';
@@ -8,6 +8,7 @@ import { Field } from '../components/Field';
 import { Spinner } from '../components/feedback';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { AuthLayout } from './LoginPage';
+import { isValidAlgerianPhone } from '../lib/phone';
 
 export default function SignupPage() {
   const { t } = useT();
@@ -16,6 +17,7 @@ export default function SignupPage() {
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [acceptTerms, setAcceptTerms] = useState(false);
@@ -30,12 +32,13 @@ export default function SignupPage() {
 
     const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
     if (!emailOk) return setLocalError(t('auth.error.invalidEmail'));
+    if (!isValidAlgerianPhone(phone)) return setLocalError(t('auth.error.invalidPhone'));
     if (password.length < 8) return setLocalError(t('auth.error.weakPassword'));
     if (password !== confirm) return setLocalError(t('auth.error.passwordMismatch'));
     if (!acceptTerms) return setLocalError(t('auth.error.acceptTerms'));
 
     setSubmitting(true);
-    const { ok, needsEmailConfirmation: shouldConfirmEmail } = await signUp(email.trim(), password, fullName.trim());
+    const { ok, needsEmailConfirmation: shouldConfirmEmail } = await signUp(email.trim(), password, fullName.trim(), phone);
     setSubmitting(false);
     if (ok) {
       if (shouldConfirmEmail) {
@@ -95,6 +98,19 @@ export default function SignupPage() {
             onChange={(e) => setEmail(e.target.value)}
             icon={<Mail className="h-4 w-4" />}
             placeholder="you@example.com"
+            required
+          />
+          <Field
+            name="phone"
+            type="tel"
+            autoComplete="tel"
+            inputMode="tel"
+            label={t('auth.phone')}
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            icon={<Phone className="h-4 w-4" />}
+            placeholder="06 61 23 45 67"
+            error={phone && !isValidAlgerianPhone(phone) ? t('auth.error.invalidPhone') : null}
             required
           />
           <Field

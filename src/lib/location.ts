@@ -4,10 +4,6 @@ export type AddressQuality = 'precise' | 'approximate' | 'manual';
 export type LocationSource = LiveGeoPoint['source'] | 'search' | 'manual';
 
 export type DeliveryDetails = {
-  building: string;
-  floor: string;
-  apartment: string;
-  entrance: string;
   landmark: string;
   instructions: string;
 };
@@ -28,13 +24,18 @@ export type DeliveryLocation = {
 };
 
 export const EMPTY_DELIVERY_DETAILS: DeliveryDetails = {
-  building: '',
-  floor: '',
-  apartment: '',
-  entrance: '',
   landmark: '',
   instructions: '',
 };
+
+export function sanitizeDeliveryDetails(value: unknown): DeliveryDetails {
+  if (!value || typeof value !== 'object') return { ...EMPTY_DELIVERY_DETAILS };
+  const details = value as { landmark?: unknown; instructions?: unknown };
+  return {
+    landmark: typeof details.landmark === 'string' ? details.landmark : '',
+    instructions: typeof details.instructions === 'string' ? details.instructions : '',
+  };
+}
 
 export const DELIVERY_LOCATION_STORAGE_KEY = 'kiyo-confirmed-delivery-location-v2';
 export const LAST_MAP_STATE_STORAGE_KEY = 'kiyo-last-map-state-v1';
@@ -79,7 +80,7 @@ export function restoreDeliveryLocation(raw: string | null): DeliveryLocation | 
     }
     return {
       ...parsed,
-      details: { ...EMPTY_DELIVERY_DETAILS, ...parsed.details },
+      details: sanitizeDeliveryDetails(parsed.details),
     };
   } catch {
     return null;
@@ -111,7 +112,7 @@ export function restoreLastMapState(raw: string | null): DeliveryLocation | null
       ...parsed,
       confirmed: false,
       requiresManualAdjustment: true,
-      details: { ...EMPTY_DELIVERY_DETAILS, ...parsed.details },
+      details: sanitizeDeliveryDetails(parsed.details),
     };
   } catch {
     return null;

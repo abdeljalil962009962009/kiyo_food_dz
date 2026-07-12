@@ -7,13 +7,14 @@ import { supabase } from '../lib/supabase';
 import { getAuthRedirectUrl } from '../lib/siteUrl';
 import { translate, type Locale, type TranslationKey } from '../lib/i18n';
 import type { Profile } from '../lib/supabase';
+import { normalizeAlgerianPhone } from '../lib/phone';
 
 // ----- Auth error mapping -----
 export type AuthErrorCode =
   | 'invalidCredentials' | 'emailTaken' | 'weakPassword'
   | 'tooManyAttempts' | 'network' | 'timeout' | 'unknown'
   | 'passwordMismatch' | 'acceptTerms' | 'invalidEmail' | 'emailNotConfirmed'
-  | 'providerNotEnabled' | 'invalidRedirect';
+  | 'invalidPhone' | 'emailDelivery' | 'providerNotEnabled' | 'invalidRedirect';
 
 function mapSupabaseError(err: unknown): AuthErrorCode {
   const code = (err as { code?: string })?.code;
@@ -28,6 +29,7 @@ function mapSupabaseError(err: unknown): AuthErrorCode {
   if (lc.includes('invalid login') || lc.includes('invalid credentials')) return 'invalidCredentials';
   if (lc.includes('email not confirmed') || lc.includes('not confirmed')) return 'emailNotConfirmed';
   if (lc.includes('already registered') || lc.includes('already been registered') || lc.includes('user already registered')) return 'emailTaken';
+  if (lc.includes('error sending recovery email') || lc.includes('email could not be sent') || lc.includes('smtp')) return 'emailDelivery';
   if (lc.includes('password should be') || lc.includes('weak') || lc.includes('at least 6')) return 'weakPassword';
   if (lc.includes('rate limit') || lc.includes('too many') || lc.includes('for security purposes')) return 'tooManyAttempts';
   if (lc.includes('failed to fetch') || lc.includes('network') || lc.includes('networkerror')) return 'network';
@@ -47,6 +49,8 @@ function describeAuthError(code: AuthErrorCode, locale: Locale): string {
     passwordMismatch: 'auth.error.passwordMismatch',
     acceptTerms: 'auth.error.acceptTerms',
     invalidEmail: 'auth.error.invalidEmail',
+    invalidPhone: 'auth.error.invalidPhone',
+    emailDelivery: 'auth.error.emailDelivery',
     emailNotConfirmed: 'auth.error.emailNotConfirmed',
     providerNotEnabled: 'auth.error.providerNotEnabled',
     invalidRedirect: 'auth.error.invalidRedirect',
@@ -107,6 +111,7 @@ async function ensureProfileExists(client: SupabaseClient, user: User): Promise<
     id: user.id,
     email: (user.email ?? '').trim().toLowerCase(),
     full_name: (meta.full_name as string) ?? (meta.name as string) ?? null,
+    phone: typeof meta.phone === 'string' ? normalizeAlgerianPhone(meta.phone) : null,
     role: 'customer' as const,
   };
 
@@ -140,7 +145,7 @@ type AuthContextValue = {
   locale: Locale;
   setLocale: (l: Locale) => void;
   signInWithPassword: (email: string, password: string) => Promise<{ ok: boolean }>;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ ok: boolean; needsEmailConfirmation?: boolean }>;
+  signUp: (email: string, password: string, fullName: string, phone: string) => Promise<{ ok: boolean; needsEmailConfirmation?: boolean }>;
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ ok: boolean }>;
@@ -355,15 +360,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signUp = useCallback<AuthContextValue['signUp']>(
-    async (email, password, fullName) => {
+    async (email, password, fullName, phone) => {
       clearError();
       try {
         const normalizedEmail = email.trim().toLowerCase();
+        const normalizedPhone = normalizeAlgerianPhone(phone);
+        if (!normalizedPhone) {
+          setError({ code: 'invalidPhone', message: translate(locale, 'auth.error.invalidPhone') });
+          return { ok: false };
+        }
         const { data, error: e } = await supabase.auth.signUp({
           email: normalizedEmail,
           password,
           options: {
-            data: { full_name: fullName.trim() },
+            data: { full_name: fullName.trim(), phone: normalizedPhone },
             emailRedirectTo: getAuthRedirectUrl('/auth/callback'),
           },
         });
@@ -450,6 +460,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (e) throw e;
         return { ok: true };
       } catch (err) {
+        console.error('[Kiyo Auth] Password reset request failed', authDiagnostic(err));
         const code = mapSupabaseError(err);
         setError({ code, message: describeAuthError(code, locale) });
         return { ok: false };
@@ -488,6 +499,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+function authDiagnostic(err: unknown) {
+  if (!err || typeof err !== 'object') return { message: String(err) };
+  const value = err as { name?: unknown; code?: unknown; status?: unknown; message?: unknown };
+  return {
+    name: typeof value.name === 'string' ? value.name : undefined,
+    code: typeof value.code === 'string' ? value.code : undefined,
+    status: typeof value.status === 'number' ? value.status : undefined,
+    message: typeof value.message === 'string' ? value.message : undefined,
+  };
 }
 
 export function useAuth(): AuthContextValue {

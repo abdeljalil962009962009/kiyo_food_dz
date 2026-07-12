@@ -30,10 +30,6 @@ type SavedAddress = {
   is_archived?: boolean;
   last_used_at?: string | null;
   custom_name?: string | null;
-  building?: string | null;
-  floor?: string | null;
-  apartment?: string | null;
-  entrance?: string | null;
   landmark?: string | null;
   driver_instructions?: string | null;
   created_at: string;
@@ -126,10 +122,6 @@ export function AddressManager() {
           location_source: newLocation.source,
           location_confirmed: true,
           is_default: editingId ? addresses.find((item) => item.id === editingId)?.is_default ?? false : addresses.length === 0,
-          building: details.building.trim() || null,
-          floor: details.floor.trim() || null,
-          apartment: details.apartment.trim() || null,
-          entrance: details.entrance.trim() || null,
           landmark: details.landmark.trim() || null,
           driver_instructions: details.instructions.trim() || null,
           last_used_at: new Date().toISOString(),
@@ -154,10 +146,6 @@ export function AddressManager() {
 
   const editAddress = (address: SavedAddress) => {
     const nextDetails = {
-      building: address.building ?? '',
-      floor: address.floor ?? '',
-      apartment: address.apartment ?? '',
-      entrance: address.entrance ?? '',
       landmark: address.landmark ?? '',
       instructions: address.driver_instructions ?? '',
     };
@@ -262,6 +250,8 @@ export function AddressManager() {
           country: addr.country ?? 'Algeria',
           location_source: addr.location_source ?? 'manual',
           location_confirmed: addr.location_confirmed ?? true,
+          landmark: addr.landmark ?? null,
+          driver_instructions: addr.driver_instructions ?? null,
           is_default: false,
           is_favorite: false,
           last_used_at: null,
@@ -496,10 +486,6 @@ export function AddressManager() {
           )}
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <AddressDetail label={t('location.building')} value={details.building} onChange={(building) => setDetails((current) => ({ ...current, building }))} />
-            <AddressDetail label={t('location.entrance')} value={details.entrance} onChange={(entrance) => setDetails((current) => ({ ...current, entrance }))} />
-            <AddressDetail label={t('location.floor')} value={details.floor} onChange={(floor) => setDetails((current) => ({ ...current, floor }))} />
-            <AddressDetail label={t('location.apartment')} value={details.apartment} onChange={(apartment) => setDetails((current) => ({ ...current, apartment }))} />
             <AddressDetail label={t('location.landmark')} value={details.landmark} onChange={(landmark) => setDetails((current) => ({ ...current, landmark }))} className="sm:col-span-2" />
             <AddressDetail label={t('location.instructions')} value={details.instructions} onChange={(instructions) => setDetails((current) => ({ ...current, instructions }))} className="sm:col-span-2" />
           </div>

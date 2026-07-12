@@ -6,6 +6,7 @@ import {
   ChevronDown,
   Clock3,
   Home,
+  Info,
   LocateFixed,
   MapPin,
   ShieldCheck,
@@ -22,11 +23,13 @@ import {
   locationPrimaryLine,
   locationSecondaryLine,
   restoreLastMapState,
+  sanitizeDeliveryDetails,
   type DeliveryDetails,
   type DeliveryLocation,
 } from '../lib/location';
 
 const DeliveryMap = lazy(() => import('./DeliveryMap'));
+const LOCATION_NOTICE_SESSION_KEY = 'kiyo-location-web-accuracy-notice-dismissed';
 
 type SavedAddressRow = {
   id: string;
@@ -45,10 +48,6 @@ type SavedAddressRow = {
   postal_code?: string | null;
   country?: string | null;
   location_source?: DeliveryLocation['source'] | null;
-  building?: string | null;
-  floor?: string | null;
-  apartment?: string | null;
-  entrance?: string | null;
   landmark?: string | null;
   driver_instructions?: string | null;
   is_default?: boolean;
@@ -109,14 +108,14 @@ function LocationDialog({ onClose }: { onClose: () => void }) {
   });
   const [draft, setDraft] = useState<DeliveryLocation | null>(deliveryLocation ?? recentLocation);
   const [details, setDetails] = useState<DeliveryDetails>({
-    ...EMPTY_DELIVERY_DETAILS,
-    ...deliveryLocation?.details,
+    ...sanitizeDeliveryDetails(deliveryLocation?.details),
   });
   const [saved, setSaved] = useState<SavedAddressRow[]>([]);
   const [savedLoading, setSavedLoading] = useState(Boolean(user));
   const [mapRevision, setMapRevision] = useState(0);
   const [confirmationSuccess, setConfirmationSuccess] = useState(false);
   const [insights, setInsights] = useState<LocationInsights | null>(null);
+  const [showWebAccuracyNotice, setShowWebAccuracyNotice] = useState(readWebAccuracyNotice);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -208,10 +207,6 @@ function LocationDialog({ onClose }: { onClose: () => void }) {
       },
       requiresManualAdjustment: false,
       details: {
-        building: address.building ?? '',
-        floor: address.floor ?? '',
-        apartment: address.apartment ?? '',
-        entrance: address.entrance ?? '',
         landmark: address.landmark ?? '',
         instructions: address.driver_instructions ?? '',
       },
@@ -308,6 +303,23 @@ function LocationDialog({ onClose }: { onClose: () => void }) {
           </aside>
 
           <main className="min-w-0 p-3 sm:overflow-y-auto sm:p-5">
+            {showWebAccuracyNotice && (
+              <div className="mb-3 flex items-start gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2.5 text-xs leading-5 text-blue-900" role="status" data-testid="web-location-accuracy-notice">
+                <Info className="mt-0.5 h-4 w-4 flex-none text-blue-600" />
+                <span className="min-w-0 flex-1">{t('location.webAccuracyNotice')}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    dismissWebAccuracyNotice();
+                    setShowWebAccuracyNotice(false);
+                  }}
+                  className="flex h-9 w-9 flex-none items-center justify-center rounded-md text-blue-700 hover:bg-blue-100"
+                  aria-label={t('location.dismissAccuracyNotice')}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
             <h3 className="mb-2 text-xs font-bold uppercase text-ink-400">{t('location.differentLocation')}</h3>
             <Suspense fallback={<div className="h-[440px] animate-pulse rounded-xl bg-ink-100" aria-label={t('map.loading')} />}>
               <DeliveryMap
@@ -319,13 +331,9 @@ function LocationDialog({ onClose }: { onClose: () => void }) {
               />
             </Suspense>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <DetailField label={t('location.building')} value={details.building} onChange={(building) => setDetails((current) => ({ ...current, building }))} />
-              <DetailField label={t('location.entrance')} value={details.entrance} onChange={(entrance) => setDetails((current) => ({ ...current, entrance }))} />
-              <DetailField label={t('location.floor')} value={details.floor} onChange={(floor) => setDetails((current) => ({ ...current, floor }))} />
-              <DetailField label={t('location.apartment')} value={details.apartment} onChange={(apartment) => setDetails((current) => ({ ...current, apartment }))} />
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <DetailField label={t('location.landmark')} value={details.landmark} onChange={(landmark) => setDetails((current) => ({ ...current, landmark }))} className="sm:col-span-2" />
-              <DetailField label={t('location.instructions')} value={details.instructions} onChange={(instructions) => setDetails((current) => ({ ...current, instructions }))} className="sm:col-span-2 lg:col-span-3" />
+              <DetailField label={t('location.instructions')} value={details.instructions} onChange={(instructions) => setDetails((current) => ({ ...current, instructions }))} className="sm:col-span-2" />
             </div>
           </main>
         </div>
@@ -365,6 +373,22 @@ function DetailField({ label, value, onChange, className = '' }: { label: string
       <input className="kiyo-input h-11" value={value} onChange={(event) => onChange(event.target.value)} maxLength={240} />
     </label>
   );
+}
+
+function readWebAccuracyNotice(): boolean {
+  try {
+    return sessionStorage.getItem(LOCATION_NOTICE_SESSION_KEY) !== 'true';
+  } catch {
+    return true;
+  }
+}
+
+function dismissWebAccuracyNotice(): void {
+  try {
+    sessionStorage.setItem(LOCATION_NOTICE_SESSION_KEY, 'true');
+  } catch {
+    // The notice remains dismissible in memory when session storage is unavailable.
+  }
 }
 
 function LocationSkeleton() {

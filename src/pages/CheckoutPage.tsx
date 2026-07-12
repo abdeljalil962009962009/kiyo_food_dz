@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, Check, ShieldCheck, AlertCircle, ShoppingCart, Truck, Home, Building2 } from 'lucide-react';
+import { ChevronLeft, Check, ShieldCheck, AlertCircle, ShoppingCart, Truck, Home, Building2, Phone } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -12,8 +12,10 @@ import { Spinner, ErrorState } from '../components/feedback';
 import { PriceTag } from '../components/ui';
 import DeliveryMap, { type DeliveryMapLocation } from '../components/DeliveryMap';
 import { withExponentialBackoff } from '../lib/locationNetwork';
+import { isValidAlgerianPhone, normalizeAlgerianPhone } from '../lib/phone';
 
 type Step = 'details' | 'review' | 'success';
+type ContactPhoneMode = 'account' | 'alternate';
 type Finance = {
   items: { name: string; quantity: number; unit_price: string }[];
   subtotal: number;
@@ -48,7 +50,8 @@ export default function CheckoutPage() {
 
   const [step, setStep] = useState<Step>('details');
   const [name, setName] = useState(profile?.full_name ?? '');
-  const [phone, setPhone] = useState(profile?.phone ?? '');
+  const [contactPhoneMode, setContactPhoneMode] = useState<ContactPhoneMode>(isValidAlgerianPhone(profile?.phone ?? '') ? 'account' : 'alternate');
+  const [alternatePhone, setAlternatePhone] = useState('');
   const [address, setAddress] = useState(deliveryLocation?.address ?? '');
   const [notes, setNotes] = useState('');
 
@@ -67,6 +70,9 @@ export default function CheckoutPage() {
   const [restaurantGeo, setRestaurantGeo] = useState<RestaurantGeo | null>(null);
   // Customer-chosen delivery location from the map
   const [mapLocation, setMapLocation] = useState<DeliveryMapLocation | null>(deliveryLocation);
+  const accountPhone = profile?.phone ?? '';
+  const accountPhoneAvailable = isValidAlgerianPhone(accountPhone);
+  const selectedPhone = contactPhoneMode === 'account' ? accountPhone : alternatePhone;
 
   // Load restaurant coordinates + delivery zone (for the map + distance check).
   useEffect(() => {
@@ -92,7 +98,6 @@ export default function CheckoutPage() {
   // Sync profile into form once on mount.
   useEffect(() => {
     if (profile && !name) setName(profile.full_name ?? '');
-    if (profile && !phone) setPhone(profile.phone ?? '');
   }, [profile]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Calculate financials server-side whenever we enter the review step.
@@ -182,10 +187,6 @@ export default function CheckoutPage() {
           postal_code: parts?.postalCode ?? null,
           country: parts?.country ?? 'Algeria',
           location_source: mapLocation.source,
-          building: details?.building || null,
-          floor: details?.floor || null,
-          apartment: details?.apartment || null,
-          entrance: details?.entrance || null,
           landmark: details?.landmark || null,
           driver_instructions: details?.instructions || null,
         });
@@ -210,9 +211,9 @@ export default function CheckoutPage() {
 
   // ----- Validation -----
   const detailsValid = useMemo(() => {
-    const phoneOk = /^[+\d][\d\s-]{6,}$/.test(phone.trim());
+    const phoneOk = isValidAlgerianPhone(selectedPhone);
     return name.trim().length >= 2 && phoneOk && address.trim().length >= 5 && mapLocation?.confirmed === true;
-  }, [name, phone, address, mapLocation?.confirmed]);
+  }, [name, selectedPhone, address, mapLocation?.confirmed]);
 
   // ----- Submit (single-statement transactional RPC) -----
   // Calls create_order_with_items() which inserts order + items in one
@@ -224,6 +225,11 @@ export default function CheckoutPage() {
     if (!profile || !cart.restaurantId || cart.lines.length === 0) return;
     if (!mapLocation?.confirmed) {
       setSubmitError(t('map.confirmRequired'));
+      return;
+    }
+    const contactPhone = normalizeAlgerianPhone(selectedPhone);
+    if (!contactPhone) {
+      setSubmitError(t('checkout.invalidPhone'));
       return;
     }
     setSubmitting(true);
@@ -248,7 +254,7 @@ export default function CheckoutPage() {
           notes: l.notes ?? null,
         })),
         delivery_address: address.trim(),
-        delivery_phone: phone.trim(),
+        delivery_phone: contactPhone,
         delivery_latitude: mapLocation.lat,
         delivery_longitude: mapLocation.lng,
         delivery_accuracy_m: mapLocation.accuracy,
@@ -258,10 +264,6 @@ export default function CheckoutPage() {
         delivery_commune: mapLocation.addressParts?.commune ?? mapLocation.addressParts?.city ?? null,
         delivery_wilaya: mapLocation.addressParts?.province ?? null,
         delivery_postal_code: mapLocation.addressParts?.postalCode ?? null,
-        delivery_building: mapLocation.details?.building || null,
-        delivery_floor: mapLocation.details?.floor || null,
-        delivery_apartment: mapLocation.details?.apartment || null,
-        delivery_entrance: mapLocation.details?.entrance || null,
         delivery_landmark: mapLocation.details?.landmark || null,
         delivery_instructions: mapLocation.details?.instructions || null,
         notes: notes.trim() || null,
@@ -299,7 +301,7 @@ export default function CheckoutPage() {
       clearTimeout(t0);
       setSubmitting(false);
     }
-  }, [submitting, profile, cart, address, phone, notes, t, clear, mapLocation]);
+  }, [submitting, profile, cart, address, selectedPhone, notes, t, clear, mapLocation]);
 
   // Cart empty states for /checkout accessed without items.
   if (cart.lines.length === 0 && step !== 'success') {
@@ -386,17 +388,59 @@ export default function CheckoutPage() {
                   onChange={(e) => setName(e.target.value)} autoComplete="name"
                 />
               </div>
-              <div>
-                <label className="kiyo-label" htmlFor="c-phone">{t('checkout.phone')}</label>
-                <input
-                  id="c-phone" className="kiyo-input" value={phone}
-                  onChange={(e) => setPhone(e.target.value)} inputMode="tel"
-                  autoComplete="tel" placeholder="06xx xxx xxx"
-                />
-                {!detailsValid && phone && !/^[+\d][\d\s-]{6,}$/.test(phone.trim()) && (
+              <fieldset>
+                <legend className="kiyo-label">{t('checkout.contactQuestion')}</legend>
+                <div className="grid gap-2">
+                  <label className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors ${contactPhoneMode === 'account' ? 'border-ember-400 bg-ember-50' : 'border-ink-200 bg-white'} ${!accountPhoneAvailable ? 'cursor-not-allowed opacity-60' : ''}`}>
+                    <input
+                      type="radio"
+                      name="contact-phone-mode"
+                      value="account"
+                      checked={contactPhoneMode === 'account'}
+                      onChange={() => setContactPhoneMode('account')}
+                      disabled={!accountPhoneAvailable}
+                      className="h-4 w-4 border-ink-300 text-ember-600 focus:ring-ember-500"
+                    />
+                    <Phone className="h-4 w-4 flex-none text-ember-600" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-xs font-bold text-ink-900">{t('checkout.useAccountPhone')}</span>
+                      {accountPhoneAvailable ? (
+                        <span className="mt-0.5 block text-xs text-ink-500" dir="ltr">{accountPhone}</span>
+                      ) : (
+                        <span className="mt-0.5 block text-xs text-ink-500">{t('checkout.accountPhoneMissing')}</span>
+                      )}
+                    </span>
+                  </label>
+                  <label className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors ${contactPhoneMode === 'alternate' ? 'border-ember-400 bg-ember-50' : 'border-ink-200 bg-white'}`}>
+                    <input
+                      type="radio"
+                      name="contact-phone-mode"
+                      value="alternate"
+                      checked={contactPhoneMode === 'alternate'}
+                      onChange={() => setContactPhoneMode('alternate')}
+                      className="h-4 w-4 border-ink-300 text-ember-600 focus:ring-ember-500"
+                    />
+                    <span className="text-xs font-bold text-ink-900">{t('checkout.useDifferentPhone')}</span>
+                  </label>
+                </div>
+                {contactPhoneMode === 'alternate' && (
+                  <div className="mt-2">
+                    <label className="sr-only" htmlFor="c-phone">{t('checkout.alternatePhoneLabel')}</label>
+                    <input
+                      id="c-phone"
+                      className="kiyo-input"
+                      value={alternatePhone}
+                      onChange={(e) => setAlternatePhone(e.target.value)}
+                      inputMode="tel"
+                      autoComplete="tel"
+                      placeholder="06 61 23 45 67"
+                    />
+                  </div>
+                )}
+                {selectedPhone && !isValidAlgerianPhone(selectedPhone) && (
                   <p className="mt-1 text-xs text-error-600">{t('checkout.invalidPhone')}</p>
                 )}
-              </div>
+              </fieldset>
               <div>
                 <label className="kiyo-label">{t('checkout.address')}</label>
                 <DeliveryMap
@@ -502,6 +546,10 @@ export default function CheckoutPage() {
                   ))}
                 </div>
                 <div className="kiyo-card mb-3 space-y-2 p-4 text-sm">
+                  <div className="mb-3 flex items-center justify-between rounded-lg bg-ink-50 px-3 py-2 text-xs">
+                    <span className="text-ink-500">{t('checkout.phone')}</span>
+                    <span className="font-bold text-ink-900" dir="ltr">{normalizeAlgerianPhone(selectedPhone)}</span>
+                  </div>
                   {finance.distance_km != null && (
                     <div className="mb-3 grid grid-cols-2 gap-2 rounded-lg bg-sage-50 p-3 text-xs">
                       <div>

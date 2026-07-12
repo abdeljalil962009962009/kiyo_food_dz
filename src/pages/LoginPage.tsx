@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, type FormEvent } from 'react';
 import { Mail, Lock, AlertCircle, Database, Check, ExternalLink, X, AlertTriangle } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, type AuthErrorCode } from '../context/AuthContext';
 import { useT } from '../lib/i18n-react';
 import { Logo } from '../components/Logo';
 import { Field } from '../components/Field';
@@ -310,11 +310,7 @@ function AppleIcon() {
 // problem on the operator side (missing OAuth provider, missing redirect
 // URI in Google/Apple console, etc.). For ordinary user errors this is a
 // plain message; for setup errors it shows the exact URLs to add.
-type AuthCode =
-  | 'invalidCredentials' | 'emailTaken' | 'weakPassword'
-  | 'tooManyAttempts' | 'network' | 'timeout' | 'unknown'
-  | 'passwordMismatch' | 'acceptTerms' | 'invalidEmail' | 'emailNotConfirmed'
-  | 'providerNotEnabled' | 'invalidRedirect';
+type AuthCode = AuthErrorCode;
 
 function AuthErrorPanel({
   message,

@@ -24,6 +24,7 @@ export type TranslationKey =
   | 'auth.signup'
   | 'auth.logout'
   | 'auth.email'
+  | 'auth.phone'
   | 'auth.password'
   | 'auth.confirmPassword'
   | 'auth.fullName'
@@ -59,6 +60,8 @@ export type TranslationKey =
   | 'auth.error.passwordMismatch'
   | 'auth.error.acceptTerms'
   | 'auth.error.invalidEmail'
+  | 'auth.error.invalidPhone'
+  | 'auth.error.emailDelivery'
   | 'auth.error.emailNotConfirmed'
   | 'auth.error.popupBlocked'
   | 'auth.error.providerNotEnabled'
@@ -290,12 +293,10 @@ export type TranslationKey =
   | 'location.saved'
   | 'location.noSaved'
   | 'location.privacyShort'
-  | 'location.building'
-  | 'location.entrance'
-  | 'location.floor'
-  | 'location.apartment'
   | 'location.landmark'
   | 'location.instructions'
+  | 'location.webAccuracyNotice'
+  | 'location.dismissAccuracyNotice'
   | 'location.notConfirmed'
   | 'location.ready'
   | 'location.confirmOnMap'
@@ -334,6 +335,11 @@ export type TranslationKey =
   | 'checkout.step.confirm'
   | 'checkout.fullName'
   | 'checkout.phone'
+  | 'checkout.contactQuestion'
+  | 'checkout.useAccountPhone'
+  | 'checkout.useDifferentPhone'
+  | 'checkout.accountPhoneMissing'
+  | 'checkout.alternatePhoneLabel'
   | 'checkout.address'
   | 'checkout.notes'
   | 'checkout.notesPlaceholder'
@@ -636,6 +642,7 @@ const en: Dict = {
   'auth.signup': 'Create account',
   'auth.logout': 'Sign out',
   'auth.email': 'Email address',
+  'auth.phone': 'Phone number',
   'auth.password': 'Password',
   'auth.confirmPassword': 'Confirm password',
   'auth.fullName': 'Full name',
@@ -670,6 +677,8 @@ const en: Dict = {
   'auth.error.passwordMismatch': 'Passwords do not match.',
   'auth.error.acceptTerms': 'Please accept the Terms and Privacy Policy.',
   'auth.error.invalidEmail': 'Please enter a valid email address.',
+  'auth.error.invalidPhone': 'Enter a valid Algerian mobile number starting with 05, 06, 07, or +213.',
+  'auth.error.emailDelivery': 'Kiyo Food could not send the reset email. Email delivery is temporarily unavailable; please try again later or contact support.',
   'auth.error.emailNotConfirmed': 'Confirm your email before signing in. Check your inbox for the Kiyo Food confirmation email.',
   'auth.error.popupBlocked': 'Allow popups for Kiyo Food to continue with this login provider.',
   'auth.error.providerNotEnabled': 'This sign-in provider is not enabled yet. Ask the administrator to enable it in Supabase → Authentication → Providers.',
@@ -895,12 +904,10 @@ const en: Dict = {
   'location.saved': 'Saved and recent',
   'location.noSaved': 'No saved addresses yet. Choose an exact point on the map.',
   'location.privacyShort': 'Your precise location is used only to find serviceable restaurants and deliver your order.',
-  'location.building': 'Building',
-  'location.entrance': 'Entrance',
-  'location.floor': 'Floor',
-  'location.apartment': 'Apartment',
   'location.landmark': 'Nearby landmark',
   'location.instructions': 'Instructions for the driver',
+  'location.webAccuracyNotice': 'For best accuracy, search for your address or place the pin manually instead of relying only on GPS. Our upcoming mobile app will offer significantly more precise location detection.',
+  'location.dismissAccuracyNotice': 'Dismiss location accuracy information',
   'location.notConfirmed': 'No exact delivery point confirmed',
   'location.ready': 'Exact coordinates are ready for delivery.',
   'location.confirmOnMap': 'Confirm the pin on the map before continuing.',
@@ -938,6 +945,11 @@ const en: Dict = {
   'checkout.step.confirm': 'Confirm order',
   'checkout.fullName': 'Full name',
   'checkout.phone': 'Phone number',
+  'checkout.contactQuestion': 'Which phone number should the restaurant or driver use for this order?',
+  'checkout.useAccountPhone': 'Use my account phone number',
+  'checkout.useDifferentPhone': 'Use a different number for this order',
+  'checkout.accountPhoneMissing': 'No phone number saved on this account',
+  'checkout.alternatePhoneLabel': 'Phone number for this order',
   'checkout.address': 'Delivery address',
   'checkout.notes': 'Order notes',
   'checkout.notesPlaceholder': 'e.g. no onions, extra spicy',
@@ -1236,6 +1248,7 @@ const fr: Dict = {
   'auth.signup': 'Créer un compte',
   'auth.logout': 'Se déconnecter',
   'auth.email': 'Adresse e-mail',
+  'auth.phone': 'Numéro de téléphone',
   'auth.password': 'Mot de passe',
   'auth.confirmPassword': 'Confirmer le mot de passe',
   'auth.fullName': 'Nom complet',
@@ -1270,6 +1283,8 @@ const fr: Dict = {
   'auth.error.passwordMismatch': 'Les mots de passe ne correspondent pas.',
   'auth.error.acceptTerms': "Veuillez accepter les conditions et la politique de confidentialité.",
   'auth.error.invalidEmail': 'Veuillez saisir une adresse e-mail valide.',
+  'auth.error.invalidPhone': 'Saisissez un numéro mobile algérien valide commençant par 05, 06, 07 ou +213.',
+  'auth.error.emailDelivery': 'Kiyo Food ne peut pas envoyer l’e-mail de réinitialisation. Le service e-mail est temporairement indisponible ; réessayez plus tard ou contactez le support.',
   'auth.error.emailNotConfirmed': 'Confirmez votre e-mail avant de vous connecter. Vérifiez votre boîte de réception pour l’e-mail de confirmation Kiyo Food.',
   'auth.error.popupBlocked': 'Autorisez les popups pour Kiyo Food afin de continuer avec ce fournisseur de connexion.',
   'auth.error.providerNotEnabled': 'Ce fournisseur de connexion n’est pas encore activé. Demandez à l’administrateur de l’activer dans Supabase → Authentication → Providers.',
@@ -1495,12 +1510,10 @@ const fr: Dict = {
   'location.saved': 'Adresses enregistrées et récentes',
   'location.noSaved': 'Aucune adresse enregistrée. Choisissez un point exact sur la carte.',
   'location.privacyShort': 'Votre position précise sert uniquement à vérifier la livraison et à apporter votre commande.',
-  'location.building': 'Bâtiment',
-  'location.entrance': 'Entrée',
-  'location.floor': 'Étage',
-  'location.apartment': 'Appartement',
   'location.landmark': 'Point de repère',
   'location.instructions': 'Instructions pour le livreur',
+  'location.webAccuracyNotice': 'Pour une meilleure précision, recherchez votre adresse ou placez manuellement le repère sur la carte au lieu de vous fier uniquement au GPS. Notre prochaine application mobile offrira une localisation nettement plus précise.',
+  'location.dismissAccuracyNotice': 'Fermer l’information sur la précision',
   'location.notConfirmed': 'Aucun point de livraison exact confirmé',
   'location.ready': 'Les coordonnées exactes sont prêtes pour la livraison.',
   'location.confirmOnMap': 'Confirmez l’épingle sur la carte avant de continuer.',
@@ -1538,6 +1551,11 @@ const fr: Dict = {
   'checkout.step.confirm': 'Confirmer',
   'checkout.fullName': 'Nom complet',
   'checkout.phone': 'Téléphone',
+  'checkout.contactQuestion': 'Quel numéro le restaurant ou le livreur doit-il utiliser pour cette commande ?',
+  'checkout.useAccountPhone': 'Utiliser le numéro de mon compte',
+  'checkout.useDifferentPhone': 'Utiliser un autre numéro pour cette commande',
+  'checkout.accountPhoneMissing': 'Aucun numéro enregistré sur ce compte',
+  'checkout.alternatePhoneLabel': 'Numéro de téléphone pour cette commande',
   'checkout.address': 'Adresse de livraison',
   'checkout.notes': 'Notes',
   'checkout.notesPlaceholder': 'ex. sans oignons, très épicé',
@@ -1836,6 +1854,7 @@ const ar: Dict = {
   'auth.signup': 'إنشاء حساب',
   'auth.logout': 'تسجيل الخروج',
   'auth.email': 'البريد الإلكتروني',
+  'auth.phone': 'رقم الهاتف',
   'auth.password': 'كلمة المرور',
   'auth.confirmPassword': 'تأكيد كلمة المرور',
   'auth.fullName': 'الاسم الكامل',
@@ -1870,6 +1889,8 @@ const ar: Dict = {
   'auth.error.passwordMismatch': 'كلمتا المرور غير متطابقتين.',
   'auth.error.acceptTerms': 'يرجى قبول الشروط وسياسة الخصوصية.',
   'auth.error.invalidEmail': 'يرجى إدخال بريد إلكتروني صالح.',
+  'auth.error.invalidPhone': 'أدخل رقم هاتف جزائري صالح يبدأ بـ 05 أو 06 أو 07 أو +213.',
+  'auth.error.emailDelivery': 'تعذر على كيو فود إرسال رسالة إعادة تعيين كلمة المرور. خدمة البريد غير متاحة مؤقتًا؛ حاول لاحقًا أو تواصل مع الدعم.',
   'auth.error.emailNotConfirmed': 'أكد بريدك الإلكتروني قبل تسجيل الدخول. تحقق من بريدك للعثور على رسالة تأكيد كيو فود.',
   'auth.error.popupBlocked': 'اسمح بالنوافذ المنبثقة لكيو فود للمتابعة مع مزود تسجيل الدخول هذا.',
   'auth.error.providerNotEnabled': 'مزود تسجيل الدخول هذا غير مفعّل بعد. اطلب من المدير تفعيله في Supabase → Authentication → Providers.',
@@ -2095,12 +2116,10 @@ const ar: Dict = {
   'location.saved': 'العناوين المحفوظة والأخيرة',
   'location.noSaved': 'لا توجد عناوين محفوظة. اختر نقطة دقيقة على الخريطة.',
   'location.privacyShort': 'يُستخدم موقعك الدقيق فقط للتحقق من إمكانية التوصيل وإيصال طلبك.',
-  'location.building': 'المبنى',
-  'location.entrance': 'المدخل',
-  'location.floor': 'الطابق',
-  'location.apartment': 'الشقة',
   'location.landmark': 'معلم قريب',
   'location.instructions': 'تعليمات للسائق',
+  'location.webAccuracyNotice': 'للحصول على أفضل دقة، ابحث عن عنوانك أو ضع الدبوس يدويًا على الخريطة بدل الاعتماد على GPS وحده. سيوفر تطبيقنا القادم تحديدًا أدق للموقع بشكل ملحوظ.',
+  'location.dismissAccuracyNotice': 'إغلاق معلومات دقة الموقع',
   'location.notConfirmed': 'لم يتم تأكيد نقطة توصيل دقيقة',
   'location.ready': 'الإحداثيات الدقيقة جاهزة للتوصيل.',
   'location.confirmOnMap': 'أكد الدبوس على الخريطة قبل المتابعة.',
@@ -2138,6 +2157,11 @@ const ar: Dict = {
   'checkout.step.confirm': 'تأكيد',
   'checkout.fullName': 'الاسم الكامل',
   'checkout.phone': 'رقم الهاتف',
+  'checkout.contactQuestion': 'ما رقم الهاتف الذي يجب أن يستخدمه المطعم أو السائق لهذا الطلب؟',
+  'checkout.useAccountPhone': 'استخدام رقم هاتف حسابي',
+  'checkout.useDifferentPhone': 'استخدام رقم مختلف لهذا الطلب',
+  'checkout.accountPhoneMissing': 'لا يوجد رقم هاتف محفوظ في هذا الحساب',
+  'checkout.alternatePhoneLabel': 'رقم الهاتف لهذا الطلب',
   'checkout.address': 'عنوان التوصيل',
   'checkout.notes': 'ملاحظات',
   'checkout.notesPlaceholder': 'مثلاً: بدون بصل، حار جداً',

@@ -168,10 +168,6 @@ export type OrderRow = {
   delivery_commune: string | null;
   delivery_wilaya: string | null;
   delivery_postal_code: string | null;
-  delivery_building: string | null;
-  delivery_floor: string | null;
-  delivery_apartment: string | null;
-  delivery_entrance: string | null;
   delivery_landmark: string | null;
   delivery_instructions: string | null;
   delivery_distance_km: number | null;
@@ -218,10 +214,6 @@ export type SavedAddress = {
   province: string | null;
   postal_code: string | null;
   country: string | null;
-  building: string | null;
-  floor: string | null;
-  apartment: string | null;
-  entrance: string | null;
   landmark: string | null;
   driver_instructions: string | null;
   geohash: string | null;
