@@ -14,6 +14,7 @@ import { Skeleton, ErrorState, Spinner } from '../components/feedback';
 import { RestaurantImage } from '../components/ui';
 import { PlatformHealthPanel } from '../components/PlatformHealth';
 import AdminCoverageMap from '../components/AdminCoverageMap';
+import { RestaurantApplicationsPanel } from '../components/RestaurantApplicationsPanel';
 
 type Analytics = {
   revenue: { today: number; this_week: number; this_month: number; this_year: number; all_time: number };
@@ -944,8 +945,11 @@ function RestaurantsTab() {
   if (error) return <ErrorState title={t('error.genericTitle')} message={error} onRetry={load} retryLabel={t('error.retry')} />;
 
   return (
-    <div className="space-y-3">
-      {restaurants.map((r) => (
+    <div className="space-y-6">
+      <RestaurantApplicationsPanel />
+      <div className="space-y-3 border-t border-ink-100 pt-6">
+        <h2 className="font-display text-lg font-extrabold text-ink-900">{t('admin.restaurantsManagement')}</h2>
+        {restaurants.map((r) => (
         <div key={r.id} className="kiyo-card flex items-center gap-3 p-3">
           <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg">
             <RestaurantImage url={r.image_url} name={r.name} />
@@ -993,7 +997,7 @@ function RestaurantsTab() {
               <Sparkles className="h-3 w-3" />
               {r.is_featured ? 'Unfeature' : 'Feature'}
             </button>
-            {r.status !== 'published' && (
+            {r.status !== 'published' && !r.source_application_id && (
               <button
                 onClick={() => updateRestaurant(r, { status: 'published' })}
                 disabled={actingId === r.id}
@@ -1002,7 +1006,7 @@ function RestaurantsTab() {
                 Publish
               </button>
             )}
-            {r.status !== 'suspended' && (
+            {r.status !== 'suspended' && !r.source_application_id && (
               <button
                 onClick={() => updateRestaurant(r, { status: 'suspended' })}
                 disabled={actingId === r.id}
@@ -1013,7 +1017,8 @@ function RestaurantsTab() {
             )}
           </div>
         </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }

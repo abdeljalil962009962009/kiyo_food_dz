@@ -5,7 +5,7 @@ import {
   AlertCircle, Save, Wallet, MapPin,
 } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
-import { supabase, type Restaurant } from '../lib/supabase';
+import { supabase, type PublicationReadiness, type Restaurant, type RestaurantCommercialTerm } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -43,7 +43,8 @@ export default function RestaurantSettingsPage() {
   const [deliveryRadius, setDeliveryRadius] = useState('10');
   const [minOrder, setMinOrder] = useState('0');
   const [estimatedDeliveryMin, setEstimatedDeliveryMin] = useState('45');
-  const [commissionRate, setCommissionRate] = useState('7');
+  const [commercialTerm, setCommercialTerm] = useState<RestaurantCommercialTerm | null>(null);
+  const [readiness, setReadiness] = useState<PublicationReadiness | null>(null);
   const [location, setLocation] = useState<DeliveryMapLocation | null>(null);
 
   const [saving, setSaving] = useState(false);
@@ -55,11 +56,11 @@ export default function RestaurantSettingsPage() {
     setError(null);
     setSaveError(null);
     try {
-      const { data: r, error: re } = await supabase
-        .from('restaurants')
-        .select('*')
-        .eq('owner_id', profile.id)
-        .maybeSingle();
+      const { data: managedRestaurantId, error: managedRestaurantError } = await supabase.rpc('get_user_restaurant_id');
+      if (managedRestaurantError) throw managedRestaurantError;
+      const { data: r, error: re } = managedRestaurantId
+        ? await supabase.from('restaurants').select('*').eq('id', managedRestaurantId).maybeSingle()
+        : { data: null, error: null };
       if (re) throw re;
       
       if (!r) {
@@ -73,7 +74,13 @@ export default function RestaurantSettingsPage() {
       setDeliveryRadius(String(activeRes.max_delivery_km || 10));
       setMinOrder(String(activeRes.min_order_amount || 0));
       setEstimatedDeliveryMin(String(activeRes.estimated_delivery_min || 45));
-      setCommissionRate(String(Number(activeRes.commission_rate ?? 0.07) * 100));
+      const [{ data: term }, { data: readinessData }] = await Promise.all([
+        supabase.from('restaurant_commercial_terms').select('*')
+          .eq('restaurant_id', activeRes.id).eq('status', 'active').maybeSingle(),
+        supabase.rpc('get_restaurant_publication_readiness', { p_restaurant_id: activeRes.id }),
+      ]);
+      setCommercialTerm((term as RestaurantCommercialTerm | null) ?? null);
+      setReadiness((readinessData as PublicationReadiness | null) ?? null);
       if (activeRes.latitude != null && activeRes.longitude != null) {
         setLocation({
           lat: activeRes.latitude,
@@ -115,13 +122,6 @@ export default function RestaurantSettingsPage() {
     setSaved(false);
     setSaveError(null);
 
-    // Validate the new commission rate value
-    const rateNum = Number(commissionRate);
-    if (isNaN(rateNum) || rateNum < 0 || rateNum > 100) {
-      setSaveError(t('restaurant.settings.invalidCommissionRate'));
-      setSaving(false);
-      return;
-    }
     if (!location?.confirmed) {
       setSaveError(t('map.confirmRequired'));
       setSaving(false);
@@ -136,7 +136,6 @@ export default function RestaurantSettingsPage() {
           max_delivery_km: Number(deliveryRadius),
           min_order_amount: Number(minOrder),
           estimated_delivery_min: Number(estimatedDeliveryMin),
-          commission_rate: rateNum / 100,
           address: location.address,
           latitude: location.lat,
           longitude: location.lng,
@@ -338,22 +337,29 @@ export default function RestaurantSettingsPage() {
               <Wallet className="h-5 w-5 text-emerald-600" />
               <h2 className="font-display text-base font-bold text-ink-900">{t('restaurant.settings.financialTitle')}</h2>
             </div>
-            <div>
-              <label className="kiyo-label">{t('restaurant.settings.commissionRate')}</label>
-              <input
-                type="number"
-                value={commissionRate}
-                onChange={(e) => setCommissionRate(e.target.value)}
-                min="0"
-                max="100"
-                step="0.1"
-                className="kiyo-input"
-              />
-              <p className="mt-1 text-xs text-ink-400">
-                {t('restaurant.settings.commissionDesc')}
-              </p>
-            </div>
+            {commercialTerm ? (
+              <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                <div><dt className="text-xs text-ink-400">{t('restaurant.settings.commissionRate')}</dt><dd className="font-bold text-ink-900">{(Number(commercialTerm.food_commission_rate) * 100).toFixed(2)}%</dd></div>
+                <div><dt className="text-xs text-ink-400">Delivery participation</dt><dd className="font-bold text-ink-900">{(Number(commercialTerm.delivery_share_rate) * 100).toFixed(2)}%</dd></div>
+              </dl>
+            ) : (
+              <p className="rounded-lg bg-warning-50 p-3 text-sm text-warning-700">Commercial terms are awaiting platform approval.</p>
+            )}
+            <p className="mt-3 text-xs text-ink-400">Approved commercial terms are controlled by Kiyo Food and cannot be changed from restaurant settings.</p>
           </div>
+
+          {readiness && (
+            <div className="kiyo-card">
+              <h2 className="font-display text-base font-bold text-ink-900">Publication readiness</h2>
+              {readiness.ready ? (
+                <p className="mt-2 text-sm text-sage-700">Your restaurant meets all publication requirements.</p>
+              ) : (
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-warning-800">
+                  {readiness.blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}
+                </ul>
+              )}
+            </div>
+          )}
 
           {/* Operational Status */}
           <div className="kiyo-card">

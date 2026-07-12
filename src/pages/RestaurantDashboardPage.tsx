@@ -38,11 +38,11 @@ export default function RestaurantDashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const { data: r, error: re } = await supabase
-        .from('restaurants')
-        .select('*')
-        .eq('owner_id', profile.id)
-        .maybeSingle();
+      const { data: managedRestaurantId, error: managedRestaurantError } = await supabase.rpc('get_user_restaurant_id');
+      if (managedRestaurantError) throw managedRestaurantError;
+      const { data: r, error: re } = managedRestaurantId
+        ? await supabase.from('restaurants').select('*').eq('id', managedRestaurantId).maybeSingle()
+        : { data: null, error: null };
       if (re) throw re;
       
       if (!r) {
@@ -195,15 +195,23 @@ export default function RestaurantDashboardPage() {
   }, [orders, playSound]);
 
   const updateStatus = async (orderId: string, to: OrderStatus) => {
-    const current = orders.find((o) => o.id === orderId)?.status;
-    if (!current || !canTransition(current, to)) return;
+    const order = orders.find((item) => item.id === orderId);
+    const current = order?.status;
+    if (!order || !current || !canTransition(current, to)) return;
+    let reason: string | null = null;
+    if (['cancelled', 'failed_delivery', 'refunded'].includes(to)) {
+      reason = window.prompt('Please enter a clear reason for this status change:')?.trim() ?? null;
+      if (!reason || reason.length < 3) return;
+    }
     setPendingAction(orderId);
     setActionError(null);
     try {
-      const { error: e } = await supabase
-        .from('orders')
-        .update({ status: to })
-        .eq('id', orderId);
+      const { error: e } = await supabase.rpc('transition_order_status', {
+        p_order_id: orderId,
+        p_target_status: to,
+        p_reason: reason,
+        p_expected_updated_at: order.updated_at,
+      });
       if (e) throw e;
       setOrders((prev) =>
         prev.map((o) => (o.id === orderId ? { ...o, status: to } : o)),
