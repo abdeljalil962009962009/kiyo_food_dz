@@ -15,6 +15,7 @@ import { RestaurantImage } from '../components/ui';
 import { PlatformHealthPanel } from '../components/PlatformHealth';
 import AdminCoverageMap from '../components/AdminCoverageMap';
 import { RestaurantApplicationsPanel } from '../components/RestaurantApplicationsPanel';
+import { MarketplaceRuleOverridesEditor } from '../components/MarketplaceRuleOverridesEditor';
 
 type Analytics = {
   revenue: { today: number; this_week: number; this_month: number; this_year: number; all_time: number };
@@ -1158,6 +1159,7 @@ function RulesTab() {
           <button onClick={() => setSaveError(null)} className="text-xs font-semibold underline hover:text-error-700">Dismiss</button>
         </div>
       )}
+      <MarketplaceRuleOverridesEditor globalSettings={settings} />
       {/* Delivery Rules */}
       <RulesCard title={tx('rules.deliveryTitle', 'Delivery Rules')} icon={Settings} onSave={() => save('delivery')} saving={saving} saved={savedKey === 'delivery'}>
         <RuleField label={tx('rules.delivery.pricePerKm', 'Price per km (DZD)')} value={settings.delivery?.price_per_km as number ?? 25}
