@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { APIProvider, useMap } from '@vis.gl/react-google-maps';
 import { AlertTriangle, Bike, Home, MapPin, RefreshCw, SignalLow, Store } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
@@ -15,6 +15,34 @@ type GoogleMapShellProps = {
   children: ReactNode;
   fallbackHeightClass?: string;
 };
+
+type MapReadinessState = 'loading' | 'revealed' | 'slow' | 'ready';
+
+export function useMapReadiness(resetKey: string | number = 'default') {
+  const [state, setState] = useState<MapReadinessState>('loading');
+
+  useEffect(() => {
+    setState('loading');
+    const revealTimer = window.setTimeout(() => {
+      setState((current) => current === 'loading' ? 'revealed' : current);
+    }, 2500);
+    const slowTimer = window.setTimeout(() => {
+      setState((current) => current === 'ready' ? current : 'slow');
+    }, 8000);
+    return () => {
+      window.clearTimeout(revealTimer);
+      window.clearTimeout(slowTimer);
+    };
+  }, [resetKey]);
+
+  const markReady = useCallback(() => setState('ready'), []);
+
+  return {
+    isBlocking: state === 'loading',
+    isSlow: state === 'slow',
+    markReady,
+  };
+}
 
 export function GoogleMapShell({ children, fallbackHeightClass = 'h-[360px]' }: GoogleMapShellProps) {
   const { t, locale } = useT();

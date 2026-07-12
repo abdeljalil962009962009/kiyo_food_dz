@@ -41,7 +41,13 @@ import {
   type DeliveryLocation,
 } from '../lib/location';
 import { withExponentialBackoff } from '../lib/locationNetwork';
-import { GoogleMapShell, GOOGLE_MAPS_MAP_ID, MapCircle, MapMarkerBadge } from './GoogleMapShell';
+import {
+  GoogleMapShell,
+  GOOGLE_MAPS_MAP_ID,
+  MapCircle,
+  MapMarkerBadge,
+  useMapReadiness,
+} from './GoogleMapShell';
 
 export type DeliveryMapLocation = DeliveryLocation;
 
@@ -126,8 +132,7 @@ function DeliveryMapInner({
   });
   const mapCenterRef = useRef(initialCenter);
   const [mapType, setMapType] = useState<'roadmap' | 'satellite'>('roadmap');
-  const [tilesReady, setTilesReady] = useState(false);
-  const [tilesSlow, setTilesSlow] = useState(false);
+  const { isBlocking: mapLoading, isSlow: mapSlow, markReady: markMapReady } = useMapReadiness(mapType);
   const [isDragging, setIsDragging] = useState(false);
 
   const [search, setSearch] = useState('');
@@ -177,15 +182,6 @@ function DeliveryMapInner({
       window.removeEventListener('resize', update);
     };
   }, [gpsFirst]);
-
-  useEffect(() => {
-    if (tilesReady) {
-      setTilesSlow(false);
-      return;
-    }
-    const timer = window.setTimeout(() => setTilesSlow(true), 8000);
-    return () => window.clearTimeout(timer);
-  }, [tilesReady, cameraTarget.nonce, mapType]);
 
   useEffect(() => {
     const query = search.trim();
@@ -657,10 +653,8 @@ function DeliveryMapInner({
           maxZoom={20}
           restriction={{ latLngBounds: ALGERIA_MAP_BOUNDS, strictBounds: false }}
           reuseMaps
-          onTilesLoaded={() => {
-            setTilesReady(true);
-            setTilesSlow(false);
-          }}
+          onIdle={markMapReady}
+          onTilesLoaded={markMapReady}
           onCameraChanged={(event) => { mapCenterRef.current = event.detail.center; }}
           onDragstart={handleMapDragStart}
           onDragend={handleMapDragEnd}
@@ -696,12 +690,26 @@ function DeliveryMapInner({
           )}
         </Map>
 
-        {!tilesReady && (
-          <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-ink-50/90">
+        {mapLoading && (
+          <div
+            className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-ink-50/80 backdrop-blur-[1px]"
+            data-testid="map-initial-loader"
+          >
             <span className="flex items-center gap-2 text-xs font-semibold text-ink-500">
               <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-ember-500" />
-              {tilesSlow ? t('map.tilesSlow') : t('map.loading')}
+              {t('map.loading')}
             </span>
+          </div>
+        )}
+
+        {mapSlow && (
+          <div
+            className="pointer-events-none absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-[max(0.75rem,env(safe-area-inset-left))] z-30 max-w-[min(22rem,calc(100%-5rem))] rounded-lg border border-warning-200 bg-white/95 px-3 py-2 text-[11px] font-semibold leading-4 text-warning-800 shadow-card backdrop-blur"
+            role="status"
+            data-testid="map-slow-notice"
+          >
+            <span className="me-2 inline-block h-2 w-2 animate-pulse rounded-full bg-ember-500" />
+            {t('map.tilesSlow')}
           </div>
         )}
 
@@ -717,8 +725,6 @@ function DeliveryMapInner({
         <button
           type="button"
           onClick={() => {
-            setTilesReady(false);
-            setTilesSlow(false);
             setMapType((current) => current === 'roadmap' ? 'satellite' : 'roadmap');
           }}
           className="absolute right-[max(0.75rem,env(safe-area-inset-right))] top-[max(0.75rem,env(safe-area-inset-top))] z-30 flex h-11 w-11 items-center justify-center rounded-lg border border-ink-200 bg-white text-ink-700 shadow-card transition-colors hover:bg-ink-50"

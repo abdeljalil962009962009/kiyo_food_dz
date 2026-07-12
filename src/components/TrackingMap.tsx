@@ -3,7 +3,12 @@ import { AdvancedMarker, Map, useMap, useMapsLibrary } from '@vis.gl/react-googl
 import { Clock3, Navigation } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
 import { isValidMapCoordinate } from '../lib/googleMaps';
-import { GoogleMapShell, GOOGLE_MAPS_MAP_ID, MapMarkerBadge } from './GoogleMapShell';
+import {
+  GoogleMapShell,
+  GOOGLE_MAPS_MAP_ID,
+  MapMarkerBadge,
+  useMapReadiness,
+} from './GoogleMapShell';
 
 type TrackingMapProps = {
   restaurantLat: number;
@@ -38,7 +43,7 @@ function TrackingMapInner({
   status,
 }: TrackingMapProps) {
   const { t } = useT();
-  const [tilesReady, setTilesReady] = useState(false);
+  const { isBlocking: mapLoading, isSlow: mapSlow, markReady: markMapReady } = useMapReadiness();
   const [routeSummary, setRouteSummary] = useState<RouteSummary | null>(null);
 
   const restaurant = useMemo(() => ({ lat: restaurantLat, lng: restaurantLng }), [restaurantLat, restaurantLng]);
@@ -79,7 +84,8 @@ function TrackingMapInner({
         minZoom={5}
         maxZoom={20}
         reuseMaps
-        onTilesLoaded={() => setTilesReady(true)}
+        onIdle={markMapReady}
+        onTilesLoaded={markMapReady}
         style={{ width: '100%', height: '100%' }}
       >
         <AdvancedMarker position={restaurant} title={t('map.restaurantMarker')} zIndex={1}>
@@ -100,10 +106,17 @@ function TrackingMapInner({
         <DeliveryRoute origin={routeOrigin} destination={delivery} onSummary={setRouteSummary} />
       </Map>
 
-      {!tilesReady && (
-        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-ink-50/90 text-xs font-semibold text-ink-500">
+      {mapLoading && (
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-ink-50/80 text-xs font-semibold text-ink-500 backdrop-blur-[1px]" data-testid="tracking-map-initial-loader">
           <span className="mr-2 h-2.5 w-2.5 animate-pulse rounded-full bg-ember-500" />
           {t('map.loading')}
+        </div>
+      )}
+
+      {mapSlow && (
+        <div className="pointer-events-none absolute left-3 top-3 z-20 max-w-[calc(100%-5rem)] rounded-lg border border-warning-200 bg-white/95 px-3 py-2 text-[11px] font-semibold leading-4 text-warning-800 shadow-card backdrop-blur" role="status">
+          <span className="mr-2 inline-block h-2 w-2 animate-pulse rounded-full bg-ember-500" />
+          {t('map.tilesSlow')}
         </div>
       )}
 
