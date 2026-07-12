@@ -971,13 +971,17 @@ DECLARE
   v_driver_user_id uuid;
   v_allowed boolean;
 BEGIN
-  SELECT delivery, driver.user_id INTO v_delivery, v_driver_user_id
+  SELECT delivery.* INTO v_delivery
   FROM public.deliveries delivery
-  JOIN public.drivers driver ON driver.id = delivery.driver_id
   WHERE delivery.id = p_delivery_id
   FOR UPDATE OF delivery;
   IF NOT FOUND THEN RAISE EXCEPTION 'Delivery not found.' USING ERRCODE = 'P0002'; END IF;
-  IF NOT public.is_super_admin() AND v_driver_user_id <> auth.uid() THEN
+
+  SELECT driver.user_id INTO v_driver_user_id
+  FROM public.drivers driver
+  WHERE driver.id = v_delivery.driver_id;
+
+  IF NOT public.is_super_admin() AND v_driver_user_id IS DISTINCT FROM auth.uid() THEN
     RAISE EXCEPTION 'This delivery is not assigned to you.' USING ERRCODE = '42501';
   END IF;
   IF p_expected_updated_at IS NOT NULL AND v_delivery.updated_at <> p_expected_updated_at THEN

@@ -160,20 +160,20 @@ AS $$
   SELECT
     r.id,
     r.name,
-    r.logo_url,
-    r.cuisine_type,
+    r.image_url AS logo_url,
+    array_to_string(r.cuisine, ', ') AS cuisine_type,
     r.rating,
     r.review_count,
-    r.delivery_fee,
-    r.min_order,
+    0::numeric AS delivery_fee,
+    r.min_order_amount AS min_order,
     r.max_delivery_km,
-    COALESCE(r.is_open, false) AS is_open,
+    (r.operational_status = 'open') AS is_open,
     r.latitude,
     r.longitude,
     ROUND((ST_Distance(r.geo, origin.geo) / 1000)::numeric, 2) AS distance_km
   FROM restaurants r, origin
   WHERE r.geo IS NOT NULL
-    AND COALESCE(r.is_published, true) = true
+    AND r.status = 'published'
     AND ST_DWithin(r.geo, origin.geo, GREATEST(p_radius_km, 0) * 1000)
   ORDER BY r.geo <-> origin.geo
   LIMIT LEAST(GREATEST(p_limit, 1), 200);
@@ -211,7 +211,7 @@ BEGIN
     'ok', v_distance_km <= v_max_km,
     'distance_km', v_distance_km,
     'max_delivery_km', v_max_km,
-    'delivery_fee', COALESCE((v_finance->>'delivery_fee')::numeric, v_restaurant.delivery_fee, 0),
+    'delivery_fee', COALESCE((v_finance->>'delivery_fee')::numeric, 0),
     'reason', CASE WHEN v_distance_km <= v_max_km THEN 'inside_zone' ELSE 'outside_zone' END
   );
 END;
