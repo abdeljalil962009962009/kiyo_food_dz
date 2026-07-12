@@ -40,16 +40,20 @@ Use these settings before public launch.
                 We received a request to reset your Kiyo Food password. Use the secure button below to choose a new password.
               </p>
               <p style="margin:0 0 26px;text-align:center;">
-                <a href="{{ .SiteURL }}/reset-password?token_hash={{ .TokenHash }}&amp;type=recovery" style="display:inline-block;background:#fb4f0a;color:#ffffff;text-decoration:none;font-weight:700;border-radius:12px;padding:14px 22px;">
+                <a href="{{ .SiteURL }}/reset-password#token_hash={{ .TokenHash }}&amp;type=recovery" style="display:inline-block;background:#fb4f0a;color:#ffffff;text-decoration:none;font-weight:700;border-radius:12px;padding:14px 22px;">
                   Reset password
                 </a>
               </p>
+              <div style="margin:0 0 22px;padding:16px;border:1px solid #fed7c3;border-radius:12px;background:#fff7f2;text-align:center;">
+                <div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#9a3412;">Recovery code</div>
+                <div style="margin-top:6px;font-size:28px;font-weight:800;letter-spacing:6px;color:#111827;">{{ .Token }}</div>
+              </div>
               <p style="margin:0 0 12px;font-size:13px;line-height:1.6;color:#6b7280;">
                 This link can expire or be used only once. If you did not request this reset, ignore this email and your password will stay unchanged.
               </p>
               <p style="margin:0;font-size:12px;line-height:1.6;color:#9ca3af;">
                 If the button does not work, copy and paste this link into your browser:<br />
-                <span style="word-break:break-all;">{{ .SiteURL }}/reset-password?token_hash={{ .TokenHash }}&amp;type=recovery</span>
+                <span style="word-break:break-all;">{{ .SiteURL }}/reset-password#token_hash={{ .TokenHash }}&amp;type=recovery</span>
               </p>
             </td>
           </tr>
@@ -62,7 +66,9 @@ Use these settings before public launch.
 
 This template intentionally does not use `{{ .ConfirmationURL }}`. Security scanners can
 open that single-use URL before the customer does. The Kiyo Food reset page receives the
-token hash without consuming it and verifies it only when the customer submits a new password.
+token hash in the browser-only URL fragment without consuming it and verifies it only when
+the customer submits a new password. The visible one-time code is an independent fallback
+for email clients that damage links.
 Disable click tracking for authentication emails in the SMTP provider as well.
 
 ## Verification Checklist

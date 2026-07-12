@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Lock, Mail, KeyRound, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useT } from '../lib/i18n-react';
 import { Logo } from '../components/Logo';
@@ -37,12 +37,15 @@ export default function ResetPasswordPage() {
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [recoveryEmail, setRecoveryEmail] = useState('');
+  const [recoveryCode, setRecoveryCode] = useState('');
+  const [manualRecovery, setManualRecovery] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const [pendingRecovery] = useState(capturePendingRecovery);
   const recoveryVerifiedRef = useRef(false);
-  const [recoveryState, setRecoveryState] = useState<'checking' | 'ready' | 'invalid'>(
+  const [recoveryState, setRecoveryState] = useState<'checking' | 'ready'>(
     pendingRecovery ? 'ready' : 'checking',
   );
 
@@ -59,10 +62,14 @@ export default function ResetPasswordPage() {
           setRecoveryState('ready');
           return;
         }
-        setRecoveryState('invalid');
+        setManualRecovery(true);
+        setRecoveryState('ready');
       } catch (err) {
         console.error('Failed to verify password recovery session', err);
-        if (!cancelled) setRecoveryState('invalid');
+        if (!cancelled) {
+          setManualRecovery(true);
+          setRecoveryState('ready');
+        }
       }
     };
 
@@ -87,6 +94,17 @@ export default function ResetPasswordPage() {
 
     setLocalError(null);
 
+    if (manualRecovery) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recoveryEmail.trim())) {
+        setLocalError(t('auth.error.invalidEmail'));
+        return;
+      }
+      if (!/^\d{6,8}$/.test(recoveryCode.replace(/\s/g, ''))) {
+        setLocalError(t('auth.recoveryCodeInvalid'));
+        return;
+      }
+    }
+
     // Basic password validation
     if (password.length < 8) {
       setLocalError(t('auth.error.weakPassword'));
@@ -100,14 +118,26 @@ export default function ResetPasswordPage() {
 
     setSubmitting(true);
     try {
-      if (pendingRecovery?.kind === 'token_hash' && !recoveryVerifiedRef.current) {
+      if (manualRecovery && !recoveryVerifiedRef.current) {
+        const verified = await supabase.auth.verifyOtp({
+          email: recoveryEmail.trim().toLowerCase(),
+          token: recoveryCode.replace(/\s/g, ''),
+          type: 'recovery',
+        });
+        if (verified.error || !verified.data.session) {
+          setLocalError(t('auth.recoveryCodeInvalid'));
+          return;
+        }
+        recoveryVerifiedRef.current = true;
+      } else if (pendingRecovery?.kind === 'token_hash' && !recoveryVerifiedRef.current) {
         const verified = await supabase.auth.verifyOtp({
           token_hash: pendingRecovery.value,
           type: 'recovery',
         });
         if (verified.error || !verified.data.session) {
           sessionStorage.removeItem(PENDING_RECOVERY_KEY);
-          setRecoveryState('invalid');
+          setManualRecovery(true);
+          setLocalError(t('auth.recoveryFallback'));
           return;
         }
         recoveryVerifiedRef.current = true;
@@ -118,7 +148,8 @@ export default function ResetPasswordPage() {
           const exchanged = await supabase.auth.exchangeCodeForSession(pendingRecovery.value);
           if (exchanged.error || !exchanged.data.session) {
             sessionStorage.removeItem(PENDING_RECOVERY_KEY);
-            setRecoveryState('invalid');
+            setManualRecovery(true);
+            setLocalError(t('auth.recoveryFallback'));
             return;
           }
         }
@@ -181,26 +212,6 @@ export default function ResetPasswordPage() {
     );
   }
 
-  if (recoveryState === 'invalid') {
-    return (
-      <AuthLayout>
-        <div className="rounded-2xl border border-error-500/20 bg-error-500/10 p-6 text-center">
-          <AlertCircle className="mx-auto h-10 w-10 text-error-600" />
-          <h2 className="mt-3 font-display text-lg font-bold text-ink-900">
-            {t('auth.resetInvalidTitle')}
-          </h2>
-          <p className="mt-1 text-sm text-ink-600">{t('auth.resetInvalidBody')}</p>
-          <button
-            onClick={() => navigate('/forgot-password', { replace: true })}
-            className="kiyo-btn-primary mt-5 w-full"
-          >
-            {t('auth.resetPasswordCta')}
-          </button>
-        </div>
-      </AuthLayout>
-    );
-  }
-
   return (
     <AuthLayout>
       <div className="mb-8 text-center">
@@ -215,6 +226,39 @@ export default function ResetPasswordPage() {
 
       <ErrorBoundary variant="inline">
         <form onSubmit={submit} className="space-y-4" noValidate>
+          {manualRecovery && (
+            <>
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                {t('auth.recoveryFallback')}
+              </div>
+              <Field
+                name="recoveryEmail"
+                type="email"
+                autoComplete="email"
+                inputMode="email"
+                label={t('auth.email')}
+                value={recoveryEmail}
+                onChange={(e) => setRecoveryEmail(e.target.value)}
+                icon={<Mail className="h-4 w-4" />}
+                placeholder="you@example.com"
+                required
+              />
+              <Field
+                name="recoveryCode"
+                type="text"
+                autoComplete="one-time-code"
+                inputMode="numeric"
+                label={t('auth.recoveryCode')}
+                value={recoveryCode}
+                onChange={(e) => setRecoveryCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                icon={<KeyRound className="h-4 w-4" />}
+                placeholder="123456"
+                required
+              />
+              <p className="-mt-2 text-xs text-ink-500">{t('auth.recoveryCodePrompt')}</p>
+            </>
+          )}
+
           <Field
             name="password"
             type="password"

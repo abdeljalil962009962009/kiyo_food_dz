@@ -19,6 +19,12 @@ describe('password recovery helpers', () => {
     )).toBeNull();
   });
 
+  it('parses token hashes protected in the URL fragment', () => {
+    expect(parsePendingRecovery(
+      'https://kiyo-food.store/reset-password#token_hash=fragment-hash&type=recovery',
+    )).toEqual({ kind: 'token_hash', value: 'fragment-hash' });
+  });
+
   it('keeps compatibility with PKCE recovery codes', () => {
     expect(parsePendingRecovery(
       'https://kiyo-food.store/reset-password?code=legacy-code',

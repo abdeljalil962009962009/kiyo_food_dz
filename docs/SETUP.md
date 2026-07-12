@@ -108,7 +108,7 @@ This is what makes the reset link in the email go somewhere real instead of bein
 3. Type a real email you control → click **Send reset link**.
 4. Open that email inbox. You should see an email from `Kiyo Food <noreply@kiyo-food.store>` with subject "Reset your Kiyo Food password".
 5. Click the orange **Reset password** button.
-6. You land on `/reset-password`. The link remains unused until you explicitly submit the new password form.
+6. You land on `/reset-password`. The fragment-protected link remains unused until you explicitly submit the new password form. If an email client damages the link, enter the recovery code shown in the same email.
 7. Type a new password → submit → you're redirected to `/login` and can log in.
 
 #### Common mistakes

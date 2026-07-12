@@ -33,6 +33,10 @@ export type TranslationKey =
   | 'auth.resetPasswordCta'
   | 'auth.resendResetEmail'
   | 'auth.resetRetryCountdown'
+  | 'auth.recoveryCode'
+  | 'auth.recoveryCodePrompt'
+  | 'auth.recoveryCodeInvalid'
+  | 'auth.recoveryFallback'
   | 'auth.continueWithGoogle'
   | 'auth.continueWithApple'
   | 'auth.orContinueWith'
@@ -652,6 +656,10 @@ const en: Dict = {
   'auth.resetPasswordCta': 'Send reset link',
   'auth.resendResetEmail': 'Send another email',
   'auth.resetRetryCountdown': 'Please wait {seconds} seconds before requesting another email.',
+  'auth.recoveryCode': 'Recovery code',
+  'auth.recoveryCodePrompt': 'Enter the code from your latest Kiyo Food email.',
+  'auth.recoveryCodeInvalid': 'Enter the valid recovery code from your latest email.',
+  'auth.recoveryFallback': 'The email link could not be verified. Enter the recovery code shown in the same email.',
   'auth.continueWithGoogle': 'Continue with Google',
   'auth.continueWithApple': 'Continue with Apple',
   'auth.orContinueWith': 'or',
@@ -1259,6 +1267,10 @@ const fr: Dict = {
   'auth.resetPasswordCta': 'Envoyer le lien',
   'auth.resendResetEmail': 'Envoyer un autre e-mail',
   'auth.resetRetryCountdown': 'Patientez {seconds} secondes avant de demander un autre e-mail.',
+  'auth.recoveryCode': 'Code de récupération',
+  'auth.recoveryCodePrompt': 'Saisissez le code figurant dans votre dernier e-mail Kiyo Food.',
+  'auth.recoveryCodeInvalid': 'Saisissez le code de récupération valide de votre dernier e-mail.',
+  'auth.recoveryFallback': 'Le lien n’a pas pu être vérifié. Saisissez le code de récupération affiché dans le même e-mail.',
   'auth.continueWithGoogle': 'Continuer avec Google',
   'auth.continueWithApple': 'Continuer avec Apple',
   'auth.orContinueWith': 'ou',
@@ -1866,6 +1878,10 @@ const ar: Dict = {
   'auth.resetPasswordCta': 'إرسال الرابط',
   'auth.resendResetEmail': 'إرسال رسالة أخرى',
   'auth.resetRetryCountdown': 'انتظر {seconds} ثانية قبل طلب رسالة أخرى.',
+  'auth.recoveryCode': 'رمز الاسترداد',
+  'auth.recoveryCodePrompt': 'أدخل الرمز الموجود في أحدث رسالة من كيو فود.',
+  'auth.recoveryCodeInvalid': 'أدخل رمز الاسترداد الصحيح من أحدث رسالة.',
+  'auth.recoveryFallback': 'تعذر التحقق من الرابط. أدخل رمز الاسترداد الظاهر في الرسالة نفسها.',
   'auth.continueWithGoogle': 'المتابعة عبر Google',
   'auth.continueWithApple': 'المتابعة عبر Apple',
   'auth.orContinueWith': 'أو',

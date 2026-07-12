@@ -6,14 +6,15 @@ export type PendingRecovery =
 
 export function parsePendingRecovery(url: string): PendingRecovery | null {
   const parsed = new URL(url);
-  const tokenHash = parsed.searchParams.get('token_hash');
-  const type = parsed.searchParams.get('type');
+  const hashParams = new URLSearchParams(parsed.hash.replace(/^#/, ''));
+  const tokenHash = parsed.searchParams.get('token_hash') ?? hashParams.get('token_hash');
+  const type = parsed.searchParams.get('type') ?? hashParams.get('type');
 
   if (tokenHash && type === 'recovery') {
     return { kind: 'token_hash', value: tokenHash };
   }
 
-  const code = parsed.searchParams.get('code');
+  const code = parsed.searchParams.get('code') ?? hashParams.get('code');
   if (code) return { kind: 'code', value: code };
 
   return null;
