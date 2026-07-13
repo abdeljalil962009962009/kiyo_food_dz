@@ -11,6 +11,7 @@ import { useAuth } from '../context/AuthContext';
 import { useT } from '../lib/i18n-react';
 import { supabase, type RestaurantApplication } from '../lib/supabase';
 import { normalizeRestaurantApplicationStatus } from '../lib/restaurantApplicationStateMachine';
+import { uploadRestaurantImage } from '../lib/restaurantMedia';
 import { callUserAction } from '../lib/userApi';
 
 type Location = DeliveryMapLocation;
@@ -192,16 +193,16 @@ export default function RestaurantApplicationPage() {
     if (!Number.isFinite(maxKm) || maxKm <= 0 || maxKm > 100) return setError(t('restaurant.apply.errorDelivery'));
     if (!Number.isFinite(minOrder) || minOrder < 0) return setError(t('restaurant.apply.errorMinOrder'));
     if (proposedRate != null && (!Number.isFinite(proposedRate) || proposedRate < 0 || proposedRate > 1)) {
-      return setError('Proposed commission must be between 0% and 100%.');
+      return setError(t('restaurant.apply.errorCommission'));
     }
     if (!Number.isFinite(proposedDeliveryRate) || proposedDeliveryRate < 0 || proposedDeliveryRate > 1) {
-      return setError('Proposed delivery share must be between 0% and 100%.');
+      return setError(t('restaurant.apply.errorDeliveryShare'));
     }
 
     setSubmitting(true);
     try {
-      const logoUrl = logo ? await uploadApplicationImage(profile.id, logo, 'logo') : null;
-      const coverUrl = cover ? await uploadApplicationImage(profile.id, cover, 'cover') : null;
+      const logoUrl = logo ? await uploadRestaurantImage(profile.id, logo, 'logo') : null;
+      const coverUrl = cover ? await uploadRestaurantImage(profile.id, cover, 'cover') : null;
 
       const payload = {
         restaurant_name: restaurantName.trim(),
@@ -248,7 +249,12 @@ export default function RestaurantApplicationPage() {
       setSuccess(true);
     } catch (err) {
       console.error('Failed to submit restaurant application', err);
-      setError(err instanceof Error ? err.message : t('error.genericBody'));
+      const message = err instanceof Error ? err.message : '';
+      setError(message === 'restaurant_image_type'
+        ? t('restaurant.apply.errorImageType')
+        : message === 'restaurant_image_size'
+          ? t('restaurant.apply.errorImageSize')
+          : message || t('error.genericBody'));
     } finally {
       setSubmitting(false);
     }
@@ -479,18 +485,6 @@ function FileField({ label, file, onChange }: { label: string; file: File | null
       {file && <span className="mt-2 block truncate text-xs text-ink-400">{file.name}</span>}
     </label>
   );
-}
-
-async function uploadApplicationImage(userId: string, file: File, kind: 'logo' | 'cover'): Promise<string> {
-  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-  const safeExt = ['jpg', 'jpeg', 'png', 'webp'].includes(ext) ? ext : 'jpg';
-  const path = `${userId}/${kind}-${Date.now()}.${safeExt}`;
-  const { error } = await supabase.storage.from('restaurant-applications').upload(path, file, {
-    cacheControl: '3600',
-    upsert: true,
-  });
-  if (error) throw error;
-  return path;
 }
 
 function normalizeApplication(application: Omit<RestaurantApplication, 'status'> & { status: string }): RestaurantApplication {

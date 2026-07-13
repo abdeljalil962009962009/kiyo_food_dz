@@ -7,6 +7,7 @@ const IMAGE_EXTENSIONS: Record<string, string> = {
   'image/png': 'png',
   'image/webp': 'webp',
 };
+type RestaurantImageKind = 'public-profile' | 'logo' | 'cover';
 
 export function validateRestaurantImage(file: File): 'type' | 'size' | null {
   if (!IMAGE_EXTENSIONS[file.type]) return 'type';
@@ -14,12 +15,16 @@ export function validateRestaurantImage(file: File): 'type' | 'size' | null {
   return null;
 }
 
-export async function uploadRestaurantImage(userId: string, file: File): Promise<string> {
+export async function uploadRestaurantImage(
+  userId: string,
+  file: File,
+  kind: RestaurantImageKind = 'public-profile',
+): Promise<string> {
   const validationError = validateRestaurantImage(file);
   if (validationError) throw new Error(`restaurant_image_${validationError}`);
 
   const extension = IMAGE_EXTENSIONS[file.type];
-  const path = `${userId}/public-profile-${Date.now()}.${extension}`;
+  const path = `${userId}/${kind}-${crypto.randomUUID()}.${extension}`;
   const { error } = await supabase.storage.from(RESTAURANT_APPLICATIONS_BUCKET).upload(path, file, {
     cacheControl: '3600',
     upsert: false,

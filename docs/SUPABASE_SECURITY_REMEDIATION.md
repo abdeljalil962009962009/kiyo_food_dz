@@ -125,7 +125,7 @@ The rollback file restores the previous browser RPC grants and broad policies on
 - Final staging Security Advisor result after 0049: 1 error, 11 warnings, 0 informational findings.
 - No unresolved actionable application-owned Advisor errors or high-risk warnings remain.
 - Read-only integrated database acceptance script 0050: passed in staging.
-- Profile privilege escalation guard and rollback-isolated cross-role test 0051: created; staging execution pending.
+- Profile privilege escalation guard and rollback-isolated cross-role test 0051: passed in staging.
 - Remaining live Storage and multi-session identity tests: pending in staging.
 - Production application: intentionally not performed.
 

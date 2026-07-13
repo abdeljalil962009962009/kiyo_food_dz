@@ -202,6 +202,10 @@ export type TranslationKey =
   | 'restaurant.apply.errorLocation'
   | 'restaurant.apply.errorDelivery'
   | 'restaurant.apply.errorMinOrder'
+  | 'restaurant.apply.errorCommission'
+  | 'restaurant.apply.errorDeliveryShare'
+  | 'restaurant.apply.errorImageType'
+  | 'restaurant.apply.errorImageSize'
   | 'map.searchPlaceholder'
   | 'map.useCurrentLocation'
   | 'map.locating'
@@ -836,6 +840,10 @@ const en: Dict = {
   'restaurant.apply.errorLocation': 'Pin the restaurant location on the map.',
   'restaurant.apply.errorDelivery': 'Enter a delivery radius between 1 and 100 km.',
   'restaurant.apply.errorMinOrder': 'Minimum order amount cannot be negative.',
+  'restaurant.apply.errorCommission': 'The proposed food commission must be between 0% and 100%.',
+  'restaurant.apply.errorDeliveryShare': 'The proposed delivery share must be between 0% and 100%.',
+  'restaurant.apply.errorImageType': 'Upload a PNG, JPEG, or WebP image.',
+  'restaurant.apply.errorImageSize': 'The image must be 5 MB or smaller.',
   'map.searchPlaceholder': 'Search address, neighborhood, city...',
   'map.useCurrentLocation': 'Use current location',
   'map.locating': 'Locating...',
@@ -1465,6 +1473,10 @@ const fr: Dict = {
   'restaurant.apply.errorLocation': 'Placez le restaurant sur la carte.',
   'restaurant.apply.errorDelivery': 'Saisissez un rayon de livraison entre 1 et 100 km.',
   'restaurant.apply.errorMinOrder': 'Le minimum de commande ne peut pas être négatif.',
+  'restaurant.apply.errorCommission': 'La commission proposée sur les plats doit être comprise entre 0 % et 100 %.',
+  'restaurant.apply.errorDeliveryShare': 'La part proposée sur la livraison doit être comprise entre 0 % et 100 %.',
+  'restaurant.apply.errorImageType': 'Importez une image PNG, JPEG ou WebP.',
+  'restaurant.apply.errorImageSize': 'L’image ne doit pas dépasser 5 Mo.',
   'map.searchPlaceholder': 'Rechercher une adresse, un quartier, une ville...',
   'map.useCurrentLocation': 'Utiliser ma position actuelle',
   'map.locating': 'Localisation...',
@@ -2094,6 +2106,10 @@ const ar: Dict = {
   'restaurant.apply.errorLocation': 'حدد موقع المطعم على الخريطة.',
   'restaurant.apply.errorDelivery': 'أدخل نطاق توصيل بين 1 و100 كم.',
   'restaurant.apply.errorMinOrder': 'لا يمكن أن يكون الحد الأدنى للطلب سالباً.',
+  'restaurant.apply.errorCommission': 'يجب أن تكون عمولة الطعام المقترحة بين 0% و100%.',
+  'restaurant.apply.errorDeliveryShare': 'يجب أن تكون حصة التوصيل المقترحة بين 0% و100%.',
+  'restaurant.apply.errorImageType': 'حمّل صورة بصيغة PNG أو JPEG أو WebP.',
+  'restaurant.apply.errorImageSize': 'يجب ألا يتجاوز حجم الصورة 5 ميغابايت.',
   'map.searchPlaceholder': 'ابحث عن عنوان أو حي أو مدينة...',
   'map.useCurrentLocation': 'استخدام موقعي الحالي',
   'map.locating': 'جارٍ تحديد الموقع...',
