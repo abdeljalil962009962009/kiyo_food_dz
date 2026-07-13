@@ -1,7 +1,10 @@
 -- Repair databases where migration 0002's operational status text column
 -- prevented migration 0003 from installing the restaurant lifecycle enum.
 -- This is additive/data-preserving: legacy operational values are copied to
--- operational_status before status is converted to the lifecycle contract.
+-- operational_status before status is normalized to the lifecycle contract.
+-- The existing status type is intentionally preserved because RLS policies in
+-- deployed databases can depend on it; changing the type would require a risky
+-- policy teardown and recreation.
 
 DO $$
 BEGIN
@@ -79,43 +82,53 @@ BEGIN
       AND column_name = 'is_active'
   ) INTO v_has_is_active;
 
-  ALTER TABLE public.restaurants ALTER COLUMN status DROP DEFAULT;
-
   IF v_has_is_active THEN
     EXECUTE $sql$
-      ALTER TABLE public.restaurants
-      ALTER COLUMN status TYPE public.restaurant_status
-      USING (
-        CASE
-          WHEN status::text IN ('draft','pending_approval','published','hidden','suspended')
-            THEN status::text
-          WHEN status::text IN ('open','busy') THEN 'published'
-          WHEN status::text = 'closed' AND is_active THEN 'published'
-          ELSE 'pending_approval'
-        END
-      )::public.restaurant_status
+      UPDATE public.restaurants
+      SET status = CASE
+        WHEN status::text IN ('draft','pending_approval','published','hidden','suspended')
+          THEN status::text
+        WHEN status::text IN ('open','busy') THEN 'published'
+        WHEN status::text = 'closed' AND is_active THEN 'published'
+        ELSE 'pending_approval'
+      END
     $sql$;
   ELSE
     -- Without the historical is_active signal, legacy operational states
     -- represented existing marketplace restaurants. Preserve their visibility.
     EXECUTE $sql$
-      ALTER TABLE public.restaurants
-      ALTER COLUMN status TYPE public.restaurant_status
-      USING (
-        CASE
-          WHEN status::text IN ('draft','pending_approval','published','hidden','suspended')
-            THEN status::text
-          WHEN status::text IN ('open','closed','busy') THEN 'published'
-          ELSE 'pending_approval'
-        END
-      )::public.restaurant_status
+      UPDATE public.restaurants
+      SET status = CASE
+        WHEN status::text IN ('draft','pending_approval','published','hidden','suspended')
+          THEN status::text
+        WHEN status::text IN ('open','closed','busy') THEN 'published'
+        ELSE 'pending_approval'
+      END
     $sql$;
   END IF;
 
   ALTER TABLE public.restaurants
-    ALTER COLUMN status SET DEFAULT 'draft'::public.restaurant_status,
+    ALTER COLUMN status SET DEFAULT 'draft',
     ALTER COLUMN status SET NOT NULL;
 END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conrelid = 'public.restaurants'::regclass
+      AND conname = 'restaurants_status_check'
+  ) THEN
+    ALTER TABLE public.restaurants
+      ADD CONSTRAINT restaurants_status_check
+      CHECK (status::text IN ('draft', 'pending_approval', 'published', 'hidden', 'suspended'))
+      NOT VALID;
+  END IF;
+END $$;
+
+ALTER TABLE public.restaurants
+  VALIDATE CONSTRAINT restaurants_status_check;
 
 DO $$
 BEGIN
