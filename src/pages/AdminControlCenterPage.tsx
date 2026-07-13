@@ -160,6 +160,18 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'rules.order.busyThreshold': 'Busy mode threshold (orders)',
     'rules.order.autoBusy': 'Auto busy mode',
     'rules.featureFlagsTitle': 'Feature Flags',
+    'rules.maintenance.defaultMessage': 'We are performing scheduled maintenance. Please check back shortly.',
+    'feature.chat': 'Chat',
+    'feature.reviews': 'Reviews',
+    'feature.deliveryMap': 'Delivery map',
+    'feature.promoCodes': 'Promo codes',
+    'feature.loyaltyPoints': 'Loyalty points',
+    'feature.referrals': 'Referrals',
+    'feature.promotions': 'Promotions',
+    'feature.gpsDelivery': 'GPS delivery tracking',
+    'feature.notifications': 'Notifications',
+    'feature.savedAddresses': 'Saved addresses',
+    'feature.featuredRestaurants': 'Featured restaurants',
     'rules.taxesTitle': 'Taxes & Fees',
     'rules.taxes.vatRate': 'VAT Rate (%)',
     'rules.taxes.transFeeFixed': 'Transaction Processing Fee (DZD)',
@@ -297,6 +309,18 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'rules.order.busyThreshold': 'Seuil du mode occupé (commandes)',
     'rules.order.autoBusy': 'Mode occupé automatique',
     'rules.featureFlagsTitle': 'Drapeaux de Fonctionnalités',
+    'rules.maintenance.defaultMessage': 'Une maintenance planifiée est en cours. Veuillez réessayer dans quelques instants.',
+    'feature.chat': 'Discussion',
+    'feature.reviews': 'Avis',
+    'feature.deliveryMap': 'Carte de livraison',
+    'feature.promoCodes': 'Codes promotionnels',
+    'feature.loyaltyPoints': 'Points de fidélité',
+    'feature.referrals': 'Parrainage',
+    'feature.promotions': 'Promotions',
+    'feature.gpsDelivery': 'Suivi GPS des livraisons',
+    'feature.notifications': 'Notifications',
+    'feature.savedAddresses': 'Adresses enregistrées',
+    'feature.featuredRestaurants': 'Restaurants mis en avant',
     'rules.taxesTitle': 'Taxes et Frais',
     'rules.taxes.vatRate': 'Taux de TVA (%)',
     'rules.taxes.transFeeFixed': 'Frais de traitement fixe (DZD)',
@@ -434,6 +458,18 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'rules.order.busyThreshold': 'حد وضع الانشغال (الطلبات)',
     'rules.order.autoBusy': 'وضع الانشغال التلقائي',
     'rules.featureFlagsTitle': 'ميزات النظام',
+    'rules.maintenance.defaultMessage': 'نجري حالياً صيانة مجدولة. يرجى المحاولة مجدداً بعد قليل.',
+    'feature.chat': 'المحادثة',
+    'feature.reviews': 'التقييمات',
+    'feature.deliveryMap': 'خريطة التوصيل',
+    'feature.promoCodes': 'الرموز الترويجية',
+    'feature.loyaltyPoints': 'نقاط الولاء',
+    'feature.referrals': 'الإحالات',
+    'feature.promotions': 'العروض',
+    'feature.gpsDelivery': 'تتبع التوصيل عبر GPS',
+    'feature.notifications': 'الإشعارات',
+    'feature.savedAddresses': 'العناوين المحفوظة',
+    'feature.featuredRestaurants': 'المطاعم المميزة',
     'rules.taxesTitle': 'الضرائب والرسوم',
     'rules.taxes.vatRate': 'معدل ضريبة القيمة المضافة (%)',
     'rules.taxes.transFeeFixed': 'رسوم معالجة المعاملة الثابتة (د.ج)',
@@ -1088,6 +1124,20 @@ const DEFAULT_SETTINGS: Record<string, Record<string, unknown>> = {
   }
 };
 
+const FEATURE_RULE_FIELDS = [
+  { key: 'chat_enabled', aliases: ['chat'], label: 'feature.chat', fallback: 'Chat' },
+  { key: 'reviews_enabled', aliases: ['reviews'], label: 'feature.reviews', fallback: 'Reviews' },
+  { key: 'delivery_map_enabled', aliases: ['maps'], label: 'feature.deliveryMap', fallback: 'Delivery map' },
+  { key: 'promo_codes_enabled', aliases: ['coupons'], label: 'feature.promoCodes', fallback: 'Promo codes' },
+  { key: 'loyalty_points_enabled', aliases: ['loyalty', 'loyalty_points'], label: 'feature.loyaltyPoints', fallback: 'Loyalty points' },
+  { key: 'referrals', aliases: [], label: 'feature.referrals', fallback: 'Referrals' },
+  { key: 'promotions', aliases: [], label: 'feature.promotions', fallback: 'Promotions' },
+  { key: 'gps_delivery', aliases: [], label: 'feature.gpsDelivery', fallback: 'GPS delivery tracking' },
+  { key: 'notifications', aliases: [], label: 'feature.notifications', fallback: 'Notifications' },
+  { key: 'saved_addresses', aliases: [], label: 'feature.savedAddresses', fallback: 'Saved addresses' },
+  { key: 'featured_restaurants', aliases: [], label: 'feature.featuredRestaurants', fallback: 'Featured restaurants' },
+] as const;
+
 // ===================== BUSINESS RULES =====================
 function RulesTab() {
   const { t } = useT();
@@ -1148,6 +1198,16 @@ function RulesTab() {
     setSettings((prev) => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
   };
 
+  const updateFeature = (key: string, aliases: readonly string[], value: boolean) => {
+    setSettings((previous) => {
+      const features = { ...(previous.features ?? {}), [key]: value };
+      aliases.forEach((alias) => {
+        if (alias in features) features[alias] = value;
+      });
+      return { ...previous, features };
+    });
+  };
+
   if (loading) return <Skeleton count={4} />;
   if (error) return <ErrorState title={t('error.genericTitle')} message={error} onRetry={load} retryLabel={t('error.retry')} />;
 
@@ -1156,7 +1216,7 @@ function RulesTab() {
       {saveError && (
         <div className="rounded-lg bg-error-500/10 p-3 text-sm text-error-600 flex items-center justify-between">
           <span>{saveError}</span>
-          <button onClick={() => setSaveError(null)} className="text-xs font-semibold underline hover:text-error-700">Dismiss</button>
+          <button onClick={() => setSaveError(null)} className="text-xs font-semibold underline hover:text-error-700">{t('common.close')}</button>
         </div>
       )}
       <MarketplaceRuleOverridesEditor globalSettings={settings} />
@@ -1218,7 +1278,7 @@ function RulesTab() {
           onChange={(v) => updateField('maintenance', 'enabled', v)} />
         <RuleToggle label={tx('rules.maintenance.allowAdmin', 'Allow admin access during maintenance')} value={settings.maintenance?.allow_admin_access as boolean ?? true}
           onChange={(v) => updateField('maintenance', 'allow_admin_access', v)} />
-        <RuleField label={tx('rules.maintenance.message', 'Maintenance message')} value={settings.maintenance?.message as string ?? 'We are performing scheduled maintenance. Please check back shortly.'}
+        <RuleField label={tx('rules.maintenance.message', 'Maintenance message')} value={(settings.maintenance?.message as string) === DEFAULT_SETTINGS.maintenance.message ? tx('rules.maintenance.defaultMessage', 'We are performing scheduled maintenance. Please check back shortly.') : settings.maintenance?.message as string ?? tx('rules.maintenance.defaultMessage', 'We are performing scheduled maintenance. Please check back shortly.')}
           onChange={(v) => updateField('maintenance', 'message', v)} type="text" />
       </RulesCard>
 
@@ -1238,10 +1298,18 @@ function RulesTab() {
 
       {/* Feature Flags */}
       <RulesCard title={tx('rules.featureFlagsTitle', 'Feature Flags')} icon={Sparkles} onSave={() => save('features')} saving={saving} saved={savedKey === 'features'}>
-        {Object.entries(settings.features ?? {}).filter(([, v]) => typeof v === 'boolean').map(([key, val]) => (
-          <RuleToggle key={key} label={key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
-            value={val as boolean} onChange={(v) => updateField('features', key, v)} />
-        ))}
+        {FEATURE_RULE_FIELDS.map((field) => {
+          const availableKey = [field.key, ...field.aliases].find((key) => typeof settings.features?.[key] === 'boolean');
+          if (!availableKey) return null;
+          return (
+            <RuleToggle
+              key={field.key}
+              label={tx(field.label, field.fallback)}
+              value={settings.features?.[availableKey] as boolean}
+              onChange={(value) => updateFeature(field.key, field.aliases, value)}
+            />
+          );
+        })}
       </RulesCard>
 
       {/* Taxes & Fees */}
