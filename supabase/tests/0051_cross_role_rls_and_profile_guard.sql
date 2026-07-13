@@ -198,8 +198,9 @@ BEGIN
   IF EXISTS (
     SELECT 1 FROM public.restaurant_memberships membership
     WHERE membership.restaurant_id = v_restaurant_id
+      AND membership.user_id <> auth.uid()
   ) THEN
-    RAISE EXCEPTION '0051 failed: unrelated driver can read restaurant memberships';
+    RAISE EXCEPTION '0051 failed: unrelated driver can read another user''s restaurant membership';
   END IF;
 
   UPDATE public.restaurants SET updated_at = updated_at WHERE id = v_restaurant_id;
