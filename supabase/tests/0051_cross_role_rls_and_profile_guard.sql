@@ -7,6 +7,7 @@ DO $preflight$
 DECLARE
   v_admin_id uuid;
   v_application_id uuid;
+  v_original_applicant_id uuid;
   v_restaurant_id uuid;
   v_owner_id uuid;
   v_fixture_user_id uuid;
@@ -17,8 +18,8 @@ BEGIN
   ORDER BY created_at
   LIMIT 1;
 
-  SELECT application.id
-  INTO v_application_id
+  SELECT application.id, application.applicant_id
+  INTO v_application_id, v_original_applicant_id
   FROM public.restaurant_applications application
   ORDER BY application.created_at DESC
   LIMIT 1;
@@ -47,7 +48,7 @@ BEGIN
   ORDER BY profile.created_at DESC
   LIMIT 1;
 
-  IF v_admin_id IS NULL OR v_application_id IS NULL
+  IF v_admin_id IS NULL OR v_application_id IS NULL OR v_original_applicant_id IS NULL
      OR v_restaurant_id IS NULL OR v_owner_id IS NULL OR v_fixture_user_id IS NULL THEN
     RAISE EXCEPTION
       '0051 requires an active super admin, application, owner membership, and separate non-admin staging profile';
@@ -55,6 +56,7 @@ BEGIN
 
   PERFORM set_config('kiyo.test.admin_id', v_admin_id::text, true);
   PERFORM set_config('kiyo.test.application_id', v_application_id::text, true);
+  PERFORM set_config('kiyo.test.original_applicant_id', v_original_applicant_id::text, true);
   PERFORM set_config('kiyo.test.applicant_id', v_fixture_user_id::text, true);
   PERFORM set_config('kiyo.test.restaurant_id', v_restaurant_id::text, true);
   PERFORM set_config('kiyo.test.owner_id', v_fixture_user_id::text, true);
@@ -157,6 +159,9 @@ WHERE restaurant_id = current_setting('kiyo.test.restaurant_id')::uuid
 UPDATE public.profiles
 SET role = 'driver'::public.user_role
 WHERE id = current_setting('kiyo.test.fixture_user_id')::uuid;
+UPDATE public.restaurant_applications
+SET applicant_id = current_setting('kiyo.test.original_applicant_id')::uuid
+WHERE id = current_setting('kiyo.test.application_id')::uuid;
 
 SET LOCAL ROLE authenticated;
 SELECT set_config(
@@ -220,6 +225,9 @@ RESET ROLE;
 UPDATE public.profiles
 SET role = 'customer'::public.user_role
 WHERE id = current_setting('kiyo.test.fixture_user_id')::uuid;
+UPDATE public.restaurant_applications
+SET applicant_id = current_setting('kiyo.test.fixture_user_id')::uuid
+WHERE id = current_setting('kiyo.test.application_id')::uuid;
 SET LOCAL ROLE authenticated;
 SELECT set_config(
   'request.jwt.claims',
