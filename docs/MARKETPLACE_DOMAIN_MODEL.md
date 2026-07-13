@@ -64,8 +64,10 @@ read-only; restaurant users cannot set their own commission.
 2. Deploy the matching web branch to staging and test submit, review, messaging,
    requested changes, resubmission, preliminary approval, readiness, and final
    publication.
-3. Apply the migration to production before merging/deploying the dependent UI.
-4. Verify a new application appears in the owner queue and that unpublished
+3. After migrations `0037` through `0049`, run the read-only integrated
+   assertions in `supabase/tests/0050_marketplace_acceptance_assertions.sql`.
+4. Apply the migration to production before merging/deploying the dependent UI.
+5. Verify a new application appears in the owner queue and that unpublished
    restaurants remain inaccessible to customers.
 
 Migration `0038_authoritative_cod_financials.sql` adds the server-authoritative

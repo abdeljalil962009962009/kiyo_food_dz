@@ -19,6 +19,7 @@ Sources of truth:
 - Advisor assertions: `supabase/tests/0047_security_advisor_assertions.sql`
 - Domain-boundary assertions: `supabase/tests/0048_trusted_domain_action_boundary.sql`
 - Closed-grant assertions: `supabase/tests/0049_closed_domain_rpc_grants.sql`
+- Integrated marketplace acceptance assertions: `supabase/tests/0050_marketplace_acceptance_assertions.sql`
 
 ## Confirmed findings and disposition
 
@@ -94,12 +95,13 @@ These settings must be verified without changing the working OAuth or password-r
 7. Apply migration 0049 and run `supabase/tests/0049_closed_domain_rpc_grants.sql`.
 8. Run `supabase/audits/security_inventory.sql` and export the result grids.
 9. Re-run Security Advisor. Expected residuals are PostGIS-managed objects, three required read-only RLS helpers, and leaked-password protection when unavailable on the current plan.
-10. Test anonymous, customer, second customer, two restaurant owners, staff, driver, owner, and service backend identities.
-11. Verify owner actions, application media, signup, recovery, browsing, checkout, order transitions, realtime, and PostGIS routes.
-12. Only after staging passes, confirm a production backup/restore point and preserve Storage objects separately.
-13. Production migration 0037 is currently unresolved; do not apply 0038-0049 or merge PR #4 until 0037 succeeds in a controlled rollout.
-14. Deploy compatible application code and migrations in the verified order during a controlled maintenance window.
-15. Re-run assertions and Security Advisor in production.
+10. Run `supabase/tests/0050_marketplace_acceptance_assertions.sql`; it must return the single success row without modifying staging data.
+11. Test anonymous, customer, second customer, two restaurant owners, staff, driver, owner, and service backend identities.
+12. Verify owner actions, application media, signup, recovery, browsing, checkout, order transitions, realtime, and PostGIS routes.
+13. Only after staging passes, confirm a production backup/restore point and preserve Storage objects separately.
+14. Production migration 0037 is currently unresolved; do not apply 0038-0049 or merge PR #4 until 0037 succeeds in a controlled rollout.
+15. Deploy compatible application code and migrations in the verified order during a controlled maintenance window.
+16. Re-run assertions and Security Advisor in production.
 
 The rollback file restores the previous browser RPC grants and broad policies only for an emergency application rollback. It deliberately keeps application media private. It never deletes production business data.
 
@@ -112,10 +114,13 @@ The rollback file restores the previous browser RPC grants and broad policies on
 - Dependency production audit: zero known vulnerabilities at audit time.
 - Staging migrations 0046-0049 and all corresponding SQL assertions: passed.
 - Trusted user/domain endpoints: public Constantine location request passed; unauthenticated protected action correctly returned HTTP 401.
+- Trusted gateway unit tests: 10 passing, including ordinary-user owner denial, suspended-user denial, action allowlists, strict request IDs, verified actor propagation, database error mapping, and shared payload-size limits.
 - Preview application deployment for the trusted gateway: ready and serving staging.
+- Live staging owner smoke test after 0049: Control Center overview, application queue/detail/conversation, audit activity, COD financial totals, and rule inheritance editor loaded with no browser console errors.
 - Final staging Security Advisor result after 0049: 1 error, 11 warnings, 0 informational findings.
 - No unresolved actionable application-owned Advisor errors or high-risk warnings remain.
-- Cross-role RLS/storage identity tests: pending after 0049.
+- Read-only integrated database acceptance script 0050: created; staging execution pending.
+- Remaining destructive cross-role RLS/storage identity tests: pending in staging.
 - Production application: intentionally not performed.
 
 ### Final staging Advisor disposition

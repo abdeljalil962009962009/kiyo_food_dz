@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { bearerToken, parseActionRequest, statusForDatabaseError } from './_shared/actionRequest.js';
 
 declare const process: { env: Record<string, string | undefined> };
 
@@ -34,20 +35,6 @@ const ALLOWED_ACTIONS = new Set([
   'remove_marketplace_rule_override',
 ]);
 
-function bearerToken(headers: RequestLike['headers']) {
-  const value = headers.authorization;
-  const header = Array.isArray(value) ? value[0] : value;
-  return header?.startsWith('Bearer ') ? header.slice(7).trim() : null;
-}
-
-function statusForDatabaseError(code?: string) {
-  if (code === '42501') return 403;
-  if (code === 'P0002') return 404;
-  if (code === '22023') return 400;
-  if (code === 'PT409' || code === '40001' || code === '23505') return 409;
-  return 422;
-}
-
 export default async function handler(request: RequestLike, response: ResponseLike) {
   response.setHeader('Cache-Control', 'no-store');
   response.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -70,18 +57,12 @@ export default async function handler(request: RequestLike, response: ResponseLi
     return;
   }
 
-  const body = request.body && typeof request.body === 'object'
-    ? request.body as Record<string, unknown>
-    : {};
-  const action = typeof body.action === 'string' ? body.action : '';
-  const requestId = typeof body.requestId === 'string' ? body.requestId : '';
-  const args = body.args && typeof body.args === 'object' && !Array.isArray(body.args)
-    ? body.args as Record<string, unknown>
-    : {};
-  if (!ALLOWED_ACTIONS.has(action) || !/^[0-9a-f-]{36}$/i.test(requestId)) {
+  const parsed = parseActionRequest(request.body, ALLOWED_ACTIONS);
+  if (!parsed) {
     response.status(400).json({ code: 'invalid_admin_action', message: 'The owner action request is invalid.' });
     return;
   }
+  const { action, requestId, args } = parsed;
 
   const authClient = createClient(supabaseUrl, anonKey, {
     auth: { persistSession: false, autoRefreshToken: false },
