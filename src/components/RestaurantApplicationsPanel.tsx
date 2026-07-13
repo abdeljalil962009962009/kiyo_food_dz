@@ -8,6 +8,7 @@ import {
   isApplicationWaitingOnAdmin,
   normalizeRestaurantApplicationStatus,
 } from '../lib/restaurantApplicationStateMachine';
+import { localizePublicationBlocker } from '../lib/publicationReadiness';
 
 type Applicant = Pick<Profile, 'id' | 'email' | 'full_name' | 'phone'>;
 
@@ -292,7 +293,9 @@ export function RestaurantApplicationsPanel() {
                   <div className="mt-1 text-sm text-warning-800">
                     <p>{tx.blocked}</p>
                     <ul className="mt-1 list-disc space-y-1 pl-5">
-                      {readiness.blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}
+                      {readiness.blockers.map((blocker) => (
+                        <li key={blocker}>{localizePublicationBlocker(blocker, locale)}</li>
+                      ))}
                     </ul>
                   </div>
                 )}
