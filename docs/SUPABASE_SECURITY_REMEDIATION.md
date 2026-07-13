@@ -8,11 +8,17 @@ Sources of truth:
 
 - Forward migration: `supabase/migrations/20260713233000_0046_supabase_security_remediation.sql`
 - Advisor follow-up migration: `supabase/migrations/20260714003000_0047_security_advisor_actionable_cleanup.sql`
+- Trusted domain boundary: `supabase/migrations/20260714013000_0048_trusted_domain_action_boundary.sql`
+- Legacy grant closure: `supabase/migrations/20260714023000_0049_close_legacy_domain_rpc_grants.sql`
 - Emergency recovery: `supabase/rollback/20260713233000_0046_supabase_security_remediation.rollback.sql`
 - Follow-up recovery: `supabase/rollback/20260714003000_0047_security_advisor_actionable_cleanup.rollback.sql`
+- Domain-boundary recovery: `supabase/rollback/20260714013000_0048_trusted_domain_action_boundary.rollback.sql`
+- Legacy-grant recovery: `supabase/rollback/20260714023000_0049_close_legacy_domain_rpc_grants.rollback.sql`
 - Read-only database inventory: `supabase/audits/security_inventory.sql`
 - Staging assertions: `supabase/tests/0046_security_assertions.sql`
 - Advisor assertions: `supabase/tests/0047_security_advisor_assertions.sql`
+- Domain-boundary assertions: `supabase/tests/0048_trusted_domain_action_boundary.sql`
+- Closed-grant assertions: `supabase/tests/0049_closed_domain_rpc_grants.sql`
 
 ## Confirmed findings and disposition
 
@@ -32,6 +38,7 @@ Sources of truth:
 | Medium | Internal calculation/discovery routines remain signed-in callable | Historical grants survived after these routines became internal implementation details | Revoke browser execution from financial calculators, superseded discovery RPCs, route helpers, owner health, RLS maintenance, and promo internals; retain service execution. |
 | Medium | Simple notification/read helpers use definer rights | Three ownership-only helpers retained unnecessary elevated mode | Convert notification marking and own restaurant lookup to `SECURITY INVOKER`; existing RLS supplies authorization. |
 | Info | `owner_action_requests` has RLS but no policy | Browser table privileges were already revoked and service role bypasses RLS | Add an explicit deny policy for `anon`/`authenticated` so the closed contract is machine-verifiable. |
+| High | Customer, restaurant, order, application and driver definer RPCs remain directly executable | Valid canonical functions still had broad `authenticated` grants, causing Advisor warnings and leaving a wider attack surface | Revoke direct browser execution and call the same validated functions through `execute_user_action`, reached only through a token-verifying Vercel endpoint. Public location insights use a separate bounded endpoint. |
 | Advisory | PostGIS installed in `public` | Existing migrations and spatial indexes depend on current extension placement | Do not move during this patch. Treat a move as a separate project with dependency inventory, route/location regression tests, and rollback. |
 | Advisory | Leaked password protection disabled | Dashboard/plan-level Auth setting, not a database migration | Enable in Auth password settings when the production project is Pro or higher. Do not claim resolved until dashboard verification. |
 
@@ -54,8 +61,8 @@ Static code tracing found no Supabase Edge Function directory and no committed c
 ## Final permission model
 
 - `anon`: public restaurant/location reads only. No application media, owner action, audit, financial, or maintenance execution.
-- `authenticated`: explicit customer/restaurant RPCs only. RLS still enforces ownership and membership.
-- `service_role`: routing ingestion, owner gateway, maintenance, triggers/internal routines, and signed public restaurant-image verification.
+- `authenticated`: invoker-safe CRUD/RPC access governed by RLS. Definer domain mutations enter through the verified server boundary.
+- `service_role`: routing ingestion, owner/user gateways, maintenance, triggers/internal routines, and signed public restaurant-image verification.
 - Owner identity: verified twice, first by server-side access-token lookup and profile status, then inside `execute_owner_action` before the canonical function is invoked.
 
 ## Storage model
@@ -82,14 +89,17 @@ These settings must be verified without changing the working OAuth or password-r
 2. Apply migration 0046 and run `supabase/tests/0046_security_assertions.sql`.
 3. Re-run Security Advisor and record the exact residual findings.
 4. Apply migration 0047 and run `supabase/tests/0047_security_advisor_assertions.sql`.
-5. Run `supabase/audits/security_inventory.sql` and export the result grids.
-6. Re-run Security Advisor and classify every remaining extension-owned or intentionally retained domain finding.
-7. Test anonymous, customer, second customer, two restaurant owners, staff, driver, owner, and service backend identities.
-8. Verify owner actions, application media, signup, recovery, browsing, checkout, order transitions, realtime, and PostGIS routes.
-9. Only after staging passes, confirm a production backup/restore point and preserve Storage objects separately.
-10. Production migration 0037 is currently unresolved; do not apply 0038-0047 or merge PR #4 until 0037 succeeds in a controlled rollout.
-11. Deploy compatible application code and migrations in the verified order during a controlled maintenance window.
-12. Re-run assertions and Security Advisor in production.
+5. Apply migration 0048 and run `supabase/tests/0048_trusted_domain_action_boundary.sql`.
+6. Deploy and verify the compatible application server gateway.
+7. Apply migration 0049 and run `supabase/tests/0049_closed_domain_rpc_grants.sql`.
+8. Run `supabase/audits/security_inventory.sql` and export the result grids.
+9. Re-run Security Advisor. Expected residuals are PostGIS-managed objects, three required read-only RLS helpers, and leaked-password protection when unavailable on the current plan.
+10. Test anonymous, customer, second customer, two restaurant owners, staff, driver, owner, and service backend identities.
+11. Verify owner actions, application media, signup, recovery, browsing, checkout, order transitions, realtime, and PostGIS routes.
+12. Only after staging passes, confirm a production backup/restore point and preserve Storage objects separately.
+13. Production migration 0037 is currently unresolved; do not apply 0038-0049 or merge PR #4 until 0037 succeeds in a controlled rollout.
+14. Deploy compatible application code and migrations in the verified order during a controlled maintenance window.
+15. Re-run assertions and Security Advisor in production.
 
 The rollback file restores the previous browser RPC grants and broad policies only for an emergency application rollback. It deliberately keeps application media private. It never deletes production business data.
 
@@ -100,9 +110,10 @@ The rollback file restores the previous browser RPC grants and broad policies on
 - Unit/integration tests: 69 passing.
 - Production build: passing.
 - Dependency production audit: zero known vulnerabilities at audit time.
-- Staging migration 0046 and its SQL assertions: passed.
-- Security Advisor after 0046: 2 errors, 44 warnings, 1 informational finding.
-- Actionable follow-up migration 0047: implemented locally; staging execution pending.
-- Cross-role RLS/storage identity tests: pending after 0047.
-- Final Security Advisor result: pending 0047 staging execution and refresh.
+- Staging migrations 0046 and 0047 and their SQL assertions: passed.
+- Security Advisor after 0047: 1 PostGIS-managed error, 28 warnings, 0 informational findings.
+- Trusted user/domain boundary migration 0048 and assertions: passed in staging.
+- Application gateway switch and legacy-grant closure 0049: implemented; staging deployment/execution pending.
+- Cross-role RLS/storage identity tests: pending after 0049.
+- Final Security Advisor result: pending 0049 staging execution and refresh.
 - Production application: intentionally not performed.

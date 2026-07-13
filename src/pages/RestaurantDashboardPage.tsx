@@ -11,6 +11,7 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Skeleton, ErrorState, Spinner } from '../components/feedback';
 import { StatusBadge, PriceTag, relativeTime } from '../components/ui';
 import { RestaurantAnalyticsPanel } from '../components/RestaurantAnalytics';
+import { callUserAction } from '../lib/userApi';
 
 export default function RestaurantDashboardPage() {
   const { t } = useT();
@@ -102,7 +103,7 @@ export default function RestaurantDashboardPage() {
     void (async () => {
       try {
         setFinancialsError(null);
-        const { data, error: e } = await supabase.rpc('get_restaurant_financials', {
+        const { data, error: e } = await callUserAction('get_restaurant_financials', {
           p_restaurant_id: restaurant.id,
         });
         if (e) throw e;
@@ -212,7 +213,7 @@ export default function RestaurantDashboardPage() {
     setPendingAction(orderId);
     setActionError(null);
     try {
-      const { error: e } = await supabase.rpc('transition_order_status', {
+      const { error: e } = await callUserAction('transition_order_status', {
         p_order_id: orderId,
         p_target_status: to,
         p_reason: reason,

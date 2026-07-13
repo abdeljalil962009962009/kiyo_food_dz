@@ -14,6 +14,7 @@ import DeliveryMap, { type DeliveryMapLocation } from '../components/DeliveryMap
 import { localizePublicationBlocker } from '../lib/publicationReadiness';
 import { uploadRestaurantImage, validateRestaurantImage } from '../lib/restaurantMedia';
 import { PrivateRestaurantImage } from '../components/PrivateRestaurantImage';
+import { callUserAction } from '../lib/userApi';
 
 type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 const DAYS: { key: DayOfWeek; labelKey: 'day.0' | 'day.1' | 'day.2' | 'day.3' | 'day.4' | 'day.5' | 'day.6' }[] = [
@@ -125,7 +126,7 @@ export default function RestaurantSettingsPage() {
       const [{ data: term }, { data: readinessData }] = await Promise.all([
         supabase.from('restaurant_commercial_terms').select('*')
           .eq('restaurant_id', activeRes.id).eq('status', 'active').maybeSingle(),
-        supabase.rpc('get_restaurant_publication_readiness', { p_restaurant_id: activeRes.id }),
+        callUserAction<PublicationReadiness>('get_restaurant_publication_readiness', { p_restaurant_id: activeRes.id }),
       ]);
       setCommercialTerm((term as RestaurantCommercialTerm | null) ?? null);
       setReadiness((readinessData as PublicationReadiness | null) ?? null);
@@ -224,7 +225,7 @@ export default function RestaurantSettingsPage() {
         })
         .eq('id', restaurant.id);
       if (e) throw e;
-      const { data: readinessData } = await supabase.rpc('get_restaurant_publication_readiness', {
+      const { data: readinessData } = await callUserAction<PublicationReadiness>('get_restaurant_publication_readiness', {
         p_restaurant_id: restaurant.id,
       });
       setReadiness((readinessData as PublicationReadiness | null) ?? null);

@@ -10,6 +10,7 @@ import {
 } from '../lib/restaurantApplicationStateMachine';
 import { localizePublicationBlocker } from '../lib/publicationReadiness';
 import { callAdminAction } from '../lib/adminApi';
+import { callUserAction } from '../lib/userApi';
 import { PrivateRestaurantImage } from './PrivateRestaurantImage';
 
 type Applicant = Pick<Profile, 'id' | 'email' | 'full_name' | 'phone'>;
@@ -123,7 +124,7 @@ export function RestaurantApplicationsPanel() {
     let cancelled = false;
     setReadiness(null);
     if (!selected?.restaurant_id) return;
-    void supabase.rpc('get_restaurant_publication_readiness', {
+    void callUserAction<PublicationReadiness>('get_restaurant_publication_readiness', {
       p_restaurant_id: selected.restaurant_id,
     }).then(({ data, error: readinessError }) => {
       if (!cancelled && !readinessError) setReadiness(data as PublicationReadiness);

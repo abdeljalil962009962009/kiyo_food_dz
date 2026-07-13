@@ -17,6 +17,7 @@ import AdminCoverageMap from '../components/AdminCoverageMap';
 import { RestaurantApplicationsPanel } from '../components/RestaurantApplicationsPanel';
 import { MarketplaceRuleOverridesEditor } from '../components/MarketplaceRuleOverridesEditor';
 import { callAdminAction } from '../lib/adminApi';
+import { callUserAction } from '../lib/userApi';
 
 type Analytics = {
   revenue: { today: number; this_week: number; this_month: number; this_year: number; all_time: number };
@@ -2375,7 +2376,7 @@ function AdminTicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () 
     if (reply.trim().length < 1) return;
     setSending(true);
     try {
-      const { error: e } = await supabase.rpc('reply_to_ticket', {
+      const { error: e } = await callUserAction('reply_to_ticket', {
         p_ticket_id: ticketId, p_body: reply.trim(), p_is_admin: true,
       });
       if (e) throw e;

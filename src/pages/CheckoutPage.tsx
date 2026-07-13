@@ -13,6 +13,7 @@ import { PriceTag } from '../components/ui';
 import DeliveryMap, { type DeliveryMapLocation } from '../components/DeliveryMap';
 import { withExponentialBackoff } from '../lib/locationNetwork';
 import { isValidAlgerianPhone, normalizeAlgerianPhone } from '../lib/phone';
+import { callUserAction, fetchLocationInsights } from '../lib/userApi';
 
 type Step = 'details' | 'review' | 'success';
 type ContactPhoneMode = 'account' | 'alternate';
@@ -133,7 +134,7 @@ export default function CheckoutPage() {
         if (!routeResponse.ok || !routeBody.routeQuoteId) {
           throw new Error(routeBody.message || 'Road-route delivery pricing is unavailable.');
         }
-        const { data: quote, error } = await supabase.rpc('quote_delivery_order_by_route', {
+        const { data: quote, error } = await callUserAction<Finance>('quote_delivery_order_by_route', {
           p_route_quote_id: routeBody.routeQuoteId,
           p_items: itemsPayload,
         });
@@ -162,10 +163,7 @@ export default function CheckoutPage() {
     if (step !== 'success' || !profile || !mapLocation?.confirmed) return;
     let active = true;
     void withExponentialBackoff(async () => {
-      const { data, error } = await supabase.rpc('get_location_insights', {
-        p_lat: mapLocation.lat,
-        p_lng: mapLocation.lng,
-      });
+      const { data, error } = await fetchLocationInsights<LocationInsights>(mapLocation.lat, mapLocation.lng);
       if (error) throw error;
       return data as LocationInsights;
     }, { attempts: 2, timeoutMs: 12000 }).then((insights) => {
@@ -292,15 +290,14 @@ export default function CheckoutPage() {
         idempotency_key: idempotencyKey,
       };
 
-      const { data, error: e } = await supabase.rpc('create_order_with_items', {
+      const { data, error: e } = await callUserAction<{ order_id?: string }>('create_order_with_items', {
         p_payload: payload,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any, { signal: controller.signal } as any);
+      }, { signal: controller.signal });
 
       if (e) {
         // ERRCODE P0001 is our own 'duplicate_order' signal.
         if ((e as { code?: string; message?: string }).message?.includes('duplicate_order')) {
-          setPlacedOrderId((data as { order_id?: string } | null)?.order_id ?? null);
+          setPlacedOrderId(data?.order_id ?? null);
           setStep('success');
           clear();
           return;
@@ -308,7 +305,7 @@ export default function CheckoutPage() {
         throw e;
       }
 
-      const orderId = (data as { order_id?: string })?.order_id ?? null;
+      const orderId = data?.order_id ?? null;
       setPlacedOrderId(orderId);
       setStep('success');
       clear();

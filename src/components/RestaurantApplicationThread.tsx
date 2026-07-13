@@ -3,6 +3,7 @@ import { MessageSquare, Send } from 'lucide-react';
 import { supabase, type RestaurantApplicationMessage } from '../lib/supabase';
 import { useT } from '../lib/i18n-react';
 import { Spinner } from './feedback';
+import { callUserAction } from '../lib/userApi';
 
 type Props = {
   applicationId: string;
@@ -42,7 +43,7 @@ export function RestaurantApplicationThread({ applicationId, viewer }: Props) {
     }
     setMessages((data as RestaurantApplicationMessage[]) ?? []);
     setError(null);
-    void supabase.rpc('mark_restaurant_application_messages_read', {
+    void callUserAction('mark_restaurant_application_messages_read', {
       p_application_id: applicationId,
     });
   }, [applicationId]);
@@ -64,7 +65,7 @@ export function RestaurantApplicationThread({ applicationId, viewer }: Props) {
     if (!message || sending) return;
     setSending(true);
     setError(null);
-    const { error: sendError } = await supabase.rpc('send_restaurant_application_message', {
+    const { error: sendError } = await callUserAction('send_restaurant_application_message', {
       p_application_id: applicationId,
       p_body: message,
       p_client_message_id: crypto.randomUUID(),

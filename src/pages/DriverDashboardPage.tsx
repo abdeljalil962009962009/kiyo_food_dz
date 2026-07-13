@@ -10,6 +10,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../lib/i18n-react';
 import { watchCurrentPosition, type LiveGeoPoint } from '../lib/geo';
+import { callUserAction } from '../lib/userApi';
 
 type Driver = {
   id: string;
@@ -176,7 +177,7 @@ export default function DriverDashboardPage() {
         locationWriteInFlightRef.current = true;
         lastLocationWriteRef.current = now;
         try {
-          const { data, error: rpcError } = await supabase.rpc('update_driver_live_location', {
+          const { data, error: rpcError } = await callUserAction<LocationRpcResult>('update_driver_live_location', {
             p_driver_id: driver.id,
             p_lat: point.lat,
             p_lng: point.lng,
@@ -184,8 +185,7 @@ export default function DriverDashboardPage() {
             p_heading: point.heading,
             p_speed_mps: point.speed,
             p_recorded_at: new Date(point.timestamp).toISOString(),
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          } as any);
+          });
 
           if (rpcError) throw rpcError;
           const result = data as LocationRpcResult | null;
@@ -244,7 +244,7 @@ export default function DriverDashboardPage() {
     setActionError(null);
     setPendingAction(deliveryId);
     const delivery = pendingDeliveries.find((item) => item.id === deliveryId);
-    const { error: e } = await supabase.rpc('transition_delivery_status', {
+    const { error: e } = await callUserAction('transition_delivery_status', {
       p_delivery_id: deliveryId,
       p_target_status: 'driver_accepted',
       p_reason: null,
@@ -263,7 +263,7 @@ export default function DriverDashboardPage() {
     setActionError(null);
     setPendingAction(deliveryId);
     const delivery = pendingDeliveries.find((item) => item.id === deliveryId);
-    const { error: e } = await supabase.rpc('transition_delivery_status', {
+    const { error: e } = await callUserAction('transition_delivery_status', {
       p_delivery_id: deliveryId,
       p_target_status: 'driver_declined',
       p_reason: 'Driver declined assignment',
@@ -290,7 +290,7 @@ export default function DriverDashboardPage() {
         return;
       }
     }
-    const { error: e } = await supabase.rpc('transition_delivery_status', {
+    const { error: e } = await callUserAction('transition_delivery_status', {
       p_delivery_id: deliveryId,
       p_target_status: newStatus,
       p_reason: reason,

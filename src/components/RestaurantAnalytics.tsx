@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { BarChart3, TrendingUp, Users, Star, ShoppingBag } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { callUserAction } from '../lib/userApi';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Spinner } from './feedback';
 import { useT } from '../lib/i18n-react';
@@ -41,11 +41,11 @@ export function RestaurantAnalyticsPanel({ restaurantId }: { restaurantId: strin
       setError(null);
       try {
         const [analyticsRes, productsRes] = await Promise.all([
-          supabase.rpc('get_restaurant_analytics_summary', {
+          callUserAction<AnalyticsSummary>('get_restaurant_analytics_summary', {
             p_restaurant_id: restaurantId,
             p_days: period,
           }),
-          supabase.rpc('get_top_products', {
+          callUserAction<TopProduct[]>('get_top_products', {
             p_restaurant_id: restaurantId,
             p_days: period,
             p_limit: 5,

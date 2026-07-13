@@ -11,6 +11,7 @@ import { useAuth } from '../context/AuthContext';
 import { useT } from '../lib/i18n-react';
 import { supabase, type RestaurantApplication } from '../lib/supabase';
 import { normalizeRestaurantApplicationStatus } from '../lib/restaurantApplicationStateMachine';
+import { callUserAction } from '../lib/userApi';
 
 type Location = DeliveryMapLocation;
 const RESTAURANT_APPLICATION_DRAFT_KEY = 'kiyo-restaurant-application-draft-v2';
@@ -234,33 +235,13 @@ export default function RestaurantApplicationPage() {
       };
 
       let submitted: RestaurantApplication | null = null;
-      const { data: rpcData, error: rpcError } = await supabase.rpc('submit_restaurant_application', {
+      const { data: rpcData, error: rpcError } = await callUserAction<RestaurantApplication>('submit_restaurant_application', {
         p_payload: payload,
         p_submission_key: submissionKeyRef.current,
       });
-      if (rpcError && isMissingApplicationRpc(rpcError)) {
-        const {
-          proposed_food_commission_rate: _proposedFoodRate,
-          proposed_delivery_share_rate: _proposedDeliveryRate,
-          proposed_commission_base: _proposedBase,
-          ...legacyPayload
-        } = payload;
-        void _proposedFoodRate;
-        void _proposedDeliveryRate;
-        void _proposedBase;
-        const { data: legacyData, error: insertError } = await supabase
-          .from('restaurant_applications')
-          .insert({ applicant_id: profile.id, ...legacyPayload, status: 'pending' })
-          .select('*')
-          .single();
-        if (insertError) throw insertError;
-        submitted = normalizeApplication(legacyData as RestaurantApplication & { status: string });
-      } else if (rpcError) {
-        throw rpcError;
-      } else {
-        const value = Array.isArray(rpcData) ? rpcData[0] : rpcData;
-        submitted = value ? normalizeApplication(value as RestaurantApplication & { status: string }) : null;
-      }
+      if (rpcError) throw rpcError;
+      const value = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+      submitted = value ? normalizeApplication(value as RestaurantApplication & { status: string }) : null;
       localStorage.removeItem(RESTAURANT_APPLICATION_DRAFT_KEY);
       submissionKeyRef.current = crypto.randomUUID();
       setCurrentApplication(submitted);
@@ -530,10 +511,4 @@ function normalizeApplication(application: Omit<RestaurantApplication, 'status'>
     last_transition_at: application.last_transition_at ?? application.updated_at,
     last_message_at: application.last_message_at ?? null,
   };
-}
-
-function isMissingApplicationRpc(error: { code?: string; message?: string }) {
-  return error.code === 'PGRST202'
-    || error.code === '42883'
-    || /submit_restaurant_application/i.test(error.message ?? '') && /not find|does not exist/i.test(error.message ?? '');
 }
