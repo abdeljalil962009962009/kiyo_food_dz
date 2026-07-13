@@ -6,6 +6,8 @@
 -- deployed databases can depend on it; changing the type would require a risky
 -- policy teardown and recreation.
 
+BEGIN;
+
 DO $$
 BEGIN
   CREATE TYPE public.restaurant_status AS ENUM
@@ -152,3 +154,5 @@ COMMENT ON COLUMN public.restaurants.status IS
 
 COMMENT ON COLUMN public.restaurants.operational_status IS
   'Restaurant-controlled day-to-day availability: open, closed, or busy.';
+
+COMMIT;

@@ -2,6 +2,8 @@
 -- Migration 0025 originally referenced prototype column names that never became
 -- part of the production restaurant table.
 
+BEGIN;
+
 CREATE OR REPLACE FUNCTION public.nearby_restaurants(
   p_lat double precision,
   p_lng double precision,
@@ -96,3 +98,5 @@ GRANT EXECUTE ON FUNCTION public.nearby_restaurants(double precision, double pre
   TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION public.validate_delivery_location(uuid, double precision, double precision)
   TO authenticated;
+
+COMMIT;

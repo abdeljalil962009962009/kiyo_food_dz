@@ -1,6 +1,8 @@
 -- Restaurant analytics must reflect authoritative orders immediately and must
 -- never expose one restaurant's private metrics to another tenant.
 
+BEGIN;
+
 CREATE OR REPLACE FUNCTION public.get_restaurant_analytics_summary(
   p_restaurant_id uuid,
   p_days integer DEFAULT 30
@@ -147,3 +149,5 @@ $$;
 
 REVOKE ALL ON FUNCTION public.get_top_products(uuid, integer, integer) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.get_top_products(uuid, integer, integer) TO authenticated;
+
+COMMIT;

@@ -1,5 +1,7 @@
 -- Serialize marketplace-rule edits and reject stale clients that originally
 -- observed no active override. This prevents lost updates from multiple tabs.
+BEGIN;
+
 CREATE OR REPLACE FUNCTION public.set_marketplace_rule_override(
   p_scope_type text,
   p_scope_id text,
@@ -90,3 +92,4 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.set_marketplace_rule_override(text, text, jsonb, timestamptz, text, integer) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.set_marketplace_rule_override(text, text, jsonb, timestamptz, text, integer) TO authenticated;
 
+COMMIT;

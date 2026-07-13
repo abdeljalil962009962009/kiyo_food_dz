@@ -1,5 +1,7 @@
 -- Repair Wilaya labels that were imported with the wrong text encoding.
 -- Matching by stable code preserves IDs, coverage state, and every foreign key.
+BEGIN;
+
 WITH canonical(code, name_en, name_fr, name_ar) AS (
   VALUES
     ('ADR', 'Adrar', 'Adrar', 'أدرار'),
@@ -72,3 +74,4 @@ WHERE wilaya.code = canonical.code
   AND (wilaya.name_en, wilaya.name_fr, wilaya.name_ar)
       IS DISTINCT FROM (canonical.name_en, canonical.name_fr, canonical.name_ar);
 
+COMMIT;

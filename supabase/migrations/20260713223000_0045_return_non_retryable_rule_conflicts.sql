@@ -1,6 +1,8 @@
 -- SQLSTATE 40001 is retryable and can replay a stale request after the winning
 -- rule is removed. Return an explicit HTTP 409 and use the same scope lock for
 -- both save and removal so conflicting operations cannot pass each other.
+BEGIN;
+
 CREATE OR REPLACE FUNCTION public.set_marketplace_rule_override(
   p_scope_type text,
   p_scope_id text,
@@ -144,3 +146,4 @@ GRANT EXECUTE ON FUNCTION public.set_marketplace_rule_override(text, text, jsonb
 REVOKE EXECUTE ON FUNCTION public.remove_marketplace_rule_override(text, text, integer, text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.remove_marketplace_rule_override(text, text, integer, text) TO authenticated;
 
+COMMIT;

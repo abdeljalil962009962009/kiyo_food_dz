@@ -2,6 +2,8 @@
 -- Legacy application notes are still preserved, but no longer count as valid
 -- opening hours by themselves.
 
+BEGIN;
+
 CREATE OR REPLACE FUNCTION public.get_restaurant_publication_readiness(p_restaurant_id uuid)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -106,3 +108,5 @@ $$;
 
 REVOKE EXECUTE ON FUNCTION public.get_restaurant_publication_readiness(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.get_restaurant_publication_readiness(uuid) TO authenticated;
+
+COMMIT;
