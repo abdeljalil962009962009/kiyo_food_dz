@@ -260,7 +260,7 @@ BEGIN
 
   BEGIN
     UPDATE public.restaurant_applications
-    SET internal_notes = internal_notes
+    SET admin_internal_notes = admin_internal_notes
     WHERE id = v_application_id;
     GET DIAGNOSTICS v_rows = ROW_COUNT;
   EXCEPTION WHEN insufficient_privilege THEN
@@ -336,7 +336,7 @@ BEGIN
 
   BEGIN
     UPDATE public.restaurant_applications
-    SET internal_notes = internal_notes
+    SET admin_internal_notes = admin_internal_notes
     WHERE id = v_application_id;
     GET DIAGNOSTICS v_rows = ROW_COUNT;
   EXCEPTION WHEN insufficient_privilege THEN
