@@ -10,16 +10,19 @@ Sources of truth:
 - Advisor follow-up migration: `supabase/migrations/20260714003000_0047_security_advisor_actionable_cleanup.sql`
 - Trusted domain boundary: `supabase/migrations/20260714013000_0048_trusted_domain_action_boundary.sql`
 - Legacy grant closure: `supabase/migrations/20260714023000_0049_close_legacy_domain_rpc_grants.sql`
+- Profile privilege guard: `supabase/migrations/20260714033000_0051_profile_privilege_escalation_guard.sql`
 - Emergency recovery: `supabase/rollback/20260713233000_0046_supabase_security_remediation.rollback.sql`
 - Follow-up recovery: `supabase/rollback/20260714003000_0047_security_advisor_actionable_cleanup.rollback.sql`
 - Domain-boundary recovery: `supabase/rollback/20260714013000_0048_trusted_domain_action_boundary.rollback.sql`
 - Legacy-grant recovery: `supabase/rollback/20260714023000_0049_close_legacy_domain_rpc_grants.rollback.sql`
+- Profile-guard recovery: `supabase/rollback/20260714033000_0051_profile_privilege_escalation_guard.rollback.sql`
 - Read-only database inventory: `supabase/audits/security_inventory.sql`
 - Staging assertions: `supabase/tests/0046_security_assertions.sql`
 - Advisor assertions: `supabase/tests/0047_security_advisor_assertions.sql`
 - Domain-boundary assertions: `supabase/tests/0048_trusted_domain_action_boundary.sql`
 - Closed-grant assertions: `supabase/tests/0049_closed_domain_rpc_grants.sql`
 - Integrated marketplace acceptance assertions: `supabase/tests/0050_marketplace_acceptance_assertions.sql`
+- Cross-role/profile assertions: `supabase/tests/0051_cross_role_rls_and_profile_guard.sql`
 
 ## Confirmed findings and disposition
 
@@ -40,6 +43,7 @@ Sources of truth:
 | Medium | Simple notification/read helpers use definer rights | Three ownership-only helpers retained unnecessary elevated mode | Convert notification marking and own restaurant lookup to `SECURITY INVOKER`; existing RLS supplies authorization. |
 | Info | `owner_action_requests` has RLS but no policy | Browser table privileges were already revoked and service role bypasses RLS | Add an explicit deny policy for `anon`/`authenticated` so the closed contract is machine-verifiable. |
 | High | Customer, restaurant, order, application and driver definer RPCs remain directly executable | Valid canonical functions still had broad `authenticated` grants, causing Advisor warnings and leaving a wider attack surface | Revoke direct browser execution and call the same validated functions through `execute_user_action`, reached only through a token-verifying Vercel endpoint. Public location insights use a separate bounded endpoint. |
+| Critical | A signed-in user could attempt to change their own trusted profile role and suspension fields | Legacy profile UPDATE policies constrained the row ID but did not constrain protected columns; the fallback INSERT policy also accepted client-provided privileged fields | Add a database trigger that rejects browser changes to role, identity, suspension, lockout, login, and compliance fields; consolidate profile policies and retain safe self-service fields only. |
 | Advisory | PostGIS installed in `public` | Existing migrations and spatial indexes depend on current extension placement | Do not move during this patch. Treat a move as a separate project with dependency inventory, route/location regression tests, and rollback. |
 | Advisory | Leaked password protection disabled | Dashboard/plan-level Auth setting, not a database migration | Enable in Auth password settings when the production project is Pro or higher. Do not claim resolved until dashboard verification. |
 
@@ -96,12 +100,13 @@ These settings must be verified without changing the working OAuth or password-r
 8. Run `supabase/audits/security_inventory.sql` and export the result grids.
 9. Re-run Security Advisor. Expected residuals are PostGIS-managed objects, three required read-only RLS helpers, and leaked-password protection when unavailable on the current plan.
 10. Run `supabase/tests/0050_marketplace_acceptance_assertions.sql`; it must return the single success row without modifying staging data.
-11. Test anonymous, customer, second customer, two restaurant owners, staff, driver, owner, and service backend identities.
-12. Verify owner actions, application media, signup, recovery, browsing, checkout, order transitions, realtime, and PostGIS routes.
-13. Only after staging passes, confirm a production backup/restore point and preserve Storage objects separately.
-14. Production migration 0037 is currently unresolved; do not apply 0038-0049 or merge PR #4 until 0037 succeeds in a controlled rollout.
-15. Deploy compatible application code and migrations in the verified order during a controlled maintenance window.
-16. Re-run assertions and Security Advisor in production.
+11. Apply migration 0051 and run `supabase/tests/0051_cross_role_rls_and_profile_guard.sql`; its fixture changes must roll back and its single success row must be returned.
+12. Test anonymous, customer, second customer, two restaurant owners, staff, driver, owner, and service backend identities.
+13. Verify owner actions, application media, signup, recovery, browsing, checkout, order transitions, realtime, and PostGIS routes.
+14. Only after staging passes, confirm a production backup/restore point and preserve Storage objects separately.
+15. Production migration 0037 is currently unresolved; do not apply 0038-0051 or merge PR #4 until 0037 succeeds in a controlled rollout.
+16. Deploy compatible application code and migrations in the verified order during a controlled maintenance window.
+17. Re-run assertions and Security Advisor in production.
 
 The rollback file restores the previous browser RPC grants and broad policies only for an emergency application rollback. It deliberately keeps application media private. It never deletes production business data.
 
@@ -109,7 +114,7 @@ The rollback file restores the previous browser RPC grants and broad policies on
 
 - TypeScript app and server functions: passing.
 - ESLint: passing.
-- Unit/integration tests: 69 passing.
+- Unit/integration tests: 79 passing.
 - Production build: passing.
 - Dependency production audit: zero known vulnerabilities at audit time.
 - Staging migrations 0046-0049 and all corresponding SQL assertions: passed.
@@ -119,8 +124,9 @@ The rollback file restores the previous browser RPC grants and broad policies on
 - Live staging owner smoke test after 0049: Control Center overview, application queue/detail/conversation, audit activity, COD financial totals, and rule inheritance editor loaded with no browser console errors.
 - Final staging Security Advisor result after 0049: 1 error, 11 warnings, 0 informational findings.
 - No unresolved actionable application-owned Advisor errors or high-risk warnings remain.
-- Read-only integrated database acceptance script 0050: created; staging execution pending.
-- Remaining destructive cross-role RLS/storage identity tests: pending in staging.
+- Read-only integrated database acceptance script 0050: passed in staging.
+- Profile privilege escalation guard and rollback-isolated cross-role test 0051: created; staging execution pending.
+- Remaining live Storage and multi-session identity tests: pending in staging.
 - Production application: intentionally not performed.
 
 ### Final staging Advisor disposition

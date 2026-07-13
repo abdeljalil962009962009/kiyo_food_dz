@@ -66,9 +66,16 @@ read-only; restaurant users cannot set their own commission.
    publication.
 3. After migrations `0037` through `0049`, run the read-only integrated
    assertions in `supabase/tests/0050_marketplace_acceptance_assertions.sql`.
-4. Apply the migration to production before merging/deploying the dependent UI.
-5. Verify a new application appears in the owner queue and that unpublished
+4. Apply migration `0051_profile_privilege_escalation_guard.sql`, then run the
+   rollback-isolated cross-role assertions in
+   `supabase/tests/0051_cross_role_rls_and_profile_guard.sql`.
+5. Apply the migration to production before merging/deploying the dependent UI.
+6. Verify a new application appears in the owner queue and that unpublished
    restaurants remain inaccessible to customers.
+
+Browser clients cannot change trusted profile roles or administrative account
+fields. Migration `0051` enforces this below RLS while preserving safe profile
+self-service fields and trusted server operations.
 
 Migration `0038_authoritative_cod_financials.sql` adds the server-authoritative
 Google Routes quote contract, restaurant/Wilaya/global rule resolver, immutable
