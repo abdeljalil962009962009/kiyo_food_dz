@@ -218,7 +218,7 @@ export default function OrdersPage() {
                   )}
 
                   {/* Cancel button for pending orders */}
-                  {o.status === 'pending' && (
+                  {o.status === 'pending' && o.id !== activeOrder?.id && (
                     <div className="mt-3 border-t border-ink-50 pt-3 flex justify-end">
                       <button
                         onClick={() => handleCancelOrder(o)}

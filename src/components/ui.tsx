@@ -1,5 +1,6 @@
 import { memo, type JSX } from 'react';
 import type { OrderStatus } from '../lib/supabase';
+import { useT } from '../lib/i18n-react';
 
 // Currency configuration - centralized for multi-currency support
 // Default currency is DZD (Algerian Dinar), but architecture supports future expansion
@@ -23,6 +24,7 @@ export function getCurrencySymbol(): string {
 }
 
 export const StatusBadge = memo(function StatusBadge({ status }: { status: OrderStatus }) {
+  const { t } = useT();
   const styles: Record<OrderStatus, string> = {
     pending: 'bg-warning-500/15 text-warning-600',
     accepted: 'bg-blue-100 text-blue-700',
@@ -48,7 +50,7 @@ export const StatusBadge = memo(function StatusBadge({ status }: { status: Order
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${styles[status]}`}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${dot[status]}`} />
-      <span className="capitalize">{status.replace(/_/g, ' ')}</span>
+      <span>{t(`status.${status}`)}</span>
     </span>
   );
 });
@@ -88,14 +90,18 @@ export const RestaurantImage = memo(function RestaurantImage({ url, name, classN
   );
 });
 
-/** Format ISO timestamp as relative "5m ago" */
+/** Format an ISO timestamp using the active document language. */
 export function relativeTime(iso: string): string {
-  const t = new Date(iso).getTime();
-  const diff = (Date.now() - t) / 1000;
-  if (diff < 60) return 'just now';
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return new Date(iso).toLocaleDateString();
+  const timestamp = new Date(iso).getTime();
+  const diffSeconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+  const documentLocale = typeof document === 'undefined' ? 'fr' : document.documentElement.lang;
+  const locale = documentLocale === 'ar' ? 'ar-DZ' : documentLocale === 'en' ? 'en-DZ' : 'fr-DZ';
+  const formatter = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
+  if (diffSeconds < 60) return formatter.format(-diffSeconds, 'second');
+  if (diffSeconds < 3600) return formatter.format(-Math.floor(diffSeconds / 60), 'minute');
+  if (diffSeconds < 86400) return formatter.format(-Math.floor(diffSeconds / 3600), 'hour');
+  if (diffSeconds < 604800) return formatter.format(-Math.floor(diffSeconds / 86400), 'day');
+  return new Date(iso).toLocaleDateString(locale);
 }
 
 /** Conditional class helper kept here to avoid pulling in clsx */
