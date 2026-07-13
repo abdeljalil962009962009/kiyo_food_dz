@@ -176,7 +176,7 @@ export function MarketplaceRuleOverridesEditor({ globalSettings }: { globalSetti
       p_reason: reason.trim(),
       p_expected_version: current?.version ?? null,
     });
-    if (saveError) setError(saveError.code === '40001' ? text.stale : saveError.message);
+    if (saveError) setError(['PT409', '40001'].includes(saveError.code ?? '') ? text.stale : saveError.message);
     else {
       await load();
       setMessage(text.saved);
@@ -194,7 +194,7 @@ export function MarketplaceRuleOverridesEditor({ globalSettings }: { globalSetti
       p_expected_version: current.version,
       p_reason: reason.trim(),
     });
-    if (removeError) setError(removeError.code === '40001' ? text.stale : removeError.message);
+    if (removeError) setError(['PT409', '40001'].includes(removeError.code ?? '') ? text.stale : removeError.message);
     else {
       await load();
       setMessage(text.removed);
