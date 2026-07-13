@@ -110,10 +110,24 @@ The rollback file restores the previous browser RPC grants and broad policies on
 - Unit/integration tests: 69 passing.
 - Production build: passing.
 - Dependency production audit: zero known vulnerabilities at audit time.
-- Staging migrations 0046 and 0047 and their SQL assertions: passed.
-- Security Advisor after 0047: 1 PostGIS-managed error, 28 warnings, 0 informational findings.
-- Trusted user/domain boundary migration 0048 and assertions: passed in staging.
-- Application gateway switch and legacy-grant closure 0049: implemented; staging deployment/execution pending.
+- Staging migrations 0046-0049 and all corresponding SQL assertions: passed.
+- Trusted user/domain endpoints: public Constantine location request passed; unauthenticated protected action correctly returned HTTP 401.
+- Preview application deployment for the trusted gateway: ready and serving staging.
+- Final staging Security Advisor result after 0049: 1 error, 11 warnings, 0 informational findings.
+- No unresolved actionable application-owned Advisor errors or high-risk warnings remain.
 - Cross-role RLS/storage identity tests: pending after 0049.
-- Final Security Advisor result: pending 0049 staging execution and refresh.
 - Production application: intentionally not performed.
+
+### Final staging Advisor disposition
+
+The remaining findings are expected and must not be changed blindly:
+
+- `public.spatial_ref_sys` RLS disabled: PostGIS extension-managed system table. Do not enable RLS, change ownership, or delete it.
+- `public.postgis` extension in `public`: accepted for the current release because existing geography types, indexes, functions, and migrations depend on this placement. Moving it requires a separate tested migration and rollback plan.
+- Three `public.st_estimatedextent(...)` overloads reported for both public and signed-in execution: PostGIS-owned routines. Do not alter or revoke them individually.
+- `public.can_manage_restaurant(...)`: required read-only boolean authorization helper used by RLS and restaurant access checks. It validates the current authenticated identity and does not expose row data.
+- `public.is_super_admin()`: required read-only boolean authorization helper used by owner-only RLS policies. It derives authorization from the trusted profile role, not client metadata.
+- `public.restaurant_is_visible(...)`: required read-only publication helper used to keep unpublished/suspended restaurants out of customer access paths.
+- Leaked password protection disabled: external Supabase Auth plan/dashboard setting. Enable it when the project is on Pro or higher; it cannot be truthfully resolved by SQL migration.
+
+The PostGIS findings account for one error and seven warnings. The three application helper warnings are intentionally accepted because removing their signed-in execution would break their RLS contracts. Leaked-password protection is the final external warning.
