@@ -16,6 +16,7 @@ import { PlatformHealthPanel } from '../components/PlatformHealth';
 import AdminCoverageMap from '../components/AdminCoverageMap';
 import { RestaurantApplicationsPanel } from '../components/RestaurantApplicationsPanel';
 import { MarketplaceRuleOverridesEditor } from '../components/MarketplaceRuleOverridesEditor';
+import { callAdminAction } from '../lib/adminApi';
 
 type Analytics = {
   revenue: { today: number; this_week: number; this_month: number; this_year: number; all_time: number };
@@ -592,7 +593,7 @@ function OverviewTab() {
     setError(null);
     try {
       const [a, al] = await Promise.all([
-        supabase.rpc('get_platform_analytics'),
+        callAdminAction('get_platform_analytics'),
         supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(10),
       ]);
       const fetchedAnalytics = a.data as Analytics;
@@ -686,7 +687,7 @@ function FinancialsTab() {
     setError(null);
     try {
       const [a, l] = await Promise.all([
-        supabase.rpc('get_platform_analytics'),
+        callAdminAction('get_platform_analytics'),
         supabase.from('financial_ledger').select('restaurant_id, platform_commission, restaurant_payout, order_total').order('created_at', { ascending: false }).limit(100),
       ]);
       if (a.error) throw a.error;
@@ -828,7 +829,7 @@ function UsersTab() {
     setActingId(user.id);
     setError(null);
     try {
-      const { error: e } = await supabase.rpc('set_user_suspended', {
+      const { error: e } = await callAdminAction('set_user_suspended', {
         p_user_id: user.id,
         p_suspended: !user.is_suspended,
         p_reason: !user.is_suspended ? 'Suspended by admin' : null,
@@ -963,7 +964,7 @@ function RestaurantsTab() {
     setActingId(r.id);
     setError(null);
     try {
-      const { error: e } = await supabase.rpc('update_restaurant_admin', {
+      const { error: e } = await callAdminAction('update_restaurant_admin', {
         p_restaurant_id: r.id,
         p_status: updates.status ?? null,
         p_is_verified: updates.is_verified ?? null,
@@ -1178,7 +1179,7 @@ function RulesTab() {
     try {
       const payload = settings[key] || DEFAULT_SETTINGS[key] || {};
       
-      const { error: rpcErr } = await supabase.rpc('update_platform_setting', {
+      const { error: rpcErr } = await callAdminAction('update_platform_setting', {
         p_key: key,
         p_value: payload,
       });
@@ -1420,7 +1421,7 @@ function AnalyticsTab() {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: e } = await supabase.rpc('get_platform_analytics');
+      const { data, error: e } = await callAdminAction('get_platform_analytics');
       if (e) throw e;
       setAnalytics(data as Analytics);
     } catch (err) {
@@ -1496,7 +1497,7 @@ function SettlementsTab() {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: e } = await supabase.rpc('get_settlement_overview');
+      const { data, error: e } = await callAdminAction('get_settlement_overview');
       if (e) throw e;
       setOverview(data as typeof overview);
     } catch (err) {
@@ -1512,7 +1513,7 @@ function SettlementsTab() {
     setActingId(id);
     setError(null);
     try {
-      const { error: e } = await supabase.rpc('mark_settlement_paid', {
+      const { error: e } = await callAdminAction('mark_settlement_paid', {
         p_settlement_id: id, p_amount: null, p_notes: 'Marked as paid by admin',
       });
       if (e) throw e;
@@ -2147,7 +2148,7 @@ function AlertsTab() {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: e } = await supabase.rpc('get_admin_alerts');
+      const { data, error: e } = await callAdminAction('get_admin_alerts');
       if (e) throw e;
       setAlerts(data as typeof alerts);
     } catch (err) {
@@ -2390,7 +2391,7 @@ function AdminTicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () 
   const updateStatus = async (status: string) => {
     setUpdating(true);
     try {
-      const { error: e } = await supabase.rpc('update_ticket_status', {
+      const { error: e } = await callAdminAction('update_ticket_status', {
         p_ticket_id: ticketId, p_status: status,
       });
       if (e) throw e;

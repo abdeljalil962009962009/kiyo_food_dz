@@ -509,8 +509,7 @@ async function uploadApplicationImage(userId: string, file: File, kind: 'logo' |
     upsert: true,
   });
   if (error) throw error;
-  const { data } = supabase.storage.from('restaurant-applications').getPublicUrl(path);
-  return data.publicUrl;
+  return path;
 }
 
 function normalizeApplication(application: Omit<RestaurantApplication, 'status'> & { status: string }): RestaurantApplication {

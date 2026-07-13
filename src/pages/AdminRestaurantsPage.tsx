@@ -3,6 +3,7 @@ import { Store, Check, X, ChevronLeft, Plus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useT } from '../lib/i18n-react';
 import { supabase, type Restaurant } from '../lib/supabase';
+import { callAdminAction } from '../lib/adminApi';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Skeleton, ErrorState, Spinner } from '../components/feedback';
@@ -42,7 +43,7 @@ export default function AdminRestaurantsPage() {
   const approve = async (id: string) => {
     setActingId(id);
     try {
-      const { error: e } = await supabase.rpc('set_restaurant_status', {
+      const { error: e } = await callAdminAction('set_restaurant_status', {
         p_restaurant_id: id, p_status: 'published',
       });
       if (e) throw e;
@@ -57,7 +58,7 @@ export default function AdminRestaurantsPage() {
   const reject = async (id: string) => {
     setActingId(id);
     try {
-      const { error: e } = await supabase.rpc('set_restaurant_status', {
+      const { error: e } = await callAdminAction('set_restaurant_status', {
         p_restaurant_id: id, p_status: 'suspended',
       });
       if (e) throw e;

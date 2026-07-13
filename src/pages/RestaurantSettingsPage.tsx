@@ -13,6 +13,7 @@ import { Skeleton, ErrorState, Spinner } from '../components/feedback';
 import DeliveryMap, { type DeliveryMapLocation } from '../components/DeliveryMap';
 import { localizePublicationBlocker } from '../lib/publicationReadiness';
 import { uploadRestaurantImage, validateRestaurantImage } from '../lib/restaurantMedia';
+import { PrivateRestaurantImage } from '../components/PrivateRestaurantImage';
 
 type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 const DAYS: { key: DayOfWeek; labelKey: 'day.0' | 'day.1' | 'day.2' | 'day.3' | 'day.4' | 'day.5' | 'day.6' }[] = [
@@ -339,7 +340,7 @@ export default function RestaurantSettingsPage() {
               </label>
               <label className="sm:col-span-2"><span className="kiyo-label">{profileTx.imageUrl}</span><input className="kiyo-input" value={imageUrl} onChange={(event) => setImageUrl(event.target.value)} placeholder="https://..." inputMode="url" /></label>
               <p className="text-xs text-ink-400 sm:col-span-2">{profileTx.imageHelp}</p>
-              {imageUrl && !imageFile && <img src={imageUrl} alt="" className="h-40 w-full rounded-lg border border-ink-100 object-cover sm:col-span-2" />}
+              {imageUrl && !imageFile && <PrivateRestaurantImage value={imageUrl} alt={restaurantName} className="h-40 w-full rounded-lg border border-ink-100 object-cover sm:col-span-2" />}
             </div>
           </div>
 

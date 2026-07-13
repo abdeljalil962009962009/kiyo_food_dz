@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckCircle, Clock, RefreshCw, RotateCcw, Save, SlidersHorizontal } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
 import { supabase } from '../lib/supabase';
+import { callAdminAction } from '../lib/adminApi';
 import { Spinner } from './feedback';
 
 type ScopeType = 'wilaya' | 'restaurant';
@@ -168,7 +169,7 @@ export function MarketplaceRuleOverridesEditor({ globalSettings }: { globalSetti
     setSaving(true);
     setError(null);
     setMessage(null);
-    const { error: saveError } = await supabase.rpc('set_marketplace_rule_override', {
+    const { error: saveError } = await callAdminAction('set_marketplace_rule_override', {
       p_scope_type: scopeType,
       p_scope_id: scopeId,
       p_values: draft,
@@ -188,7 +189,7 @@ export function MarketplaceRuleOverridesEditor({ globalSettings }: { globalSetti
     if (!current || reason.trim().length < 3) return setError(text.reasonRequired);
     setSaving(true);
     setError(null);
-    const { error: removeError } = await supabase.rpc('remove_marketplace_rule_override', {
+    const { error: removeError } = await callAdminAction('remove_marketplace_rule_override', {
       p_scope_type: scopeType,
       p_scope_id: scopeId,
       p_expected_version: current.version,

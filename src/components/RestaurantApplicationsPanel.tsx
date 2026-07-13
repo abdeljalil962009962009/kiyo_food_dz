@@ -9,6 +9,8 @@ import {
   normalizeRestaurantApplicationStatus,
 } from '../lib/restaurantApplicationStateMachine';
 import { localizePublicationBlocker } from '../lib/publicationReadiness';
+import { callAdminAction } from '../lib/adminApi';
+import { PrivateRestaurantImage } from './PrivateRestaurantImage';
 
 type Applicant = Pick<Profile, 'id' | 'email' | 'full_name' | 'phone'>;
 
@@ -149,7 +151,7 @@ export function RestaurantApplicationsPanel() {
       return;
     }
     if (['rejected', 'suspended'].includes(target) && !window.confirm(`${target.replace(/_/g, ' ')}: ${selected.restaurant_name}?`)) return;
-    await run(() => supabase.rpc('review_restaurant_application', {
+    await run(() => callAdminAction('review_restaurant_application', {
       p_application_id: selected.id,
       p_target_status: target,
       p_reason: reason.trim() || null,
@@ -166,7 +168,7 @@ export function RestaurantApplicationsPanel() {
       return;
     }
     if (!window.confirm(`Approve ${selected.restaurant_name} for onboarding with ${foodRate}% food commission?`)) return;
-    await run(() => supabase.rpc('preliminarily_approve_restaurant_application', {
+    await run(() => callAdminAction('preliminarily_approve_restaurant_application', {
       p_application_id: selected.id,
       p_food_commission_rate: food,
       p_delivery_share_rate: delivery,
@@ -179,7 +181,7 @@ export function RestaurantApplicationsPanel() {
   const publish = async () => {
     if (!selected?.restaurant_id) return;
     if (!window.confirm(`Publish ${selected.restaurant_name} to all customers?`)) return;
-    await run(() => supabase.rpc('publish_restaurant', {
+    await run(() => callAdminAction('publish_restaurant', {
       p_restaurant_id: selected.restaurant_id,
       p_expected_application_version: selected.application_version,
     }));
@@ -187,7 +189,7 @@ export function RestaurantApplicationsPanel() {
 
   const saveNotes = async () => {
     if (!selected) return;
-    await run(() => supabase.rpc('update_restaurant_application_internal_notes', {
+    await run(() => callAdminAction('update_restaurant_application_internal_notes', {
       p_application_id: selected.id,
       p_notes: internalNotes,
       p_expected_version: selected.application_version,
@@ -276,8 +278,8 @@ export function RestaurantApplicationsPanel() {
             {Object.keys(selected.opening_hours).length > 0 && <div><p className="text-xs font-semibold text-ink-400">Opening hours</p><pre className="mt-1 overflow-x-auto whitespace-pre-wrap rounded-lg bg-ink-50 p-3 text-xs text-ink-700">{JSON.stringify(selected.opening_hours, null, 2)}</pre></div>}
             {(selected.logo_url || selected.cover_image_url) && (
               <div className="grid gap-3 sm:grid-cols-2">
-                {selected.logo_url && <img src={selected.logo_url} alt={`${selected.restaurant_name} logo`} className="h-32 w-full rounded-lg border border-ink-100 object-cover" />}
-                {selected.cover_image_url && <img src={selected.cover_image_url} alt={`${selected.restaurant_name} cover`} className="h-32 w-full rounded-lg border border-ink-100 object-cover" />}
+                {selected.logo_url && <PrivateRestaurantImage value={selected.logo_url} alt={`${selected.restaurant_name} logo`} className="h-32 w-full rounded-lg border border-ink-100 object-cover" />}
+                {selected.cover_image_url && <PrivateRestaurantImage value={selected.cover_image_url} alt={`${selected.restaurant_name} cover`} className="h-32 w-full rounded-lg border border-ink-100 object-cover" />}
               </div>
             )}
 

@@ -1,6 +1,7 @@
 import { memo, type JSX } from 'react';
 import type { OrderStatus } from '../lib/supabase';
 import { useT } from '../lib/i18n-react';
+import { publicRestaurantImageUrl } from '../lib/restaurantMedia';
 
 // Currency configuration - centralized for multi-currency support
 // Default currency is DZD (Algerian Dinar), but architecture supports future expansion
@@ -70,17 +71,13 @@ export const RestaurantImage = memo(function RestaurantImage({ url, name, classN
 }) {
   // Stock food photo fallback (free, royalty-free via Unsplash CDN).
   const fallback = 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=800&q=60&auto=format&fit=crop';
-  const srcSet = url
-    ? `${url}?w=400&q=60&auto=format&fit=crop 400w, ${url}?w=800&q=60&auto=format&fit=crop 800w`
-    : undefined;
+  const resolvedUrl = publicRestaurantImageUrl(url);
   return (
     <img
-      src={url || fallback}
+      src={resolvedUrl || fallback}
       alt={name}
       loading="lazy"
       decoding="async"
-      srcSet={srcSet}
-      sizes="(max-width: 640px) 400px, 800px"
       onError={(e) => {
         const img = e.currentTarget;
         if (img.src !== fallback) img.src = fallback;
