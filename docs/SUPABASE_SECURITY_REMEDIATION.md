@@ -7,9 +7,12 @@ This remediation is additive and must be applied to staging before production. I
 Sources of truth:
 
 - Forward migration: `supabase/migrations/20260713233000_0046_supabase_security_remediation.sql`
+- Advisor follow-up migration: `supabase/migrations/20260714003000_0047_security_advisor_actionable_cleanup.sql`
 - Emergency recovery: `supabase/rollback/20260713233000_0046_supabase_security_remediation.rollback.sql`
+- Follow-up recovery: `supabase/rollback/20260714003000_0047_security_advisor_actionable_cleanup.rollback.sql`
 - Read-only database inventory: `supabase/audits/security_inventory.sql`
 - Staging assertions: `supabase/tests/0046_security_assertions.sql`
+- Advisor assertions: `supabase/tests/0047_security_advisor_assertions.sql`
 
 ## Confirmed findings and disposition
 
@@ -25,6 +28,10 @@ Sources of truth:
 | High | Permanent public application-media URLs | Browser stored `getPublicUrl()` values for sensitive onboarding media | New records store object paths. Legacy URLs are parsed safely. Admin/applicant previews use signed URLs; published restaurant media uses a server-verified short-lived redirect. |
 | Medium | Platform internals broadly readable | Platform health, owner bootstrap, campaigns, disabled flags, and inactive plans/zones had always-true read policies | Restrict internals to owner; expose only active public-facing rows and a small allowlist of runtime settings. |
 | Medium | Future functions inherit public execution | Default privileges were not hardened | Revoke default function execution from `PUBLIC`, `anon`, and `authenticated`; future RPCs require explicit grants. |
+| Error | `public.driver_profile_view` uses definer permissions | A legacy view ran as its owner and could bypass `drivers`/`profiles` RLS | Force `security_invoker` and `security_barrier`; underlying own-driver/owner policies now govern every row. |
+| Medium | Internal calculation/discovery routines remain signed-in callable | Historical grants survived after these routines became internal implementation details | Revoke browser execution from financial calculators, superseded discovery RPCs, route helpers, owner health, RLS maintenance, and promo internals; retain service execution. |
+| Medium | Simple notification/read helpers use definer rights | Three ownership-only helpers retained unnecessary elevated mode | Convert notification marking and own restaurant lookup to `SECURITY INVOKER`; existing RLS supplies authorization. |
+| Info | `owner_action_requests` has RLS but no policy | Browser table privileges were already revoked and service role bypasses RLS | Add an explicit deny policy for `anon`/`authenticated` so the closed contract is machine-verifiable. |
 | Advisory | PostGIS installed in `public` | Existing migrations and spatial indexes depend on current extension placement | Do not move during this patch. Treat a move as a separate project with dependency inventory, route/location regression tests, and rollback. |
 | Advisory | Leaked password protection disabled | Dashboard/plan-level Auth setting, not a database migration | Enable in Auth password settings when the production project is Pro or higher. Do not claim resolved until dashboard verification. |
 
@@ -72,15 +79,17 @@ These settings must be verified without changing the working OAuth or password-r
 ## Rollout and restore procedure
 
 1. Confirm staging is selected, never production.
-2. Apply migration 0046.
-3. Run `supabase/tests/0046_security_assertions.sql`.
-4. Run `supabase/audits/security_inventory.sql` and export the result grids.
-5. Re-run Security Advisor and capture all remaining findings.
-6. Test anonymous, customer, second customer, two restaurant owners, staff, driver, owner, and service backend identities.
-7. Verify owner actions, application media, signup, recovery, browsing, checkout, order transitions, realtime, and PostGIS routes.
-8. Only after staging passes, confirm a production backup/restore point and preserve Storage objects separately.
-9. Deploy compatible application code first, then apply 0046 in a controlled maintenance window.
-10. Re-run assertions and Security Advisor in production.
+2. Apply migration 0046 and run `supabase/tests/0046_security_assertions.sql`.
+3. Re-run Security Advisor and record the exact residual findings.
+4. Apply migration 0047 and run `supabase/tests/0047_security_advisor_assertions.sql`.
+5. Run `supabase/audits/security_inventory.sql` and export the result grids.
+6. Re-run Security Advisor and classify every remaining extension-owned or intentionally retained domain finding.
+7. Test anonymous, customer, second customer, two restaurant owners, staff, driver, owner, and service backend identities.
+8. Verify owner actions, application media, signup, recovery, browsing, checkout, order transitions, realtime, and PostGIS routes.
+9. Only after staging passes, confirm a production backup/restore point and preserve Storage objects separately.
+10. Production migration 0037 is currently unresolved; do not apply 0038-0047 or merge PR #4 until 0037 succeeds in a controlled rollout.
+11. Deploy compatible application code and migrations in the verified order during a controlled maintenance window.
+12. Re-run assertions and Security Advisor in production.
 
 The rollback file restores the previous browser RPC grants and broad policies only for an emergency application rollback. It deliberately keeps application media private. It never deletes production business data.
 
@@ -91,6 +100,9 @@ The rollback file restores the previous browser RPC grants and broad policies on
 - Unit/integration tests: 69 passing.
 - Production build: passing.
 - Dependency production audit: zero known vulnerabilities at audit time.
-- Migration application and RLS identity tests: pending staging execution.
-- Final Security Advisor result: pending staging execution and export.
+- Staging migration 0046 and its SQL assertions: passed.
+- Security Advisor after 0046: 2 errors, 44 warnings, 1 informational finding.
+- Actionable follow-up migration 0047: implemented locally; staging execution pending.
+- Cross-role RLS/storage identity tests: pending after 0047.
+- Final Security Advisor result: pending 0047 staging execution and refresh.
 - Production application: intentionally not performed.
