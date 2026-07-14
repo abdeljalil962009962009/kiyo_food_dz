@@ -46,13 +46,13 @@ required_columns(table_name, column_name) AS (
     ('restaurants','location_source'), ('restaurants','location_updated_at'),
     ('restaurants','max_delivery_km'), ('restaurants','min_order_amount'),
     ('restaurants','status'), ('restaurants','operational_status'),
-    ('restaurants','is_verified'), ('restaurants','updated_at'),
+    ('restaurants','is_verified'), ('restaurants','created_at'), ('restaurants','updated_at'),
 
     ('menu_categories','id'), ('menu_categories','restaurant_id'),
     ('menu_items','id'), ('menu_items','restaurant_id'), ('menu_items','name'),
     ('menu_items','price'), ('menu_items','is_available'),
     ('notifications','user_id'), ('notifications','type'), ('notifications','title'),
-    ('notifications','body'), ('notifications','data'),
+    ('notifications','body'), ('notifications','metadata'),
     ('platform_settings','key'), ('platform_settings','value'),
     ('wilayas','id')
 ),
@@ -121,13 +121,38 @@ marker_state AS (
     'preliminary_approval_function', EXISTS (
       SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
       WHERE n.nspname = 'public' AND p.proname = 'preliminarily_approve_restaurant_application'
+    ),
+    'review_application_function', EXISTS (
+      SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public' AND p.proname = 'review_restaurant_application'
+    ),
+    'application_message_function', EXISTS (
+      SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public' AND p.proname = 'send_restaurant_application_message'
+    ),
+    'publication_readiness_function', EXISTS (
+      SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public' AND p.proname = 'get_restaurant_publication_readiness'
+    ),
+    'publish_restaurant_function', EXISTS (
+      SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public' AND p.proname = 'publish_restaurant'
     )
   ) AS markers
 )
 SELECT
-  CASE WHEN count(*) = 0
-    THEN 'READY_FOR_CONTROLLED_0037_ROLLOUT'
-    ELSE 'BLOCKED_DO_NOT_RUN_0037'
+  CASE
+    WHEN count(*) > 0 THEN 'BLOCKED_DO_NOT_RUN_0037'
+    WHEN (SELECT markers->>'restaurant_memberships_table' FROM marker_state)::boolean
+     AND (SELECT markers->>'commercial_terms_table' FROM marker_state)::boolean
+     AND (SELECT markers->>'submit_application_function' FROM marker_state)::boolean
+     AND (SELECT markers->>'preliminary_approval_function' FROM marker_state)::boolean
+     AND (SELECT markers->>'review_application_function' FROM marker_state)::boolean
+     AND (SELECT markers->>'application_message_function' FROM marker_state)::boolean
+     AND (SELECT markers->>'publication_readiness_function' FROM marker_state)::boolean
+     AND (SELECT markers->>'publish_restaurant_function' FROM marker_state)::boolean
+      THEN '0037_PRESENT_READY_FOR_0038'
+    ELSE 'READY_FOR_CONTROLLED_0037_ROLLOUT'
   END AS rollout_status,
   count(*)::integer AS blocker_count,
   COALESCE(

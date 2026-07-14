@@ -13,6 +13,7 @@ Sources of truth:
 - Profile privilege guard: `supabase/migrations/20260714033000_0051_profile_privilege_escalation_guard.sql`
 - COD settlement integrity: `supabase/migrations/20260714090000_0052_cod_settlement_integrity.sql`
 - Monotonic workflow versions: `supabase/migrations/20260714103000_0053_monotonic_transition_versions.sql`
+- Legacy production schema reconciliation: `supabase/migrations/20260712180000_0037b_production_schema_reconciliation.sql`
 - Emergency recovery: `supabase/rollback/20260713233000_0046_supabase_security_remediation.rollback.sql`
 - Follow-up recovery: `supabase/rollback/20260714003000_0047_security_advisor_actionable_cleanup.rollback.sql`
 - Domain-boundary recovery: `supabase/rollback/20260714013000_0048_trusted_domain_action_boundary.rollback.sql`
@@ -110,10 +111,12 @@ These settings must be verified without changing the working OAuth or password-r
 13. Test anonymous, customer, second customer, two restaurant owners, staff, driver, owner, and service backend identities.
 14. Verify owner actions, application media, signup, recovery, browsing, checkout, order transitions, realtime, and PostGIS routes.
 15. Only after staging passes, confirm a production backup/restore point and preserve Storage objects separately.
-16. Run `supabase/audits/production_0037_preflight.sql` against production; continue only when it returns `READY_FOR_CONTROLLED_0037_ROLLOUT` with zero blockers.
-17. Production migration 0037 remains unresolved until that preflight passes and 0037 succeeds in a controlled rollout; do not apply 0038-0053 or merge PR #4 before then.
-18. Deploy compatible application code and migrations in the verified order during a controlled maintenance window.
-19. Re-run assertions and Security Advisor in production.
+16. Run `supabase/audits/production_0037_preflight.sql` against production.
+17. If the only blockers are the four legacy `restaurants` location columns, apply `20260712180000_0037b_production_schema_reconciliation.sql` and rerun the preflight. Stop for any different blocker.
+18. When the result is `0037_PRESENT_READY_FOR_0038`, do not rerun 0037. If it is `READY_FOR_CONTROLLED_0037_ROLLOUT`, apply 0037 once in the controlled maintenance window.
+19. Do not apply 0038-0053 or merge PR #4 until the production preflight is clear and the compatible application rollout is scheduled.
+20. Deploy compatible application code and migrations in the verified order during a controlled maintenance window.
+21. Re-run assertions and Security Advisor in production.
 
 The rollback file restores the previous browser RPC grants and broad policies only for an emergency application rollback. It deliberately keeps application media private. It never deletes production business data.
 
