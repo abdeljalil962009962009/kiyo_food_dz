@@ -22,6 +22,7 @@ Sources of truth:
 - COD settlement emergency recovery: `supabase/rollback/20260714090000_0052_cod_settlement_integrity.rollback.sql`
 - Read-only database inventory: `supabase/audits/security_inventory.sql`
 - Production 0037 preflight: `supabase/audits/production_0037_preflight.sql`
+- Scoped 0037b restore point: `supabase/maintenance/production_0037b_restore_point.sql`
 - Staging assertions: `supabase/tests/0046_security_assertions.sql`
 - Advisor assertions: `supabase/tests/0047_security_advisor_assertions.sql`
 - Domain-boundary assertions: `supabase/tests/0048_trusted_domain_action_boundary.sql`
@@ -110,7 +111,7 @@ These settings must be verified without changing the working OAuth or password-r
 12. Apply migration 0052, then migration 0053, and run `supabase/tests/0052_cod_settlement_integrity.sql`; the test must return its single success row and roll back all generated orders, ledgers, and settlements.
 13. Test anonymous, customer, second customer, two restaurant owners, staff, driver, owner, and service backend identities.
 14. Verify owner actions, application media, signup, recovery, browsing, checkout, order transitions, realtime, and PostGIS routes.
-15. Only after staging passes, confirm a production backup/restore point and preserve Storage objects separately.
+15. Only after staging passes, confirm a production backup/restore point and preserve Storage objects separately. On a Free-plan project without managed backups, run `supabase/maintenance/production_0037b_restore_point.sql` first and require `RESTORE_POINT_READY` with identical source and snapshot counts. This scoped snapshot is sufficient for 0037b because that migration changes only `public.restaurants` and does not touch Storage objects.
 16. Run `supabase/audits/production_0037_preflight.sql` against production.
 17. If the only blockers are the four legacy `restaurants` location columns, apply `20260712180000_0037b_production_schema_reconciliation.sql` and rerun the preflight. Stop for any different blocker.
 18. When the result is `0037_PRESENT_READY_FOR_0038`, do not rerun 0037. If it is `READY_FOR_CONTROLLED_0037_ROLLOUT`, apply 0037 once in the controlled maintenance window.
