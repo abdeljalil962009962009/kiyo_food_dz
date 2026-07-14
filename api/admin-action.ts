@@ -21,6 +21,7 @@ const ALLOWED_ACTIONS = new Set([
   'get_platform_analytics',
   'get_admin_alerts',
   'get_settlement_overview',
+  'generate_monthly_settlement',
   'mark_settlement_paid',
   'set_user_suspended',
   'update_restaurant_admin',

@@ -112,7 +112,7 @@ BEGIN
   JOIN pg_namespace namespace ON namespace.oid = routine.pronamespace
   WHERE namespace.nspname = 'public'
     AND routine.proname = ANY(ARRAY[
-      'mark_settlement_paid', 'set_user_suspended', 'update_platform_setting',
+      'generate_monthly_settlement', 'mark_settlement_paid', 'set_user_suspended', 'update_platform_setting',
       'review_restaurant_application', 'preliminarily_approve_restaurant_application',
       'publish_restaurant', 'set_restaurant_status',
       'set_marketplace_rule_override', 'remove_marketplace_rule_override'

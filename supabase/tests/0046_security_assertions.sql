@@ -25,7 +25,7 @@ BEGIN
   JOIN pg_namespace n ON n.oid = p.pronamespace
   WHERE n.nspname = 'public'
     AND p.proname IN (
-      'log_activity', 'mark_settlement_paid', 'set_user_suspended',
+      'log_activity', 'generate_monthly_settlement', 'mark_settlement_paid', 'set_user_suspended',
       'update_platform_setting', 'publish_restaurant',
       'preliminarily_approve_restaurant_application',
       'set_marketplace_rule_override', 'remove_marketplace_rule_override'

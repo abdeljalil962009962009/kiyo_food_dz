@@ -32,6 +32,36 @@ type Tab = 'overview' | 'financials' | 'settlements' | 'users' | 'restaurants' |
 
 const DZD = (n: number) => new Intl.NumberFormat('fr-DZ', { style: 'currency', currency: 'DZD', maximumFractionDigits: 0 }).format(n);
 
+const SETTLEMENT_COPY = {
+  en: {
+    ready: 'Ready to generate', readyHint: 'Delivered COD orders that are not yet assigned to a monthly settlement.',
+    generate: 'Generate settlement', generating: 'Generating...', orders: 'orders', gross: 'Gross sales', commission: 'Platform commission',
+    confirmGenerate: 'Generate this monthly settlement? This permanently links the listed orders to it.',
+    confirmPaid: 'Confirm that the full outstanding settlement was received?', disputed: 'Review required',
+    generated: 'Settlement generated successfully.', paid: 'Settlement marked as paid.', noReady: 'No delivered orders are waiting for settlement.',
+    pending: 'Pending', overdue: 'Overdue', disputedLabel: 'Disputed', paidLabel: 'Paid', totalOwed: 'Total owed', history: 'Settlement history', export: 'Export CSV',
+    empty: 'No settlements yet', restaurant: 'Restaurant', period: 'Period', balance: 'Balance', status: 'Status', action: 'Action', markPaid: 'Mark paid',
+  },
+  fr: {
+    ready: 'Prêts à générer', readyHint: 'Commandes payées à la livraison qui ne sont pas encore rattachées à un règlement mensuel.',
+    generate: 'Générer le règlement', generating: 'Génération...', orders: 'commandes', gross: 'Ventes brutes', commission: 'Commission plateforme',
+    confirmGenerate: 'Générer ce règlement mensuel ? Les commandes listées y seront rattachées définitivement.',
+    confirmPaid: 'Confirmer la réception du solde total de ce règlement ?', disputed: 'Vérification requise',
+    generated: 'Règlement généré avec succès.', paid: 'Règlement marqué comme payé.', noReady: 'Aucune commande livrée n’attend de règlement.',
+    pending: 'En attente', overdue: 'En retard', disputedLabel: 'Contestés', paidLabel: 'Payés', totalOwed: 'Total dû', history: 'Historique des règlements', export: 'Exporter CSV',
+    empty: 'Aucun règlement', restaurant: 'Restaurant', period: 'Période', balance: 'Solde', status: 'Statut', action: 'Action', markPaid: 'Marquer payé',
+  },
+  ar: {
+    ready: 'جاهزة للإنشاء', readyHint: 'طلبات الدفع عند الاستلام التي تم تسليمها ولم تُربط بعد بتسوية شهرية.',
+    generate: 'إنشاء التسوية', generating: 'جارٍ الإنشاء...', orders: 'طلبات', gross: 'إجمالي المبيعات', commission: 'عمولة المنصة',
+    confirmGenerate: 'هل تريد إنشاء هذه التسوية الشهرية؟ سيتم ربط الطلبات المدرجة بها نهائياً.',
+    confirmPaid: 'هل تؤكد استلام كامل الرصيد المستحق لهذه التسوية؟', disputed: 'تتطلب المراجعة',
+    generated: 'تم إنشاء التسوية بنجاح.', paid: 'تم تسجيل التسوية كمدفوعة.', noReady: 'لا توجد طلبات مسلّمة بانتظار التسوية.',
+    pending: 'قيد الانتظار', overdue: 'متأخرة', disputedLabel: 'متنازع عليها', paidLabel: 'مدفوعة', totalOwed: 'إجمالي المستحق', history: 'سجل التسويات', export: 'تصدير CSV',
+    empty: 'لا توجد تسويات', restaurant: 'المطعم', period: 'الفترة', balance: 'الرصيد', status: 'الحالة', action: 'الإجراء', markPaid: 'تسجيل كمدفوعة',
+  },
+} as const;
+
 const adminErrorMessage = (err: unknown, fallback: string) => {
   if (err && typeof err === 'object') {
     const maybe = err as { message?: unknown; details?: unknown; hint?: unknown };
@@ -1480,8 +1510,14 @@ function AnalyticsTab() {
 // ===================== SETTLEMENTS =====================
 function SettlementsTab() {
   const { t } = useT();
+  const { locale } = useAdminT();
+  const copy = SETTLEMENT_COPY[locale as keyof typeof SETTLEMENT_COPY] ?? SETTLEMENT_COPY.en;
   const [overview, setOverview] = useState<{
-    total_owed: number; total_paid: number; overdue_count: number; pending_count: number; paid_count: number;
+    total_owed: number; total_paid: number; overdue_count: number; pending_count: number; paid_count: number; disputed_count: number;
+    eligible_periods?: Array<{
+      restaurant_id: string; restaurant_name: string; period_start: string;
+      entry_count: number; gross_sales: string; platform_commission: string; amount_owed: string; restaurant_payout: string;
+    }>;
     recent: Array<{
       id: string; restaurant_id: string; restaurant_name: string;
       period_start: string; period_end: string;
@@ -1491,18 +1527,20 @@ function SettlementsTab() {
     }>;
   } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    setError(null);
+    setLoadError(null);
     try {
       const { data, error: e } = await callAdminAction('get_settlement_overview');
       if (e) throw e;
       setOverview(data as typeof overview);
     } catch (err) {
-      setError(adminErrorMessage(err, t('error.genericBody')));
+      setLoadError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
       setLoading(false);
     }
@@ -1511,56 +1549,130 @@ function SettlementsTab() {
   useEffect(() => { void load(); }, [load]);
 
   const markPaid = async (id: string) => {
+    if (!window.confirm(copy.confirmPaid)) return;
     setActingId(id);
-    setError(null);
+    setActionError(null);
+    setNotice(null);
     try {
       const { error: e } = await callAdminAction('mark_settlement_paid', {
         p_settlement_id: id, p_amount: null, p_notes: 'Marked as paid by admin',
       });
       if (e) throw e;
-      void load();
+      setNotice(copy.paid);
+      await load();
     } catch (err) {
-      setError(adminErrorMessage(err, t('error.genericBody')));
+      setActionError(adminErrorMessage(err, t('error.genericBody')));
+    } finally {
+      setActingId(null);
+    }
+  };
+
+  const generateSettlement = async (restaurantId: string, periodStart: string) => {
+    if (!window.confirm(copy.confirmGenerate)) return;
+    const key = `${restaurantId}:${periodStart}`;
+    setActingId(key);
+    setActionError(null);
+    setNotice(null);
+    try {
+      const { error: actionError } = await callAdminAction('generate_monthly_settlement', {
+        p_restaurant_id: restaurantId,
+        p_period_start: periodStart,
+      });
+      if (actionError) throw actionError;
+      setNotice(copy.generated);
+      await load();
+    } catch (err) {
+      setActionError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
       setActingId(null);
     }
   };
 
   if (loading) return <Skeleton count={3} />;
-  if (error) return <ErrorState title={t('error.genericTitle')} message={error} onRetry={load} retryLabel={t('error.retry')} />;
+  if (loadError) return <ErrorState title={t('error.genericTitle')} message={loadError} onRetry={load} retryLabel={t('error.retry')} />;
   if (!overview) return null;
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard icon={Clock} label="Pending" value={String(overview.pending_count)} accent="warning" />
-        <StatCard icon={AlertTriangle} label="Overdue" value={String(overview.overdue_count)} accent="error" />
-        <StatCard icon={CheckCircle} label="Paid" value={String(overview.paid_count)} accent="sage" />
-        <StatCard icon={DollarSign} label="Total Owed" value={DZD(overview.total_owed)} accent="ember" />
+      {notice && (
+        <div role="status" className="rounded-lg border border-sage-200 bg-sage-50 px-4 py-3 text-sm font-medium text-sage-700">
+          {notice}
+        </div>
+      )}
+      {actionError && (
+        <div role="alert" className="rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm font-medium text-error-700">
+          {actionError}
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+        <StatCard icon={Clock} label={copy.pending} value={String(overview.pending_count)} accent="warning" />
+        <StatCard icon={AlertTriangle} label={copy.overdue} value={String(overview.overdue_count)} accent="error" />
+        <StatCard icon={AlertTriangle} label={copy.disputedLabel} value={String(overview.disputed_count ?? 0)} accent="error" />
+        <StatCard icon={CheckCircle} label={copy.paidLabel} value={String(overview.paid_count)} accent="sage" />
+        <StatCard icon={DollarSign} label={copy.totalOwed} value={DZD(overview.total_owed)} accent="ember" />
       </div>
+
+      <section aria-labelledby="settlement-ready-title">
+        <div className="mb-3">
+          <h3 id="settlement-ready-title" className="font-display text-base font-bold text-ink-900">{copy.ready}</h3>
+          <p className="mt-1 text-sm text-ink-500">{copy.readyHint}</p>
+        </div>
+        {(overview.eligible_periods ?? []).length === 0 ? (
+          <div className="rounded-lg border border-dashed border-ink-200 bg-white px-4 py-5 text-sm text-ink-500">{copy.noReady}</div>
+        ) : (
+          <div className="grid gap-3 lg:grid-cols-2">
+            {(overview.eligible_periods ?? []).map((candidate) => {
+              const actionKey = `${candidate.restaurant_id}:${candidate.period_start}`;
+              return (
+                <div key={actionKey} className="kiyo-card flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-ink-900">{candidate.restaurant_name}</p>
+                    <p className="mt-1 text-sm text-ink-500">
+                      {new Date(`${candidate.period_start}T00:00:00`).toLocaleDateString(locale === 'ar' ? 'ar-DZ' : locale === 'fr' ? 'fr-DZ' : 'en-DZ', { month: 'long', year: 'numeric' })}
+                      {' · '}{candidate.entry_count} {copy.orders}
+                    </p>
+                    <p className="mt-2 text-xs text-ink-500">
+                      {copy.gross}: {DZD(Number(candidate.gross_sales))} · {copy.commission}: {DZD(Number(candidate.platform_commission))} · {copy.totalOwed}: {DZD(Number(candidate.amount_owed))}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void generateSettlement(candidate.restaurant_id, candidate.period_start)}
+                    disabled={actingId !== null}
+                    className="kiyo-btn-primary min-h-11 flex-shrink-0"
+                  >
+                    {actingId === actionKey ? <Spinner className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
+                    {actingId === actionKey ? copy.generating : copy.generate}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
 
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="font-display text-base font-bold text-ink-900">Settlement History</h3>
+          <h3 className="font-display text-base font-bold text-ink-900">{copy.history}</h3>
           <button onClick={exportSettlementsCSV} className="kiyo-btn-secondary">
             <Download className="h-4 w-4" />
-            <span className="hidden sm:inline">Export CSV</span>
+            <span className="hidden sm:inline">{copy.export}</span>
           </button>
         </div>
         {overview.recent.length === 0 ? (
-          <div className="kiyo-card p-6 text-center text-sm text-ink-400">No settlements yet</div>
+          <div className="kiyo-card p-6 text-center text-sm text-ink-400">{copy.empty}</div>
         ) : (
           <div className="kiyo-card overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-ink-100 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
-                  <th className="px-4 py-3">Restaurant</th>
-                  <th className="px-4 py-3">Period</th>
-                  <th className="px-4 py-3 text-right">Gross</th>
-                  <th className="px-4 py-3 text-right">Commission</th>
-                  <th className="px-4 py-3 text-right">Balance</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Action</th>
+                  <th className="px-4 py-3">{copy.restaurant}</th>
+                  <th className="px-4 py-3">{copy.period}</th>
+                  <th className="px-4 py-3 text-right">{copy.gross}</th>
+                  <th className="px-4 py-3 text-right">{copy.commission}</th>
+                  <th className="px-4 py-3 text-right">{copy.balance}</th>
+                  <th className="px-4 py-3">{copy.status}</th>
+                  <th className="px-4 py-3 text-right">{copy.action}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-50">
@@ -1568,7 +1680,7 @@ function SettlementsTab() {
                   <tr key={s.id} className="hover:bg-ink-50/50">
                     <td className="px-4 py-3 font-medium text-ink-900">{s.restaurant_name}</td>
                     <td className="px-4 py-3 text-xs text-ink-500">
-                      {s.period_start} → {s.period_end}
+                      {s.period_start} - {s.period_end}
                     </td>
                     <td className="px-4 py-3 text-right text-ink-700">{DZD(Number(s.gross_sales))}</td>
                     <td className="px-4 py-3 text-right text-ember-600">{DZD(Number(s.commission))}</td>
@@ -1582,16 +1694,17 @@ function SettlementsTab() {
                       }`}>{s.status.replace(/_/g, ' ')}</span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {s.status !== 'paid' && (
+                      {!['paid', 'disputed'].includes(s.status) && (
                         <button
                           onClick={() => markPaid(s.id)}
                           disabled={actingId === s.id}
                           className="kiyo-btn-primary bg-sage-500 text-xs hover:bg-sage-600"
                         >
                           {actingId === s.id ? <Spinner className="h-3 w-3" /> : <CheckCircle className="h-3 w-3" />}
-                          Mark Paid
+                          {copy.markPaid}
                         </button>
                       )}
+                      {s.status === 'disputed' && <span className="text-xs font-semibold text-error-600">{copy.disputed}</span>}
                     </td>
                   </tr>
                 ))}

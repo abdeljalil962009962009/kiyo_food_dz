@@ -84,6 +84,29 @@ describe('owner action gateway', () => {
     });
   });
 
+  it('routes settlement generation only through the verified owner boundary', async () => {
+    const { rpc } = queueClients({ id: ACTOR_ID, role: 'super_admin', is_suspended: false });
+    const { response, state } = makeResponse();
+    const args = {
+      p_restaurant_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      p_period_start: '2026-07-01',
+    };
+
+    await adminHandler({
+      method: 'POST',
+      headers: { authorization: 'Bearer owner-token' },
+      body: { action: 'generate_monthly_settlement', requestId: REQUEST_ID, args },
+    }, response);
+
+    expect(state.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith('execute_owner_action', {
+      p_actor_id: ACTOR_ID,
+      p_request_id: REQUEST_ID,
+      p_action: 'generate_monthly_settlement',
+      p_args: args,
+    });
+  });
+
   it('rejects oversized owner payloads before authentication or database access', async () => {
     const { response, state } = makeResponse();
     await adminHandler({
