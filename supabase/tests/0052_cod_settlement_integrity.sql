@@ -90,22 +90,22 @@ BEGIN
     'Rollback-only financial acceptance item', 1234, true, 9999
   ) RETURNING id INTO v_item_id;
 
-  PERFORM set_config('kiyo.test.0052.admin_id', v_admin_id::text, true);
-  PERFORM set_config('kiyo.test.0052.restaurant_id', v_restaurant_id::text, true);
-  PERFORM set_config('kiyo.test.0052.owner_id', v_owner_id::text, true);
-  PERFORM set_config('kiyo.test.0052.customer_id', v_customer_id::text, true);
-  PERFORM set_config('kiyo.test.0052.other_customer_id', v_other_customer_id::text, true);
-  PERFORM set_config('kiyo.test.0052.item_id', v_item_id::text, true);
+  PERFORM set_config('kiyo.test_0052.admin_id', v_admin_id::text, true);
+  PERFORM set_config('kiyo.test_0052.restaurant_id', v_restaurant_id::text, true);
+  PERFORM set_config('kiyo.test_0052.owner_id', v_owner_id::text, true);
+  PERFORM set_config('kiyo.test_0052.customer_id', v_customer_id::text, true);
+  PERFORM set_config('kiyo.test_0052.other_customer_id', v_other_customer_id::text, true);
+  PERFORM set_config('kiyo.test_0052.item_id', v_item_id::text, true);
 END
 $preflight$;
 
 DO $create_and_transition_orders$
 DECLARE
-  v_admin_id uuid := current_setting('kiyo.test.0052.admin_id')::uuid;
-  v_restaurant_id uuid := current_setting('kiyo.test.0052.restaurant_id')::uuid;
-  v_owner_id uuid := current_setting('kiyo.test.0052.owner_id')::uuid;
-  v_customer_id uuid := current_setting('kiyo.test.0052.customer_id')::uuid;
-  v_item_id uuid := current_setting('kiyo.test.0052.item_id')::uuid;
+  v_admin_id uuid := current_setting('kiyo.test_0052.admin_id')::uuid;
+  v_restaurant_id uuid := current_setting('kiyo.test_0052.restaurant_id')::uuid;
+  v_owner_id uuid := current_setting('kiyo.test_0052.owner_id')::uuid;
+  v_customer_id uuid := current_setting('kiyo.test_0052.customer_id')::uuid;
+  v_item_id uuid := current_setting('kiyo.test_0052.item_id')::uuid;
   v_quote public.delivery_route_quotes%ROWTYPE;
   v_cancel_quote public.delivery_route_quotes%ROWTYPE;
   v_result jsonb;
@@ -319,8 +319,8 @@ BEGIN
       accounting_effective_at = TIMESTAMPTZ '2001-01-15 12:00:00+00'
   WHERE order_id IN (v_order.id, v_cancel_order.id);
 
-  PERFORM set_config('kiyo.test.0052.delivered_order_id', v_order.id::text, true);
-  PERFORM set_config('kiyo.test.0052.cancelled_order_id', v_cancel_order.id::text, true);
+  PERFORM set_config('kiyo.test_0052.delivered_order_id', v_order.id::text, true);
+  PERFORM set_config('kiyo.test_0052.cancelled_order_id', v_cancel_order.id::text, true);
 END
 $create_and_transition_orders$;
 
@@ -329,14 +329,14 @@ SET LOCAL ROLE authenticated;
 SELECT set_config(
   'request.jwt.claims',
   jsonb_build_object(
-    'sub', current_setting('kiyo.test.0052.other_customer_id'),
+    'sub', current_setting('kiyo.test_0052.other_customer_id'),
     'role', 'authenticated'
   )::text,
   true
 );
 SELECT set_config(
   'request.jwt.claim.sub',
-  current_setting('kiyo.test.0052.other_customer_id'),
+  current_setting('kiyo.test_0052.other_customer_id'),
   true
 );
 
@@ -345,12 +345,12 @@ BEGIN
   IF EXISTS (
     SELECT 1 FROM public.orders
     WHERE id IN (
-      current_setting('kiyo.test.0052.delivered_order_id')::uuid,
-      current_setting('kiyo.test.0052.cancelled_order_id')::uuid
+      current_setting('kiyo.test_0052.delivered_order_id')::uuid,
+      current_setting('kiyo.test_0052.cancelled_order_id')::uuid
     )
   ) OR EXISTS (
     SELECT 1 FROM public.financial_ledger
-    WHERE order_id = current_setting('kiyo.test.0052.delivered_order_id')::uuid
+    WHERE order_id = current_setting('kiyo.test_0052.delivered_order_id')::uuid
   ) THEN
     RAISE EXCEPTION '0052 failed: unrelated customer can read another customer''s order finances';
   END IF;
@@ -361,10 +361,10 @@ RESET ROLE;
 
 DO $settlement_checks$
 DECLARE
-  v_admin_id uuid := current_setting('kiyo.test.0052.admin_id')::uuid;
-  v_restaurant_id uuid := current_setting('kiyo.test.0052.restaurant_id')::uuid;
-  v_delivered_order_id uuid := current_setting('kiyo.test.0052.delivered_order_id')::uuid;
-  v_cancelled_order_id uuid := current_setting('kiyo.test.0052.cancelled_order_id')::uuid;
+  v_admin_id uuid := current_setting('kiyo.test_0052.admin_id')::uuid;
+  v_restaurant_id uuid := current_setting('kiyo.test_0052.restaurant_id')::uuid;
+  v_delivered_order_id uuid := current_setting('kiyo.test_0052.delivered_order_id')::uuid;
+  v_cancelled_order_id uuid := current_setting('kiyo.test_0052.cancelled_order_id')::uuid;
   v_settlement_result jsonb;
   v_overview jsonb;
   v_payment_result jsonb;
