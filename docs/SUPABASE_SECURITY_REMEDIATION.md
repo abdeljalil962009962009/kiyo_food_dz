@@ -20,6 +20,7 @@ Sources of truth:
 - Profile-guard recovery: `supabase/rollback/20260714033000_0051_profile_privilege_escalation_guard.rollback.sql`
 - COD settlement emergency recovery: `supabase/rollback/20260714090000_0052_cod_settlement_integrity.rollback.sql`
 - Read-only database inventory: `supabase/audits/security_inventory.sql`
+- Production 0037 preflight: `supabase/audits/production_0037_preflight.sql`
 - Staging assertions: `supabase/tests/0046_security_assertions.sql`
 - Advisor assertions: `supabase/tests/0047_security_advisor_assertions.sql`
 - Domain-boundary assertions: `supabase/tests/0048_trusted_domain_action_boundary.sql`
@@ -109,9 +110,10 @@ These settings must be verified without changing the working OAuth or password-r
 13. Test anonymous, customer, second customer, two restaurant owners, staff, driver, owner, and service backend identities.
 14. Verify owner actions, application media, signup, recovery, browsing, checkout, order transitions, realtime, and PostGIS routes.
 15. Only after staging passes, confirm a production backup/restore point and preserve Storage objects separately.
-16. Production migration 0037 is currently unresolved; do not apply 0038-0053 or merge PR #4 until 0037 succeeds in a controlled rollout.
-17. Deploy compatible application code and migrations in the verified order during a controlled maintenance window.
-18. Re-run assertions and Security Advisor in production.
+16. Run `supabase/audits/production_0037_preflight.sql` against production; continue only when it returns `READY_FOR_CONTROLLED_0037_ROLLOUT` with zero blockers.
+17. Production migration 0037 remains unresolved until that preflight passes and 0037 succeeds in a controlled rollout; do not apply 0038-0053 or merge PR #4 before then.
+18. Deploy compatible application code and migrations in the verified order during a controlled maintenance window.
+19. Re-run assertions and Security Advisor in production.
 
 The rollback file restores the previous browser RPC grants and broad policies only for an emergency application rollback. It deliberately keeps application media private. It never deletes production business data.
 
