@@ -12,6 +12,7 @@ Sources of truth:
 - Legacy grant closure: `supabase/migrations/20260714023000_0049_close_legacy_domain_rpc_grants.sql`
 - Profile privilege guard: `supabase/migrations/20260714033000_0051_profile_privilege_escalation_guard.sql`
 - COD settlement integrity: `supabase/migrations/20260714090000_0052_cod_settlement_integrity.sql`
+- Monotonic workflow versions: `supabase/migrations/20260714103000_0053_monotonic_transition_versions.sql`
 - Emergency recovery: `supabase/rollback/20260713233000_0046_supabase_security_remediation.rollback.sql`
 - Follow-up recovery: `supabase/rollback/20260714003000_0047_security_advisor_actionable_cleanup.rollback.sql`
 - Domain-boundary recovery: `supabase/rollback/20260714013000_0048_trusted_domain_action_boundary.rollback.sql`
@@ -104,11 +105,11 @@ These settings must be verified without changing the working OAuth or password-r
 9. Re-run Security Advisor. Expected residuals are PostGIS-managed objects, three required read-only RLS helpers, and leaked-password protection when unavailable on the current plan.
 10. Run `supabase/tests/0050_marketplace_acceptance_assertions.sql`; it must return the single success row without modifying staging data.
 11. Apply migration 0051 and run `supabase/tests/0051_cross_role_rls_and_profile_guard.sql`; its fixture changes must roll back and its single success row must be returned.
-12. Apply migration 0052 and run `supabase/tests/0052_cod_settlement_integrity.sql`; the test must return its single success row and roll back all generated orders, ledgers, and settlements.
+12. Apply migration 0052, then migration 0053, and run `supabase/tests/0052_cod_settlement_integrity.sql`; the test must return its single success row and roll back all generated orders, ledgers, and settlements.
 13. Test anonymous, customer, second customer, two restaurant owners, staff, driver, owner, and service backend identities.
 14. Verify owner actions, application media, signup, recovery, browsing, checkout, order transitions, realtime, and PostGIS routes.
 15. Only after staging passes, confirm a production backup/restore point and preserve Storage objects separately.
-16. Production migration 0037 is currently unresolved; do not apply 0038-0052 or merge PR #4 until 0037 succeeds in a controlled rollout.
+16. Production migration 0037 is currently unresolved; do not apply 0038-0053 or merge PR #4 until 0037 succeeds in a controlled rollout.
 17. Deploy compatible application code and migrations in the verified order during a controlled maintenance window.
 18. Re-run assertions and Security Advisor in production.
 
@@ -134,7 +135,7 @@ The rollback file restores the previous browser RPC grants and broad policies on
 - Live application workflow test: submission appeared immediately in the owner queue, request and submission-key retries were idempotent, owner/applicant messages were delivered both ways, requested changes preserved the same application, and resubmission advanced that record to `resubmitted` without creating a duplicate.
 - Live preliminary-approval test: one internal restaurant, one active owner membership, the `restaurant_owner` profile role, active onboarding, and approved commercial terms were created atomically. Anonymous reads remained blocked while the owner retained internal access.
 - Publication-readiness test: the unpublished staging restaurant remained `pending_approval` and returned specific blockers for opening hours, public media, a menu category, and an available priced dish.
-- COD settlement migration 0052 is prepared but not yet applied to staging. Its rollback-isolated acceptance test covers manipulated totals, route-quote consumption, idempotency, valid and invalid order transitions, stale-tab rejection, delivered-versus-cancelled accounting, historical snapshot immutability, cross-customer RLS, duplicate settlement protection, partial/full payment, overpayment rejection, and post-settlement dispute propagation.
+- COD settlement migration 0052 and monotonic workflow-version correction 0053 passed in staging. The rollback-isolated 0052 acceptance test passed after 0053 and covers manipulated totals, route-quote consumption, idempotency, valid and invalid order transitions, stale-tab rejection, delivered-versus-cancelled accounting, historical snapshot immutability, cross-customer RLS, duplicate settlement protection, partial/full payment, overpayment rejection, and post-settlement dispute propagation.
 - Production application: intentionally not performed.
 
 ### Final staging Advisor disposition
