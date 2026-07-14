@@ -114,7 +114,7 @@ The rollback file restores the previous browser RPC grants and broad policies on
 
 - TypeScript app and server functions: passing.
 - ESLint: passing.
-- Unit/integration tests: 79 passing.
+- Unit/integration tests: 81 passing.
 - Production build: passing.
 - Dependency production audit: zero known vulnerabilities at audit time.
 - Staging migrations 0046-0049 and all corresponding SQL assertions: passed.
@@ -126,7 +126,11 @@ The rollback file restores the previous browser RPC grants and broad policies on
 - No unresolved actionable application-owned Advisor errors or high-risk warnings remain.
 - Read-only integrated database acceptance script 0050: passed in staging.
 - Profile privilege escalation guard and rollback-isolated cross-role test 0051: passed in staging.
-- Remaining live Storage and multi-session identity tests: pending in staging.
+- Live private application-media test: the applicant could upload and list only their own file, a second customer could neither list, read, nor overwrite it, an authorized signed URL rendered correctly, and the disposable files were removed after the test.
+- Live application workflow test: submission appeared immediately in the owner queue, request and submission-key retries were idempotent, owner/applicant messages were delivered both ways, requested changes preserved the same application, and resubmission advanced that record to `resubmitted` without creating a duplicate.
+- Live preliminary-approval test: one internal restaurant, one active owner membership, the `restaurant_owner` profile role, active onboarding, and approved commercial terms were created atomically. Anonymous reads remained blocked while the owner retained internal access.
+- Publication-readiness test: the unpublished staging restaurant remained `pending_approval` and returned specific blockers for opening hours, public media, a menu category, and an available priced dish.
+- Remaining destructive order-lifecycle and settlement tests require a dedicated seeded staging restaurant/menu/order fixture; they have not been run against production data.
 - Production application: intentionally not performed.
 
 ### Final staging Advisor disposition
