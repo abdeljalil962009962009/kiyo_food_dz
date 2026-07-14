@@ -13,10 +13,12 @@ import { PriceTag } from '../components/ui';
 import DeliveryMap, { type DeliveryMapLocation } from '../components/DeliveryMap';
 import { withExponentialBackoff } from '../lib/locationNetwork';
 import { isValidAlgerianPhone, normalizeAlgerianPhone } from '../lib/phone';
+import { callUserAction, fetchLocationInsights } from '../lib/userApi';
 
 type Step = 'details' | 'review' | 'success';
 type ContactPhoneMode = 'account' | 'alternate';
 type Finance = {
+  route_quote_id: string;
   items: { name: string; quantity: number; unit_price: string }[];
   subtotal: number;
   delivery_fee: number;
@@ -35,7 +37,7 @@ type LocationInsights = {
   location_key: string;
 };
 
-const SUBMIT_TIMEOUT_MS = 12000;
+const SUBMIT_TIMEOUT_MS = 20000;
 
 export default function CheckoutPage() {
   const { t } = useT();
@@ -100,9 +102,8 @@ export default function CheckoutPage() {
     if (profile && !name) setName(profile.full_name ?? '');
   }, [profile]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Calculate financials server-side whenever we enter the review step.
-  // Distance is unknown without Google Maps (Phase 3); fall back to 0km so the
-  // min delivery fee (100 DZD) applies. Server still enforces the rate.
+  // A private server route obtains Google road distance, records a short-lived
+  // trusted quote, then Supabase applies the authoritative commercial rules.
   const recalcFinancials = useCallback(async () => {
     if (cart.lines.length === 0 || !cart.restaurantId || !mapLocation?.confirmed) return;
     setCalcLoading(true);
@@ -114,15 +115,32 @@ export default function CheckoutPage() {
         quantity: l.quantity,
       }));
       const data = await withExponentialBackoff(async () => {
-        const { data: quote, error } = await supabase.rpc('quote_delivery_order', {
-          p_restaurant_id: cart.restaurantId,
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !sessionData.session?.access_token) {
+          throw new Error('Your session expired. Sign in again.');
+        }
+        const routeResponse = await fetch('/api/delivery-route', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer ' + sessionData.session.access_token,
+          },
+          body: JSON.stringify({
+            restaurantId: cart.restaurantId,
+            destination: { latitude: mapLocation.lat, longitude: mapLocation.lng },
+          }),
+        });
+        const routeBody = await routeResponse.json() as { routeQuoteId?: string; message?: string };
+        if (!routeResponse.ok || !routeBody.routeQuoteId) {
+          throw new Error(routeBody.message || 'Road-route delivery pricing is unavailable.');
+        }
+        const { data: quote, error } = await callUserAction<Finance>('quote_delivery_order_by_route', {
+          p_route_quote_id: routeBody.routeQuoteId,
           p_items: itemsPayload,
-          p_delivery_lat: mapLocation.lat,
-          p_delivery_lng: mapLocation.lng,
         });
         if (error) throw error;
         return quote as Finance;
-      }, { attempts: 2, timeoutMs: 15000 });
+      }, { attempts: 2, timeoutMs: 25000 });
       setFinance(data);
     } catch (err) {
       console.error('Failed to calculate checkout financials', err);
@@ -145,10 +163,7 @@ export default function CheckoutPage() {
     if (step !== 'success' || !profile || !mapLocation?.confirmed) return;
     let active = true;
     void withExponentialBackoff(async () => {
-      const { data, error } = await supabase.rpc('get_location_insights', {
-        p_lat: mapLocation.lat,
-        p_lng: mapLocation.lng,
-      });
+      const { data, error } = await fetchLocationInsights<LocationInsights>(mapLocation.lat, mapLocation.lng);
       if (error) throw error;
       return data as LocationInsights;
     }, { attempts: 2, timeoutMs: 12000 }).then((insights) => {
@@ -227,6 +242,10 @@ export default function CheckoutPage() {
       setSubmitError(t('map.confirmRequired'));
       return;
     }
+    if (!finance?.route_quote_id) {
+      setSubmitError(t('checkout.errorCalc'));
+      return;
+    }
     const contactPhone = normalizeAlgerianPhone(selectedPhone);
     if (!contactPhone) {
       setSubmitError(t('checkout.invalidPhone'));
@@ -266,19 +285,19 @@ export default function CheckoutPage() {
         delivery_postal_code: mapLocation.addressParts?.postalCode ?? null,
         delivery_landmark: mapLocation.details?.landmark || null,
         delivery_instructions: mapLocation.details?.instructions || null,
+        route_quote_id: finance?.route_quote_id,
         notes: notes.trim() || null,
         idempotency_key: idempotencyKey,
       };
 
-      const { data, error: e } = await supabase.rpc('create_order_with_items', {
+      const { data, error: e } = await callUserAction<{ order_id?: string }>('create_order_with_items', {
         p_payload: payload,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any, { signal: controller.signal } as any);
+      }, { signal: controller.signal });
 
       if (e) {
         // ERRCODE P0001 is our own 'duplicate_order' signal.
         if ((e as { code?: string; message?: string }).message?.includes('duplicate_order')) {
-          setPlacedOrderId((data as { order_id?: string } | null)?.order_id ?? null);
+          setPlacedOrderId(data?.order_id ?? null);
           setStep('success');
           clear();
           return;
@@ -286,7 +305,7 @@ export default function CheckoutPage() {
         throw e;
       }
 
-      const orderId = (data as { order_id?: string })?.order_id ?? null;
+      const orderId = data?.order_id ?? null;
       setPlacedOrderId(orderId);
       setStep('success');
       clear();
@@ -301,7 +320,7 @@ export default function CheckoutPage() {
       clearTimeout(t0);
       setSubmitting(false);
     }
-  }, [submitting, profile, cart, address, selectedPhone, notes, t, clear, mapLocation]);
+  }, [submitting, profile, cart, address, selectedPhone, notes, t, clear, mapLocation, finance?.route_quote_id]);
 
   // Cart empty states for /checkout accessed without items.
   if (cart.lines.length === 0 && step !== 'success') {
@@ -498,7 +517,7 @@ export default function CheckoutPage() {
 
               <button
                 onClick={() => setStep('review')}
-                disabled={!detailsValid}
+                disabled={!detailsValid || calcLoading || !finance?.route_quote_id}
                 className="kiyo-btn-primary w-full"
               >
                 {t('checkout.step.confirm')}

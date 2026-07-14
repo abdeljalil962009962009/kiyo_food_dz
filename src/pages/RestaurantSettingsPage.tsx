@@ -1,16 +1,20 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Clock, Truck, Settings, ChevronLeft,
-  AlertCircle, Save, Wallet, MapPin,
+  Clock, Truck, Settings, ChevronLeft, ImagePlus,
+  AlertCircle, Save, Wallet, MapPin, Store,
 } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
-import { supabase, type Restaurant } from '../lib/supabase';
+import { supabase, type PublicationReadiness, type Restaurant, type RestaurantCommercialTerm } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Skeleton, ErrorState, Spinner } from '../components/feedback';
 import DeliveryMap, { type DeliveryMapLocation } from '../components/DeliveryMap';
+import { localizePublicationBlocker } from '../lib/publicationReadiness';
+import { uploadRestaurantImage, validateRestaurantImage } from '../lib/restaurantMedia';
+import { PrivateRestaurantImage } from '../components/PrivateRestaurantImage';
+import { callUserAction } from '../lib/userApi';
 
 type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 const DAYS: { key: DayOfWeek; labelKey: 'day.0' | 'day.1' | 'day.2' | 'day.3' | 'day.4' | 'day.5' | 'day.6' }[] = [
@@ -23,11 +27,45 @@ const DAYS: { key: DayOfWeek; labelKey: 'day.0' | 'day.1' | 'day.2' | 'day.3' | 
   { key: 6, labelKey: 'day.6' },
 ];
 
+const profileLabels = {
+  en: {
+    title: 'Public profile', name: 'Restaurant name', description: 'Description', phone: 'Contact phone',
+    cuisines: 'Cuisines (comma separated)', image: 'Public image or logo', imageUrl: 'Image URL',
+    imageHelp: 'Upload a JPG, PNG or WebP image up to 5 MB, or provide an HTTPS image URL.',
+    invalidProfile: 'Enter a restaurant name and a valid contact phone.', invalidImageUrl: 'Use a valid HTTPS image URL.',
+    invalidImageType: 'Choose a JPG, PNG or WebP image.', invalidImageSize: 'The image must be 5 MB or smaller.',
+    deliveryParticipation: 'Delivery participation', termsPending: 'Commercial terms are awaiting platform approval.',
+    termsControlled: 'Approved commercial terms are controlled by Kiyo Food and cannot be changed here.',
+    readiness: 'Publication readiness', ready: 'Your restaurant meets all publication requirements.',
+  },
+  fr: {
+    title: 'Profil public', name: 'Nom du restaurant', description: 'Description', phone: 'Téléphone de contact',
+    cuisines: 'Cuisines (séparées par des virgules)', image: 'Image publique ou logo', imageUrl: "URL de l'image",
+    imageHelp: 'Importez une image JPG, PNG ou WebP de 5 Mo maximum, ou indiquez une URL HTTPS.',
+    invalidProfile: 'Saisissez un nom de restaurant et un numéro de téléphone valides.', invalidImageUrl: 'Utilisez une URL d’image HTTPS valide.',
+    invalidImageType: 'Choisissez une image JPG, PNG ou WebP.', invalidImageSize: "L'image ne doit pas dépasser 5 Mo.",
+    deliveryParticipation: 'Participation à la livraison', termsPending: "Les conditions commerciales attendent l'approbation de la plateforme.",
+    termsControlled: 'Les conditions commerciales approuvées sont contrôlées par Kiyo Food et ne peuvent pas être modifiées ici.',
+    readiness: 'Préparation à la publication', ready: 'Votre restaurant remplit toutes les conditions de publication.',
+  },
+  ar: {
+    title: 'الملف العام', name: 'اسم المطعم', description: 'الوصف', phone: 'هاتف التواصل',
+    cuisines: 'أنواع المطبخ (مفصولة بفواصل)', image: 'الصورة العامة أو الشعار', imageUrl: 'رابط الصورة',
+    imageHelp: 'ارفع صورة JPG أو PNG أو WebP بحجم أقصى 5 ميغابايت، أو أدخل رابط HTTPS.',
+    invalidProfile: 'أدخل اسم المطعم ورقم هاتف صالحين.', invalidImageUrl: 'استخدم رابط صورة HTTPS صالحًا.',
+    invalidImageType: 'اختر صورة JPG أو PNG أو WebP.', invalidImageSize: 'يجب ألا يتجاوز حجم الصورة 5 ميغابايت.',
+    deliveryParticipation: 'المشاركة في التوصيل', termsPending: 'الشروط التجارية بانتظار موافقة المنصة.',
+    termsControlled: 'تتحكم Kiyo Food في الشروط التجارية المعتمدة ولا يمكن تعديلها هنا.',
+    readiness: 'جاهزية النشر', ready: 'مطعمك يستوفي جميع متطلبات النشر.',
+  },
+} as const;
+
 type HoursEntry = { open: string; close: string } | null;
 type OpeningHours = Record<string, HoursEntry>;
 
 export default function RestaurantSettingsPage() {
-  const { t } = useT();
+  const { t, locale } = useT();
+  const profileTx = profileLabels[locale];
   const { profile } = useAuth();
   const navigate = useNavigate();
 
@@ -43,8 +81,15 @@ export default function RestaurantSettingsPage() {
   const [deliveryRadius, setDeliveryRadius] = useState('10');
   const [minOrder, setMinOrder] = useState('0');
   const [estimatedDeliveryMin, setEstimatedDeliveryMin] = useState('45');
-  const [commissionRate, setCommissionRate] = useState('7');
+  const [commercialTerm, setCommercialTerm] = useState<RestaurantCommercialTerm | null>(null);
+  const [readiness, setReadiness] = useState<PublicationReadiness | null>(null);
   const [location, setLocation] = useState<DeliveryMapLocation | null>(null);
+  const [restaurantName, setRestaurantName] = useState('');
+  const [description, setDescription] = useState('');
+  const [phone, setPhone] = useState('');
+  const [cuisines, setCuisines] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -55,11 +100,11 @@ export default function RestaurantSettingsPage() {
     setError(null);
     setSaveError(null);
     try {
-      const { data: r, error: re } = await supabase
-        .from('restaurants')
-        .select('*')
-        .eq('owner_id', profile.id)
-        .maybeSingle();
+      const { data: managedRestaurantId, error: managedRestaurantError } = await supabase.rpc('get_user_restaurant_id');
+      if (managedRestaurantError) throw managedRestaurantError;
+      const { data: r, error: re } = managedRestaurantId
+        ? await supabase.from('restaurants').select('*').eq('id', managedRestaurantId).maybeSingle()
+        : { data: null, error: null };
       if (re) throw re;
       
       if (!r) {
@@ -69,11 +114,22 @@ export default function RestaurantSettingsPage() {
 
       const activeRes = r as Restaurant;
       setRestaurant(activeRes);
+      setRestaurantName(activeRes.name);
+      setDescription(activeRes.description ?? '');
+      setPhone(activeRes.phone ?? '');
+      setCuisines((activeRes.cuisine ?? []).join(', '));
+      setImageUrl(activeRes.image_url ?? '');
       setHours(activeRes.opening_hours as OpeningHours || {});
       setDeliveryRadius(String(activeRes.max_delivery_km || 10));
       setMinOrder(String(activeRes.min_order_amount || 0));
       setEstimatedDeliveryMin(String(activeRes.estimated_delivery_min || 45));
-      setCommissionRate(String(Number(activeRes.commission_rate ?? 0.07) * 100));
+      const [{ data: term }, { data: readinessData }] = await Promise.all([
+        supabase.from('restaurant_commercial_terms').select('*')
+          .eq('restaurant_id', activeRes.id).eq('status', 'active').maybeSingle(),
+        callUserAction<PublicationReadiness>('get_restaurant_publication_readiness', { p_restaurant_id: activeRes.id }),
+      ]);
+      setCommercialTerm((term as RestaurantCommercialTerm | null) ?? null);
+      setReadiness((readinessData as PublicationReadiness | null) ?? null);
       if (activeRes.latitude != null && activeRes.longitude != null) {
         setLocation({
           lat: activeRes.latitude,
@@ -115,28 +171,41 @@ export default function RestaurantSettingsPage() {
     setSaved(false);
     setSaveError(null);
 
-    // Validate the new commission rate value
-    const rateNum = Number(commissionRate);
-    if (isNaN(rateNum) || rateNum < 0 || rateNum > 100) {
-      setSaveError(t('restaurant.settings.invalidCommissionRate'));
-      setSaving(false);
-      return;
-    }
     if (!location?.confirmed) {
       setSaveError(t('map.confirmRequired'));
       setSaving(false);
       return;
     }
 
+    if (restaurantName.trim().length < 2 || phone.replace(/\D/g, '').length < 6) {
+      setSaveError(profileTx.invalidProfile);
+      setSaving(false);
+      return;
+    }
+
+    if (!imageFile && imageUrl.trim() && !/^https:\/\//i.test(imageUrl.trim())) {
+      setSaveError(profileTx.invalidImageUrl);
+      setSaving(false);
+      return;
+    }
+
     try {
+      const nextImageUrl = imageFile && profile
+        ? await uploadRestaurantImage(profile.id, imageFile)
+        : imageUrl.trim() || null;
+      const cuisineList = cuisines.split(',').map((item) => item.trim()).filter(Boolean).slice(0, 12);
       const { error: e } = await supabase
         .from('restaurants')
         .update({
+          name: restaurantName.trim(),
+          description: description.trim() || null,
+          phone: phone.trim(),
+          cuisine: cuisineList,
+          image_url: nextImageUrl,
           opening_hours: hours,
           max_delivery_km: Number(deliveryRadius),
           min_order_amount: Number(minOrder),
           estimated_delivery_min: Number(estimatedDeliveryMin),
-          commission_rate: rateNum / 100,
           address: location.address,
           latitude: location.lat,
           longitude: location.lng,
@@ -156,11 +225,30 @@ export default function RestaurantSettingsPage() {
         })
         .eq('id', restaurant.id);
       if (e) throw e;
+      const { data: readinessData } = await callUserAction<PublicationReadiness>('get_restaurant_publication_readiness', {
+        p_restaurant_id: restaurant.id,
+      });
+      setReadiness((readinessData as PublicationReadiness | null) ?? null);
+      setImageUrl(nextImageUrl ?? '');
+      setImageFile(null);
+      setRestaurant({
+        ...restaurant,
+        name: restaurantName.trim(),
+        description: description.trim() || null,
+        phone: phone.trim(),
+        cuisine: cuisineList,
+        image_url: nextImageUrl,
+      });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err: unknown) {
       console.error(err);
-      setSaveError(err instanceof Error ? err.message : t('error.genericBody'));
+      const message = err instanceof Error ? err.message : '';
+      setSaveError(message === 'restaurant_image_type'
+        ? profileTx.invalidImageType
+        : message === 'restaurant_image_size'
+          ? profileTx.invalidImageSize
+          : message || t('error.genericBody'));
     } finally {
       setSaving(false);
     }
@@ -218,6 +306,45 @@ export default function RestaurantSettingsPage() {
 
       <ErrorBoundary variant="inline">
         <div className="space-y-6">
+          <div className="kiyo-card">
+            <div className="mb-4 flex items-center gap-2">
+              <Store className="h-5 w-5 text-ember-600" />
+              <h2 className="font-display text-base font-bold text-ink-900">{profileTx.title}</h2>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label><span className="kiyo-label">{profileTx.name}</span><input className="kiyo-input" value={restaurantName} onChange={(event) => setRestaurantName(event.target.value)} maxLength={120} /></label>
+              <label><span className="kiyo-label">{profileTx.phone}</span><input className="kiyo-input" value={phone} onChange={(event) => setPhone(event.target.value)} inputMode="tel" maxLength={24} /></label>
+              <label className="sm:col-span-2"><span className="kiyo-label">{profileTx.description}</span><textarea className="kiyo-input min-h-24" value={description} onChange={(event) => setDescription(event.target.value)} maxLength={1200} /></label>
+              <label className="sm:col-span-2"><span className="kiyo-label">{profileTx.cuisines}</span><input className="kiyo-input" value={cuisines} onChange={(event) => setCuisines(event.target.value)} maxLength={240} /></label>
+              <label className="sm:col-span-2">
+                <span className="kiyo-label">{profileTx.image}</span>
+                <span className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-dashed border-ink-200 bg-ink-50 px-3 py-2 text-sm font-semibold text-ink-700 hover:border-ember-300">
+                  <ImagePlus className="h-4 w-4" />
+                  <span className="truncate">{imageFile?.name ?? profileTx.image}</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="sr-only"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0] ?? null;
+                      const validation = file ? validateRestaurantImage(file) : null;
+                      if (validation) {
+                        setSaveError(validation === 'type' ? profileTx.invalidImageType : profileTx.invalidImageSize);
+                        setImageFile(null);
+                      } else {
+                        setSaveError(null);
+                        setImageFile(file);
+                      }
+                    }}
+                  />
+                </span>
+              </label>
+              <label className="sm:col-span-2"><span className="kiyo-label">{profileTx.imageUrl}</span><input className="kiyo-input" value={imageUrl} onChange={(event) => setImageUrl(event.target.value)} placeholder="https://..." inputMode="url" /></label>
+              <p className="text-xs text-ink-400 sm:col-span-2">{profileTx.imageHelp}</p>
+              {imageUrl && !imageFile && <PrivateRestaurantImage value={imageUrl} alt={restaurantName} className="h-40 w-full rounded-lg border border-ink-100 object-cover sm:col-span-2" />}
+            </div>
+          </div>
+
           {/* Business Hours */}
           <div className="kiyo-card">
             <div className="mb-4 flex items-center gap-2">
@@ -338,22 +465,31 @@ export default function RestaurantSettingsPage() {
               <Wallet className="h-5 w-5 text-emerald-600" />
               <h2 className="font-display text-base font-bold text-ink-900">{t('restaurant.settings.financialTitle')}</h2>
             </div>
-            <div>
-              <label className="kiyo-label">{t('restaurant.settings.commissionRate')}</label>
-              <input
-                type="number"
-                value={commissionRate}
-                onChange={(e) => setCommissionRate(e.target.value)}
-                min="0"
-                max="100"
-                step="0.1"
-                className="kiyo-input"
-              />
-              <p className="mt-1 text-xs text-ink-400">
-                {t('restaurant.settings.commissionDesc')}
-              </p>
-            </div>
+            {commercialTerm ? (
+              <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                <div><dt className="text-xs text-ink-400">{t('restaurant.settings.commissionRate')}</dt><dd className="font-bold text-ink-900">{(Number(commercialTerm.food_commission_rate) * 100).toFixed(2)}%</dd></div>
+                <div><dt className="text-xs text-ink-400">{profileTx.deliveryParticipation}</dt><dd className="font-bold text-ink-900">{(Number(commercialTerm.delivery_share_rate) * 100).toFixed(2)}%</dd></div>
+              </dl>
+            ) : (
+              <p className="rounded-lg bg-warning-50 p-3 text-sm text-warning-700">{profileTx.termsPending}</p>
+            )}
+            <p className="mt-3 text-xs text-ink-400">{profileTx.termsControlled}</p>
           </div>
+
+          {readiness && (
+            <div className="kiyo-card">
+              <h2 className="font-display text-base font-bold text-ink-900">{profileTx.readiness}</h2>
+              {readiness.ready ? (
+                <p className="mt-2 text-sm text-sage-700">{profileTx.ready}</p>
+              ) : (
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-warning-800">
+                  {readiness.blockers.map((blocker) => (
+                    <li key={blocker}>{localizePublicationBlocker(blocker, locale)}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
 
           {/* Operational Status */}
           <div className="kiyo-card">

@@ -14,6 +14,7 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Spinner } from '../components/feedback';
 import { AddressManager } from '../components/AddressManager';
 import { Link } from 'react-router-dom';
+import { callUserAction } from '../lib/userApi';
 
 export default function ProfilePage() {
   const { t } = useT();
@@ -78,7 +79,8 @@ export default function ProfilePage() {
     setExportMsg(null);
     try {
       // Mark the export request server-side (audit log + timestamp).
-      await supabase.rpc('request_personal_data_export');
+      const { error: requestError } = await callUserAction('request_personal_data_export');
+      if (requestError) throw requestError;
 
       const [ordersRes, addressesRes] = await Promise.all([
         supabase.from('orders').select('*').eq('customer_id', profile.id).order('created_at', { ascending: false }),
@@ -123,7 +125,7 @@ export default function ProfilePage() {
     setDeleting(true);
     setDeleteError(null);
     try {
-      const { error } = await supabase.rpc('request_account_deletion');
+      const { error } = await callUserAction('request_account_deletion');
       if (error) {
         if (error.message.includes('cannot_delete_active_restaurant_owner')) {
           setDeleteError(
