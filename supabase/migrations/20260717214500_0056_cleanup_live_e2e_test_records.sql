@@ -144,14 +144,6 @@ BEGIN
     v_counts := v_counts || jsonb_build_object('deliveries', v_count);
   END IF;
 
-  IF to_regclass('public.delivery_route_quotes') IS NOT NULL THEN
-    DELETE FROM public.delivery_route_quotes
-    WHERE restaurant_id = ANY(v_restaurant_ids)
-       OR customer_id = ANY(v_profile_ids);
-    GET DIAGNOSTICS v_count = ROW_COUNT;
-    v_counts := v_counts || jsonb_build_object('delivery_route_quotes', v_count);
-  END IF;
-
   IF to_regclass('public.reviews') IS NOT NULL THEN
     DELETE FROM public.reviews
     WHERE order_id = ANY(v_order_ids)
@@ -438,6 +430,17 @@ BEGIN
   WHERE id = ANY(v_order_ids);
   GET DIAGNOSTICS v_count = ROW_COUNT;
   v_counts := v_counts || jsonb_build_object('orders', v_count);
+
+  -- Route quotes are deleted after orders. Deleting them earlier would trigger
+  -- the ON DELETE SET NULL foreign key on orders.route_quote_id, and the order
+  -- immutability guard correctly blocks that update.
+  IF to_regclass('public.delivery_route_quotes') IS NOT NULL THEN
+    DELETE FROM public.delivery_route_quotes
+    WHERE restaurant_id = ANY(v_restaurant_ids)
+       OR customer_id = ANY(v_profile_ids);
+    GET DIAGNOSTICS v_count = ROW_COUNT;
+    v_counts := v_counts || jsonb_build_object('delivery_route_quotes', v_count);
+  END IF;
 
   DELETE FROM public.restaurant_applications
   WHERE id = ANY(v_application_ids);
