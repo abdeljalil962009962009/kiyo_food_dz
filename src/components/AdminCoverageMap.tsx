@@ -105,6 +105,24 @@ export default function AdminCoverageMap() {
           <AlertTriangle className="h-6 w-6 text-error-600" />
           <p className="mt-2 text-sm font-semibold text-error-700">{error}</p>
         </div>
+      ) : loading ? (
+        <div className="relative flex h-[400px] w-full items-center justify-center overflow-hidden bg-ink-50">
+          <div className="absolute inset-0 opacity-70" aria-hidden="true">
+            <div className="h-full w-full bg-[linear-gradient(90deg,rgba(255,255,255,0.7)_1px,transparent_1px),linear-gradient(180deg,rgba(255,255,255,0.7)_1px,transparent_1px)] bg-[size:28px_28px]" />
+          </div>
+          <span className="relative z-10 flex items-center gap-2 rounded-full border border-ink-100 bg-white px-4 py-2 text-sm font-semibold text-ink-600 shadow-card">
+            <Activity className="h-4 w-4 animate-pulse text-ember-600" />
+            {t('map.coverageAnalyzing')}
+          </span>
+        </div>
+      ) : filteredPoints.length === 0 ? (
+        <div className="flex h-[400px] flex-col items-center justify-center bg-ink-50 px-5 text-center">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-ember-50 text-ember-600">
+            <Layers3 className="h-5 w-5" />
+          </span>
+          <p className="mt-3 max-w-md text-sm font-semibold text-ink-800">{t('map.coverageEmpty')}</p>
+          <p className="mt-1 max-w-md text-xs leading-5 text-ink-500">{t('map.coverageSummary')}</p>
+        </div>
       ) : (
         <GoogleMapShell fallbackHeightClass="h-[400px]">
           <div className="relative h-[400px] w-full bg-ink-100">
@@ -126,19 +144,6 @@ export default function AdminCoverageMap() {
               {filteredPoints.length > 0 && <FitCoverageBounds points={filteredPoints} />}
             </Map>
 
-            {loading && (
-              <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/85 backdrop-blur-sm">
-                <span className="flex items-center gap-2 text-sm font-semibold text-ink-600">
-                  <Activity className="h-4 w-4 animate-pulse text-ember-600" />
-                  {t('map.coverageAnalyzing')}
-                </span>
-              </div>
-            )}
-            {!loading && filteredPoints.length === 0 && (
-              <div className="pointer-events-none absolute inset-x-4 bottom-4 z-20 rounded-lg bg-white/95 px-4 py-3 text-center text-xs font-medium text-ink-600 shadow-card backdrop-blur">
-                {t('map.coverageEmpty')}
-              </div>
-            )}
           </div>
         </GoogleMapShell>
       )}
