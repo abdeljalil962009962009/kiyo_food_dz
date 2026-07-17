@@ -1131,6 +1131,7 @@ function UsersTab() {
 // ===================== RESTAURANTS =====================
 function RestaurantsTab() {
   const { t } = useT();
+  const { tx } = useAdminT();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1216,19 +1217,19 @@ function RestaurantsTab() {
               onClick={() => updateRestaurant(r, { is_verified: !r.is_verified })}
               disabled={actingId === r.id}
               className={`kiyo-btn-secondary text-xs ${r.is_verified ? 'border-ember-500/30 text-ember-600' : ''}`}
-              title="Toggle verified"
+              title={r.is_verified ? tx('btn.unverify', 'Unverify') : tx('btn.verify', 'Verify')}
             >
               {actingId === r.id ? <Spinner className="h-3 w-3" /> : <BadgeCheck className="h-3 w-3" />}
-              {r.is_verified ? 'Unverify' : 'Verify'}
+              {r.is_verified ? tx('btn.unverify', 'Unverify') : tx('btn.verify', 'Verify')}
             </button>
             <button
               onClick={() => updateRestaurant(r, { is_featured: !r.is_featured })}
               disabled={actingId === r.id}
               className={`kiyo-btn-secondary text-xs ${r.is_featured ? 'border-sage-500/30 text-sage-600' : ''}`}
-              title="Toggle featured"
+              title={r.is_featured ? tx('btn.unfeature', 'Unfeature') : tx('btn.feature', 'Feature')}
             >
               <Sparkles className="h-3 w-3" />
-              {r.is_featured ? 'Unfeature' : 'Feature'}
+              {r.is_featured ? tx('btn.unfeature', 'Unfeature') : tx('btn.feature', 'Feature')}
             </button>
             {r.status !== 'published' && !r.source_application_id && (
               <button
@@ -1236,16 +1237,16 @@ function RestaurantsTab() {
                 disabled={actingId === r.id}
                 className="kiyo-btn-primary bg-sage-500 text-xs hover:bg-sage-600"
               >
-                Publish
+                {tx('btn.publish', 'Publish')}
               </button>
             )}
-            {r.status !== 'suspended' && !r.source_application_id && (
+            {r.status !== 'suspended' && (
               <button
                 onClick={() => updateRestaurant(r, { status: 'suspended' })}
                 disabled={actingId === r.id}
                 className="kiyo-btn-secondary border-error-500/30 text-xs text-error-600 hover:bg-error-500/10"
               >
-                Suspend
+                {tx('btn.suspend', 'Suspend')}
               </button>
             )}
           </div>

@@ -13,6 +13,7 @@ type NotificationCopy = {
   empty: string;
   fallbackTitle: string;
   fallbackBody: string;
+  restaurantSuffix: (restaurant: string, orderRef: string) => string;
   types: Record<string, { title: string; body: string }>;
 };
 
@@ -33,6 +34,9 @@ const TYPE_ICONS: Record<string, string> = {
   financial_inconsistency: '$',
   system_error: '!',
   settlement_due: '#',
+  application_submitted: 'A',
+  application_message: 'A',
+  application_status_changed: 'A',
   application_under_review: 'A',
   application_changes_requested: 'A',
   application_preliminarily_approved: 'A',
@@ -48,6 +52,7 @@ const NOTIFICATION_COPY: Record<NotificationLocale, NotificationCopy> = {
     empty: 'No notifications',
     fallbackTitle: 'New update',
     fallbackBody: 'Open Kiyo Food for the latest details.',
+    restaurantSuffix: (restaurant, orderRef) => [restaurant, orderRef ? `#${orderRef.slice(0, 8)}` : ''].filter(Boolean).join(' - '),
     types: {
       new_order: { title: 'New order received', body: 'A new order is waiting for your team.' },
       order_accepted: { title: 'Order accepted', body: 'Your order has been accepted by the restaurant.' },
@@ -59,6 +64,9 @@ const NOTIFICATION_COPY: Record<NotificationLocale, NotificationCopy> = {
       order_refunded: { title: 'Order refunded', body: 'A refund was recorded for this order.' },
       support_reply: { title: 'Support replied', body: 'You have a new reply from Kiyo Food support.' },
       new_restaurant: { title: 'New restaurant application', body: 'A restaurant application is waiting for review.' },
+      application_submitted: { title: 'Restaurant application waiting for review', body: 'A restaurant application is waiting for review.' },
+      application_message: { title: 'Restaurant application message', body: 'There is a new message in the application conversation.' },
+      application_status_changed: { title: 'Restaurant application updated', body: 'The restaurant application status changed.' },
       high_cancellation: { title: 'High cancellation alert', body: 'A restaurant needs review because cancellations are increasing.' },
       failed_order: { title: 'Order failure detected', body: 'An order needs attention in the admin dashboard.' },
       suspicious_activity: { title: 'Security alert', body: 'Suspicious activity needs review.' },
@@ -79,6 +87,7 @@ const NOTIFICATION_COPY: Record<NotificationLocale, NotificationCopy> = {
     empty: 'Aucune notification',
     fallbackTitle: 'Nouvelle mise à jour',
     fallbackBody: 'Ouvrez Kiyo Food pour voir les derniers détails.',
+    restaurantSuffix: (restaurant, orderRef) => [restaurant, orderRef ? `#${orderRef.slice(0, 8)}` : ''].filter(Boolean).join(' - '),
     types: {
       new_order: { title: 'Nouvelle commande reçue', body: 'Une nouvelle commande attend votre équipe.' },
       order_accepted: { title: 'Commande acceptée', body: 'Votre commande a été acceptée par le restaurant.' },
@@ -90,6 +99,9 @@ const NOTIFICATION_COPY: Record<NotificationLocale, NotificationCopy> = {
       order_refunded: { title: 'Commande remboursée', body: 'Un remboursement a été enregistré pour cette commande.' },
       support_reply: { title: 'Réponse du support', body: 'Vous avez une nouvelle réponse du support Kiyo Food.' },
       new_restaurant: { title: 'Nouvelle demande restaurant', body: 'Une demande de restaurant attend votre examen.' },
+      application_submitted: { title: 'Demande restaurant à examiner', body: 'Une demande de restaurant attend votre validation.' },
+      application_message: { title: 'Message de demande restaurant', body: 'Un nouveau message a été ajouté à la discussion de la demande.' },
+      application_status_changed: { title: 'Demande restaurant mise à jour', body: 'Le statut de la demande restaurant a changé.' },
       high_cancellation: { title: 'Alerte annulations', body: 'Un restaurant doit être vérifié car les annulations augmentent.' },
       failed_order: { title: 'Échec de commande détecté', body: 'Une commande demande votre attention dans le tableau admin.' },
       suspicious_activity: { title: 'Alerte sécurité', body: 'Une activité suspecte doit être vérifiée.' },
@@ -110,6 +122,7 @@ const NOTIFICATION_COPY: Record<NotificationLocale, NotificationCopy> = {
     empty: 'لا توجد إشعارات',
     fallbackTitle: 'تحديث جديد',
     fallbackBody: 'افتح كيو فود للاطلاع على آخر التفاصيل.',
+    restaurantSuffix: (restaurant, orderRef) => [restaurant, orderRef ? `#${orderRef.slice(0, 8)}` : ''].filter(Boolean).join(' - '),
     types: {
       new_order: { title: 'طلب جديد', body: 'يوجد طلب جديد بانتظار فريق المطعم.' },
       order_accepted: { title: 'تم قبول الطلب', body: 'قبل المطعم طلبك.' },
@@ -118,9 +131,12 @@ const NOTIFICATION_COPY: Record<NotificationLocale, NotificationCopy> = {
       order_delivered: { title: 'تم تسليم الطلب', body: 'تم تسليم طلبك. شهية طيبة.' },
       order_cancelled: { title: 'تم إلغاء الطلب', body: 'تم إلغاء هذا الطلب.' },
       order_failed_delivery: { title: 'مشكلة في التوصيل', body: 'تعذر إكمال التوصيل. يرجى التواصل مع الدعم.' },
-      order_refunded: { title: 'تم رد قيمة الطلب', body: 'تم تسجيل ردّ مالي لهذا الطلب.' },
+      order_refunded: { title: 'تم رد قيمة الطلب', body: 'تم تسجيل رد مالي لهذا الطلب.' },
       support_reply: { title: 'رد من الدعم', body: 'لديك رد جديد من دعم كيو فود.' },
       new_restaurant: { title: 'طلب مطعم جديد', body: 'يوجد طلب مطعم بانتظار المراجعة.' },
+      application_submitted: { title: 'طلب مطعم بانتظار المراجعة', body: 'يوجد طلب مطعم جديد يحتاج إلى مراجعتك.' },
+      application_message: { title: 'رسالة حول طلب مطعم', body: 'توجد رسالة جديدة في محادثة طلب المطعم.' },
+      application_status_changed: { title: 'تم تحديث طلب المطعم', body: 'تم تغيير حالة طلب المطعم.' },
       high_cancellation: { title: 'تنبيه كثرة الإلغاءات', body: 'يحتاج أحد المطاعم إلى مراجعة بسبب زيادة الإلغاءات.' },
       failed_order: { title: 'تعثر طلب', body: 'يوجد طلب يحتاج إلى متابعة في لوحة الإدارة.' },
       suspicious_activity: { title: 'تنبيه أمني', body: 'يوجد نشاط مشبوه يحتاج إلى مراجعة.' },
@@ -151,13 +167,13 @@ const normalizeLocale = (locale: string): NotificationLocale => (
   locale === 'ar' || locale === 'en' ? locale : 'fr'
 );
 
-const containsMojibake = (value: string) => /Ø|Ù|â|�/.test(value);
+const containsMojibake = (value: string) => /Ã|Ø|Ù|�/.test(value);
 
 function localizedNotification(notification: Notification, copy: NotificationCopy) {
   const template = copy.types[notification.type];
   const orderRef = valueFromMetadata(notification.metadata, ['order_number', 'order_id']);
   const restaurant = valueFromMetadata(notification.metadata, ['restaurant_name', 'restaurant']);
-  const suffix = [restaurant, orderRef ? `#${orderRef.slice(0, 8)}` : ''].filter(Boolean).join(' · ');
+  const suffix = copy.restaurantSuffix(restaurant, orderRef);
 
   if (template) {
     return {
