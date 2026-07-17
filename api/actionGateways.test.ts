@@ -4,8 +4,8 @@ const { createClientMock } = vi.hoisted(() => ({ createClientMock: vi.fn() }));
 
 vi.mock('@supabase/supabase-js', () => ({ createClient: createClientMock }));
 
-import adminHandler from './admin-action';
-import userHandler from './user-action';
+import adminHandler from './admin-action.js';
+import userHandler from './user-action.js';
 
 const ACTOR_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const REQUEST_ID = '11111111-1111-4111-8111-111111111111';
