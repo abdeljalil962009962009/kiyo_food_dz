@@ -11,6 +11,7 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Skeleton, ErrorState, Spinner } from '../components/feedback';
 import { StatusBadge, PriceTag, relativeTime } from '../components/ui';
 import { RestaurantAnalyticsPanel } from '../components/RestaurantAnalytics';
+import { callUserAction } from '../lib/userApi';
 
 export default function RestaurantDashboardPage() {
   const { t } = useT();
@@ -38,11 +39,11 @@ export default function RestaurantDashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const { data: r, error: re } = await supabase
-        .from('restaurants')
-        .select('*')
-        .eq('owner_id', profile.id)
-        .maybeSingle();
+      const { data: managedRestaurantId, error: managedRestaurantError } = await supabase.rpc('get_user_restaurant_id');
+      if (managedRestaurantError) throw managedRestaurantError;
+      const { data: r, error: re } = managedRestaurantId
+        ? await supabase.from('restaurants').select('*').eq('id', managedRestaurantId).maybeSingle()
+        : { data: null, error: null };
       if (re) throw re;
       
       if (!r) {
@@ -102,7 +103,7 @@ export default function RestaurantDashboardPage() {
     void (async () => {
       try {
         setFinancialsError(null);
-        const { data, error: e } = await supabase.rpc('get_restaurant_financials', {
+        const { data, error: e } = await callUserAction('get_restaurant_financials', {
           p_restaurant_id: restaurant.id,
         });
         if (e) throw e;
@@ -161,7 +162,7 @@ export default function RestaurantDashboardPage() {
           next[idx] = { ...prev[idx], ...payload.new } as OrderRow;
           return next;
         }
-        // New order â†’ fetch its items then prepend.
+        // Fetch the immutable item snapshots before prepending a new order.
         void supabase
           .from('order_items')
           .select('*')
@@ -180,7 +181,7 @@ export default function RestaurantDashboardPage() {
     { enabled: !!restaurant && !loading, filter: restaurant ? { restaurant_id: `eq.${restaurant.id}` } : undefined },
   );
 
-  // Detect new pending orders â†’ show alert popup + play sound
+  // Detect new pending orders, then show the alert and play the optional sound.
   const prevPendingCount = useRef(0);
   useEffect(() => {
     const pendingCount = orders.filter((o) => o.status === 'pending').length;
@@ -194,16 +195,30 @@ export default function RestaurantDashboardPage() {
     prevPendingCount.current = pendingCount;
   }, [orders, playSound]);
 
+  useEffect(() => {
+    if (newOrderAlert && !orders.some((order) => order.id === newOrderAlert.id && order.status === 'pending')) {
+      setNewOrderAlert(null);
+    }
+  }, [newOrderAlert, orders]);
+
   const updateStatus = async (orderId: string, to: OrderStatus) => {
-    const current = orders.find((o) => o.id === orderId)?.status;
-    if (!current || !canTransition(current, to)) return;
+    const order = orders.find((item) => item.id === orderId);
+    const current = order?.status;
+    if (!order || !current || !canTransition(current, to)) return;
+    let reason: string | null = null;
+    if (['cancelled', 'failed_delivery', 'refunded'].includes(to)) {
+      reason = window.prompt(t('restaurant.dash.statusReasonPrompt'))?.trim() ?? null;
+      if (!reason || reason.length < 3) return;
+    }
     setPendingAction(orderId);
     setActionError(null);
     try {
-      const { error: e } = await supabase
-        .from('orders')
-        .update({ status: to })
-        .eq('id', orderId);
+      const { error: e } = await callUserAction('transition_order_status', {
+        p_order_id: orderId,
+        p_target_status: to,
+        p_reason: reason,
+        p_expected_updated_at: order.updated_at,
+      });
       if (e) throw e;
       setOrders((prev) =>
         prev.map((o) => (o.id === orderId ? { ...o, status: to } : o)),
@@ -230,7 +245,7 @@ export default function RestaurantDashboardPage() {
     return (
       <AppShell>
         <ErrorState
-          title={t('error.genericTitle')} message={error ?? 'Error'}
+          title={t('error.genericTitle')} message={error ?? t('error.genericBody')}
           onRetry={load} retryLabel={t('error.retry')}
         />
       </AppShell>
@@ -253,7 +268,7 @@ export default function RestaurantDashboardPage() {
               restaurant.operational_status === 'busy' ? 'bg-warning-500' : 'bg-ink-300'
             }`} />
             {t(`restaurant.${restaurant.operational_status}`)}
-            {(restaurant.status !== 'published' && ' Â· awaiting approval')}
+            {restaurant.status !== 'published' && ` - ${t('restaurant.dash.awaitingApproval')}`}
           </p>
           <h1 className="mt-1 font-display text-2xl font-extrabold tracking-tight text-ink-900">
             {restaurant.name}
@@ -264,7 +279,8 @@ export default function RestaurantDashboardPage() {
           <button
             onClick={() => navigate('/restaurant/settings')}
             className="kiyo-btn-ghost"
-            title="Settings"
+            title={t('nav.settings')}
+            aria-label={t('nav.settings')}
           >
             <Settings className="h-4 w-4" />
           </button>
@@ -286,14 +302,14 @@ export default function RestaurantDashboardPage() {
       )}
       {financialsError && (
         <div className="mb-3 rounded-lg border border-ember-200 bg-ember-50 px-4 py-3 text-sm text-ember-700">
-          Financial data could not be refreshed: {financialsError}
+          {t('restaurant.dash.financialsError')}: {financialsError}
         </div>
       )}
       {financials && (
         <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="kiyo-card p-4">
             <div className="flex items-center gap-2 text-xs font-medium text-ink-400">
-              <DollarSign className="h-3.5 w-3.5" /> Today
+              <DollarSign className="h-3.5 w-3.5" /> {t('restaurant.dash.today')}
             </div>
             <div className="mt-1 font-display text-xl font-extrabold text-ink-900">
               {financials.revenue_today.toLocaleString('fr-DZ')} DZD
@@ -301,7 +317,7 @@ export default function RestaurantDashboardPage() {
           </div>
           <div className="kiyo-card p-4">
             <div className="flex items-center gap-2 text-xs font-medium text-ink-400">
-              <TrendingUp className="h-3.5 w-3.5" /> This Month
+              <TrendingUp className="h-3.5 w-3.5" /> {t('restaurant.dash.thisMonth')}
             </div>
             <div className="mt-1 font-display text-xl font-extrabold text-ink-900">
               {financials.revenue_month.toLocaleString('fr-DZ')} DZD
@@ -309,7 +325,7 @@ export default function RestaurantDashboardPage() {
           </div>
           <div className="kiyo-card p-4">
             <div className="flex items-center gap-2 text-xs font-medium text-ink-400">
-              <Clock className="h-3.5 w-3.5" /> Commission Owed
+              <Clock className="h-3.5 w-3.5" /> {t('restaurant.dash.commissionOwed')}
             </div>
             <div className="mt-1 font-display text-xl font-extrabold text-ember-600">
               {financials.commission_owed.toLocaleString('fr-DZ')} DZD
@@ -317,7 +333,7 @@ export default function RestaurantDashboardPage() {
           </div>
           <div className="kiyo-card p-4">
             <div className="flex items-center gap-2 text-xs font-medium text-ink-400">
-              <DollarSign className="h-3.5 w-3.5" /> Net Payout
+              <DollarSign className="h-3.5 w-3.5" /> {t('restaurant.dash.netPayout')}
             </div>
             <div className="mt-1 font-display text-xl font-extrabold text-sage-600">
               {financials.payout_pending.toLocaleString('fr-DZ')} DZD
@@ -333,7 +349,7 @@ export default function RestaurantDashboardPage() {
           className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-500 hover:text-ink-900"
         >
           <Bell className="h-3.5 w-3.5" />
-          {soundEnabled ? 'Sound on' : 'Sound off'}
+          {soundEnabled ? t('restaurant.dash.soundOn') : t('restaurant.dash.soundOff')}
         </button>
       </div>
 
@@ -350,7 +366,7 @@ export default function RestaurantDashboardPage() {
           </Section>
         )}
 
-        <Section title="Active orders" icon={Clock}>
+        <Section title={t('restaurant.dash.activeOrders')} icon={Clock}>
           {active.length === 0 ? (
             <Empty text={t('restaurant.noOrders')} />
           ) : (
@@ -362,7 +378,7 @@ export default function RestaurantDashboardPage() {
         </Section>
 
         {past.length > 0 && (
-          <Section title="Completed" icon={Store}>
+          <Section title={t('restaurant.dash.completed')} icon={Store}>
             <OrdersList
               orders={past} itemsMap={itemsMap}
               onAction={updateStatus} pendingAction={pendingAction}
@@ -378,9 +394,9 @@ export default function RestaurantDashboardPage() {
             <Bell className="h-5 w-5" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="font-display text-sm font-bold text-ink-900">New order received!</p>
+            <p className="font-display text-sm font-bold text-ink-900">{t('restaurant.dash.newOrderAlert')}</p>
             <p className="text-xs text-ink-500">
-              #{newOrderAlert.id.slice(0, 8)} Â· {newOrderAlert.total} DZD
+              #{newOrderAlert.id.slice(0, 8)} - {newOrderAlert.total} DZD
             </p>
             <p className="mt-0.5 text-xs text-ink-400">
               {newOrderAlert.delivery_address}
@@ -463,10 +479,10 @@ function OrdersList({ orders, itemsMap, onAction, pendingAction }: {
                 {items.map((it) => (
                   <li key={it.id} className="flex justify-between py-1.5">
                     <span>
-                      <span className="font-semibold">{it.quantity}Ã—</span> {it.name}
+                      <span className="font-semibold">{it.quantity}x</span> {it.name}
                     </span>
                     {it.notes && (
-                      <span className="text-xs italic text-ink-400">â€œ{it.notes}â€</span>
+                      <span className="text-xs italic text-ink-400">&quot;{it.notes}&quot;</span>
                     )}
                   </li>
                 ))}
@@ -474,7 +490,7 @@ function OrdersList({ orders, itemsMap, onAction, pendingAction }: {
             )}
 
             {o.notes && (
-              <p className="mt-2 rounded bg-ink-50 px-2 py-1 text-xs text-ink-500">â€œ{o.notes}â€</p>
+              <p className="mt-2 rounded bg-ink-50 px-2 py-1 text-xs text-ink-500">&quot;{o.notes}&quot;</p>
             )}
 
             {next.length > 0 && (
@@ -505,11 +521,12 @@ function OrdersList({ orders, itemsMap, onAction, pendingAction }: {
 }
 
 function RealtimeIndicator({ status }: { status: string }) {
+  const { t } = useT();
   if (status === 'connected') {
     return (
       <span className="flex items-center gap-1.5 rounded-lg bg-sage-100 px-2.5 py-2 text-[11px] font-semibold text-sage-600">
         <span className="h-1.5 w-1.5 rounded-full bg-sage-500" />
-        Live
+        {t('restaurant.dash.live')}
       </span>
     );
   }
@@ -517,14 +534,14 @@ function RealtimeIndicator({ status }: { status: string }) {
     return (
       <span className="flex items-center gap-1.5 rounded-lg bg-error-500/10 px-2.5 py-2 text-[11px] font-semibold text-error-600">
         <RefreshCw className="h-3 w-3" />
-        Reconnectingâ€¦
+        {t('restaurant.dash.reconnecting')}
       </span>
     );
   }
   return (
     <span className="flex items-center gap-1.5 rounded-lg bg-ink-100 px-2.5 py-2 text-[11px] font-semibold text-ink-500">
       <Spinner className="h-3 w-3" />
-      Connectingâ€¦
+      {t('restaurant.dash.connecting')}
     </span>
   );
 }

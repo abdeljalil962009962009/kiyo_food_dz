@@ -202,6 +202,10 @@ export type TranslationKey =
   | 'restaurant.apply.errorLocation'
   | 'restaurant.apply.errorDelivery'
   | 'restaurant.apply.errorMinOrder'
+  | 'restaurant.apply.errorCommission'
+  | 'restaurant.apply.errorDeliveryShare'
+  | 'restaurant.apply.errorImageType'
+  | 'restaurant.apply.errorImageSize'
   | 'map.searchPlaceholder'
   | 'map.useCurrentLocation'
   | 'map.locating'
@@ -552,6 +556,24 @@ export type TranslationKey =
   | 'restaurant.dash.activeOrders'
   | 'restaurant.dash.completed'
   | 'restaurant.dash.newOrderAlert'
+  | 'restaurant.dash.awaitingApproval'
+  | 'restaurant.dash.financialsError'
+  | 'restaurant.dash.statusReasonPrompt'
+  | 'restaurant.dash.live'
+  | 'restaurant.dash.reconnecting'
+  | 'restaurant.dash.connecting'
+  | 'restaurant.analytics.title'
+  | 'restaurant.analytics.last7Days'
+  | 'restaurant.analytics.last30Days'
+  | 'restaurant.analytics.last90Days'
+  | 'restaurant.analytics.orders'
+  | 'restaurant.analytics.revenue'
+  | 'restaurant.analytics.newCustomers'
+  | 'restaurant.analytics.avgRating'
+  | 'restaurant.analytics.topProducts'
+  | 'restaurant.analytics.empty'
+  | 'restaurant.analytics.error'
+  | 'dash.customer.ordersSubtitle'
   | 'favorites.subtitle'
   | 'favorites.none'
   | 'orders.reviewed'
@@ -818,6 +840,10 @@ const en: Dict = {
   'restaurant.apply.errorLocation': 'Pin the restaurant location on the map.',
   'restaurant.apply.errorDelivery': 'Enter a delivery radius between 1 and 100 km.',
   'restaurant.apply.errorMinOrder': 'Minimum order amount cannot be negative.',
+  'restaurant.apply.errorCommission': 'The proposed food commission must be between 0% and 100%.',
+  'restaurant.apply.errorDeliveryShare': 'The proposed delivery share must be between 0% and 100%.',
+  'restaurant.apply.errorImageType': 'Upload a PNG, JPEG, or WebP image.',
+  'restaurant.apply.errorImageSize': 'The image must be 5 MB or smaller.',
   'map.searchPlaceholder': 'Search address, neighborhood, city...',
   'map.useCurrentLocation': 'Use current location',
   'map.locating': 'Locating...',
@@ -1164,6 +1190,24 @@ const en: Dict = {
   'restaurant.dash.activeOrders': 'Active orders',
   'restaurant.dash.completed': 'Completed',
   'restaurant.dash.newOrderAlert': 'New order received!',
+  'restaurant.dash.awaitingApproval': 'Awaiting approval',
+  'restaurant.dash.financialsError': 'Financial data could not be refreshed',
+  'restaurant.dash.statusReasonPrompt': 'Enter a clear reason for this status change:',
+  'restaurant.dash.live': 'Live',
+  'restaurant.dash.reconnecting': 'Reconnecting...',
+  'restaurant.dash.connecting': 'Connecting...',
+  'restaurant.analytics.title': 'Analytics',
+  'restaurant.analytics.last7Days': 'Last 7 days',
+  'restaurant.analytics.last30Days': 'Last 30 days',
+  'restaurant.analytics.last90Days': 'Last 90 days',
+  'restaurant.analytics.orders': 'Orders',
+  'restaurant.analytics.revenue': 'Revenue',
+  'restaurant.analytics.newCustomers': 'New customers',
+  'restaurant.analytics.avgRating': 'Average rating',
+  'restaurant.analytics.topProducts': 'Top products',
+  'restaurant.analytics.empty': 'No analytics data is available yet.',
+  'restaurant.analytics.error': 'Analytics could not be refreshed. Please try again.',
+  'dash.customer.ordersSubtitle': 'Track active orders and view your order history.',
   'favorites.subtitle': 'Your saved restaurants',
   'favorites.none': 'No favorite restaurants yet',
   'orders.reviewed': 'Reviewed',
@@ -1429,6 +1473,10 @@ const fr: Dict = {
   'restaurant.apply.errorLocation': 'Placez le restaurant sur la carte.',
   'restaurant.apply.errorDelivery': 'Saisissez un rayon de livraison entre 1 et 100 km.',
   'restaurant.apply.errorMinOrder': 'Le minimum de commande ne peut pas être négatif.',
+  'restaurant.apply.errorCommission': 'La commission proposée sur les plats doit être comprise entre 0 % et 100 %.',
+  'restaurant.apply.errorDeliveryShare': 'La part proposée sur la livraison doit être comprise entre 0 % et 100 %.',
+  'restaurant.apply.errorImageType': 'Importez une image PNG, JPEG ou WebP.',
+  'restaurant.apply.errorImageSize': 'L’image ne doit pas dépasser 5 Mo.',
   'map.searchPlaceholder': 'Rechercher une adresse, un quartier, une ville...',
   'map.useCurrentLocation': 'Utiliser ma position actuelle',
   'map.locating': 'Localisation...',
@@ -1775,6 +1823,24 @@ const fr: Dict = {
   'restaurant.dash.activeOrders': 'Commandes actives',
   'restaurant.dash.completed': 'Terminées',
   'restaurant.dash.newOrderAlert': 'Nouvelle commande reçue !',
+  'restaurant.dash.awaitingApproval': 'En attente d’approbation',
+  'restaurant.dash.financialsError': 'Les données financières n’ont pas pu être actualisées',
+  'restaurant.dash.statusReasonPrompt': 'Saisissez un motif clair pour ce changement de statut :',
+  'restaurant.dash.live': 'En direct',
+  'restaurant.dash.reconnecting': 'Reconnexion...',
+  'restaurant.dash.connecting': 'Connexion...',
+  'restaurant.analytics.title': 'Analyses',
+  'restaurant.analytics.last7Days': '7 derniers jours',
+  'restaurant.analytics.last30Days': '30 derniers jours',
+  'restaurant.analytics.last90Days': '90 derniers jours',
+  'restaurant.analytics.orders': 'Commandes',
+  'restaurant.analytics.revenue': 'Revenu',
+  'restaurant.analytics.newCustomers': 'Nouveaux clients',
+  'restaurant.analytics.avgRating': 'Note moyenne',
+  'restaurant.analytics.topProducts': 'Produits les plus vendus',
+  'restaurant.analytics.empty': 'Aucune donnée d’analyse disponible pour le moment.',
+  'restaurant.analytics.error': 'Les analyses n’ont pas pu être actualisées. Réessayez.',
+  'dash.customer.ordersSubtitle': 'Suivez vos commandes actives et consultez votre historique.',
   'favorites.subtitle': 'Vos restaurants enregistrés',
   'favorites.none': 'Aucun restaurant favori pour le moment',
   'orders.reviewed': 'Avis laissé',
@@ -2040,6 +2106,10 @@ const ar: Dict = {
   'restaurant.apply.errorLocation': 'حدد موقع المطعم على الخريطة.',
   'restaurant.apply.errorDelivery': 'أدخل نطاق توصيل بين 1 و100 كم.',
   'restaurant.apply.errorMinOrder': 'لا يمكن أن يكون الحد الأدنى للطلب سالباً.',
+  'restaurant.apply.errorCommission': 'يجب أن تكون عمولة الطعام المقترحة بين 0% و100%.',
+  'restaurant.apply.errorDeliveryShare': 'يجب أن تكون حصة التوصيل المقترحة بين 0% و100%.',
+  'restaurant.apply.errorImageType': 'حمّل صورة بصيغة PNG أو JPEG أو WebP.',
+  'restaurant.apply.errorImageSize': 'يجب ألا يتجاوز حجم الصورة 5 ميغابايت.',
   'map.searchPlaceholder': 'ابحث عن عنوان أو حي أو مدينة...',
   'map.useCurrentLocation': 'استخدام موقعي الحالي',
   'map.locating': 'جارٍ تحديد الموقع...',
@@ -2386,6 +2456,24 @@ const ar: Dict = {
   'restaurant.dash.activeOrders': 'الطلبات النشطة',
   'restaurant.dash.completed': 'المكتملة',
   'restaurant.dash.newOrderAlert': 'تم استقبال طلب جديد!',
+  'restaurant.dash.awaitingApproval': 'بانتظار الموافقة',
+  'restaurant.dash.financialsError': 'تعذر تحديث البيانات المالية',
+  'restaurant.dash.statusReasonPrompt': 'أدخل سبباً واضحاً لتغيير الحالة:',
+  'restaurant.dash.live': 'مباشر',
+  'restaurant.dash.reconnecting': 'جارٍ إعادة الاتصال...',
+  'restaurant.dash.connecting': 'جارٍ الاتصال...',
+  'restaurant.analytics.title': 'التحليلات',
+  'restaurant.analytics.last7Days': 'آخر 7 أيام',
+  'restaurant.analytics.last30Days': 'آخر 30 يوماً',
+  'restaurant.analytics.last90Days': 'آخر 90 يوماً',
+  'restaurant.analytics.orders': 'الطلبات',
+  'restaurant.analytics.revenue': 'الإيرادات',
+  'restaurant.analytics.newCustomers': 'عملاء جدد',
+  'restaurant.analytics.avgRating': 'متوسط التقييم',
+  'restaurant.analytics.topProducts': 'الأكثر مبيعاً',
+  'restaurant.analytics.empty': 'لا توجد بيانات تحليلية حالياً.',
+  'restaurant.analytics.error': 'تعذر تحديث التحليلات. حاول مرة أخرى.',
+  'dash.customer.ordersSubtitle': 'تابع طلباتك الحالية وراجع سجل طلباتك.',
   'favorites.subtitle': 'مطاعمك المفضلة',
   'favorites.none': 'لا توجد مطاعم مفضلة بعد',
   'orders.reviewed': 'تم التقييم',

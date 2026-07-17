@@ -14,6 +14,10 @@ import { Skeleton, ErrorState, Spinner } from '../components/feedback';
 import { RestaurantImage } from '../components/ui';
 import { PlatformHealthPanel } from '../components/PlatformHealth';
 import AdminCoverageMap from '../components/AdminCoverageMap';
+import { RestaurantApplicationsPanel } from '../components/RestaurantApplicationsPanel';
+import { MarketplaceRuleOverridesEditor } from '../components/MarketplaceRuleOverridesEditor';
+import { callAdminAction } from '../lib/adminApi';
+import { callUserAction } from '../lib/userApi';
 
 type Analytics = {
   revenue: { today: number; this_week: number; this_month: number; this_year: number; all_time: number };
@@ -27,6 +31,36 @@ type Analytics = {
 type Tab = 'overview' | 'financials' | 'settlements' | 'users' | 'restaurants' | 'rules' | 'analytics' | 'alerts' | 'marketing' | 'support' | 'monitoring' | 'geography';
 
 const DZD = (n: number) => new Intl.NumberFormat('fr-DZ', { style: 'currency', currency: 'DZD', maximumFractionDigits: 0 }).format(n);
+
+const SETTLEMENT_COPY = {
+  en: {
+    ready: 'Ready to generate', readyHint: 'Delivered COD orders that are not yet assigned to a monthly settlement.',
+    generate: 'Generate settlement', generating: 'Generating...', orders: 'orders', gross: 'Gross sales', commission: 'Platform commission',
+    confirmGenerate: 'Generate this monthly settlement? This permanently links the listed orders to it.',
+    confirmPaid: 'Confirm that the full outstanding settlement was received?', disputed: 'Review required',
+    generated: 'Settlement generated successfully.', paid: 'Settlement marked as paid.', noReady: 'No delivered orders are waiting for settlement.',
+    pending: 'Pending', overdue: 'Overdue', disputedLabel: 'Disputed', paidLabel: 'Paid', totalOwed: 'Total owed', history: 'Settlement history', export: 'Export CSV',
+    empty: 'No settlements yet', restaurant: 'Restaurant', period: 'Period', balance: 'Balance', status: 'Status', action: 'Action', markPaid: 'Mark paid',
+  },
+  fr: {
+    ready: 'Prêts à générer', readyHint: 'Commandes payées à la livraison qui ne sont pas encore rattachées à un règlement mensuel.',
+    generate: 'Générer le règlement', generating: 'Génération...', orders: 'commandes', gross: 'Ventes brutes', commission: 'Commission plateforme',
+    confirmGenerate: 'Générer ce règlement mensuel ? Les commandes listées y seront rattachées définitivement.',
+    confirmPaid: 'Confirmer la réception du solde total de ce règlement ?', disputed: 'Vérification requise',
+    generated: 'Règlement généré avec succès.', paid: 'Règlement marqué comme payé.', noReady: 'Aucune commande livrée n’attend de règlement.',
+    pending: 'En attente', overdue: 'En retard', disputedLabel: 'Contestés', paidLabel: 'Payés', totalOwed: 'Total dû', history: 'Historique des règlements', export: 'Exporter CSV',
+    empty: 'Aucun règlement', restaurant: 'Restaurant', period: 'Période', balance: 'Solde', status: 'Statut', action: 'Action', markPaid: 'Marquer payé',
+  },
+  ar: {
+    ready: 'جاهزة للإنشاء', readyHint: 'طلبات الدفع عند الاستلام التي تم تسليمها ولم تُربط بعد بتسوية شهرية.',
+    generate: 'إنشاء التسوية', generating: 'جارٍ الإنشاء...', orders: 'طلبات', gross: 'إجمالي المبيعات', commission: 'عمولة المنصة',
+    confirmGenerate: 'هل تريد إنشاء هذه التسوية الشهرية؟ سيتم ربط الطلبات المدرجة بها نهائياً.',
+    confirmPaid: 'هل تؤكد استلام كامل الرصيد المستحق لهذه التسوية؟', disputed: 'تتطلب المراجعة',
+    generated: 'تم إنشاء التسوية بنجاح.', paid: 'تم تسجيل التسوية كمدفوعة.', noReady: 'لا توجد طلبات مسلّمة بانتظار التسوية.',
+    pending: 'قيد الانتظار', overdue: 'متأخرة', disputedLabel: 'متنازع عليها', paidLabel: 'مدفوعة', totalOwed: 'إجمالي المستحق', history: 'سجل التسويات', export: 'تصدير CSV',
+    empty: 'لا توجد تسويات', restaurant: 'المطعم', period: 'الفترة', balance: 'الرصيد', status: 'الحالة', action: 'الإجراء', markPaid: 'تسجيل كمدفوعة',
+  },
+} as const;
 
 const adminErrorMessage = (err: unknown, fallback: string) => {
   if (err && typeof err === 'object') {
@@ -158,6 +192,18 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'rules.order.busyThreshold': 'Busy mode threshold (orders)',
     'rules.order.autoBusy': 'Auto busy mode',
     'rules.featureFlagsTitle': 'Feature Flags',
+    'rules.maintenance.defaultMessage': 'We are performing scheduled maintenance. Please check back shortly.',
+    'feature.chat': 'Chat',
+    'feature.reviews': 'Reviews',
+    'feature.deliveryMap': 'Delivery map',
+    'feature.promoCodes': 'Promo codes',
+    'feature.loyaltyPoints': 'Loyalty points',
+    'feature.referrals': 'Referrals',
+    'feature.promotions': 'Promotions',
+    'feature.gpsDelivery': 'GPS delivery tracking',
+    'feature.notifications': 'Notifications',
+    'feature.savedAddresses': 'Saved addresses',
+    'feature.featuredRestaurants': 'Featured restaurants',
     'rules.taxesTitle': 'Taxes & Fees',
     'rules.taxes.vatRate': 'VAT Rate (%)',
     'rules.taxes.transFeeFixed': 'Transaction Processing Fee (DZD)',
@@ -295,6 +341,18 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'rules.order.busyThreshold': 'Seuil du mode occupé (commandes)',
     'rules.order.autoBusy': 'Mode occupé automatique',
     'rules.featureFlagsTitle': 'Drapeaux de Fonctionnalités',
+    'rules.maintenance.defaultMessage': 'Une maintenance planifiée est en cours. Veuillez réessayer dans quelques instants.',
+    'feature.chat': 'Discussion',
+    'feature.reviews': 'Avis',
+    'feature.deliveryMap': 'Carte de livraison',
+    'feature.promoCodes': 'Codes promotionnels',
+    'feature.loyaltyPoints': 'Points de fidélité',
+    'feature.referrals': 'Parrainage',
+    'feature.promotions': 'Promotions',
+    'feature.gpsDelivery': 'Suivi GPS des livraisons',
+    'feature.notifications': 'Notifications',
+    'feature.savedAddresses': 'Adresses enregistrées',
+    'feature.featuredRestaurants': 'Restaurants mis en avant',
     'rules.taxesTitle': 'Taxes et Frais',
     'rules.taxes.vatRate': 'Taux de TVA (%)',
     'rules.taxes.transFeeFixed': 'Frais de traitement fixe (DZD)',
@@ -432,6 +490,18 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'rules.order.busyThreshold': 'حد وضع الانشغال (الطلبات)',
     'rules.order.autoBusy': 'وضع الانشغال التلقائي',
     'rules.featureFlagsTitle': 'ميزات النظام',
+    'rules.maintenance.defaultMessage': 'نجري حالياً صيانة مجدولة. يرجى المحاولة مجدداً بعد قليل.',
+    'feature.chat': 'المحادثة',
+    'feature.reviews': 'التقييمات',
+    'feature.deliveryMap': 'خريطة التوصيل',
+    'feature.promoCodes': 'الرموز الترويجية',
+    'feature.loyaltyPoints': 'نقاط الولاء',
+    'feature.referrals': 'الإحالات',
+    'feature.promotions': 'العروض',
+    'feature.gpsDelivery': 'تتبع التوصيل عبر GPS',
+    'feature.notifications': 'الإشعارات',
+    'feature.savedAddresses': 'العناوين المحفوظة',
+    'feature.featuredRestaurants': 'المطاعم المميزة',
     'rules.taxesTitle': 'الضرائب والرسوم',
     'rules.taxes.vatRate': 'معدل ضريبة القيمة المضافة (%)',
     'rules.taxes.transFeeFixed': 'رسوم معالجة المعاملة الثابتة (د.ج)',
@@ -554,7 +624,7 @@ function OverviewTab() {
     setError(null);
     try {
       const [a, al] = await Promise.all([
-        supabase.rpc('get_platform_analytics'),
+        callAdminAction('get_platform_analytics'),
         supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(10),
       ]);
       const fetchedAnalytics = a.data as Analytics;
@@ -648,7 +718,7 @@ function FinancialsTab() {
     setError(null);
     try {
       const [a, l] = await Promise.all([
-        supabase.rpc('get_platform_analytics'),
+        callAdminAction('get_platform_analytics'),
         supabase.from('financial_ledger').select('restaurant_id, platform_commission, restaurant_payout, order_total').order('created_at', { ascending: false }).limit(100),
       ]);
       if (a.error) throw a.error;
@@ -790,7 +860,7 @@ function UsersTab() {
     setActingId(user.id);
     setError(null);
     try {
-      const { error: e } = await supabase.rpc('set_user_suspended', {
+      const { error: e } = await callAdminAction('set_user_suspended', {
         p_user_id: user.id,
         p_suspended: !user.is_suspended,
         p_reason: !user.is_suspended ? 'Suspended by admin' : null,
@@ -925,7 +995,7 @@ function RestaurantsTab() {
     setActingId(r.id);
     setError(null);
     try {
-      const { error: e } = await supabase.rpc('update_restaurant_admin', {
+      const { error: e } = await callAdminAction('update_restaurant_admin', {
         p_restaurant_id: r.id,
         p_status: updates.status ?? null,
         p_is_verified: updates.is_verified ?? null,
@@ -944,8 +1014,11 @@ function RestaurantsTab() {
   if (error) return <ErrorState title={t('error.genericTitle')} message={error} onRetry={load} retryLabel={t('error.retry')} />;
 
   return (
-    <div className="space-y-3">
-      {restaurants.map((r) => (
+    <div className="space-y-6">
+      <RestaurantApplicationsPanel />
+      <div className="space-y-3 border-t border-ink-100 pt-6">
+        <h2 className="font-display text-lg font-extrabold text-ink-900">{t('admin.restaurantsManagement')}</h2>
+        {restaurants.map((r) => (
         <div key={r.id} className="kiyo-card flex items-center gap-3 p-3">
           <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg">
             <RestaurantImage url={r.image_url} name={r.name} />
@@ -993,7 +1066,7 @@ function RestaurantsTab() {
               <Sparkles className="h-3 w-3" />
               {r.is_featured ? 'Unfeature' : 'Feature'}
             </button>
-            {r.status !== 'published' && (
+            {r.status !== 'published' && !r.source_application_id && (
               <button
                 onClick={() => updateRestaurant(r, { status: 'published' })}
                 disabled={actingId === r.id}
@@ -1002,7 +1075,7 @@ function RestaurantsTab() {
                 Publish
               </button>
             )}
-            {r.status !== 'suspended' && (
+            {r.status !== 'suspended' && !r.source_application_id && (
               <button
                 onClick={() => updateRestaurant(r, { status: 'suspended' })}
                 disabled={actingId === r.id}
@@ -1013,7 +1086,8 @@ function RestaurantsTab() {
             )}
           </div>
         </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
@@ -1082,6 +1156,20 @@ const DEFAULT_SETTINGS: Record<string, Record<string, unknown>> = {
   }
 };
 
+const FEATURE_RULE_FIELDS = [
+  { key: 'chat_enabled', aliases: ['chat'], label: 'feature.chat', fallback: 'Chat' },
+  { key: 'reviews_enabled', aliases: ['reviews'], label: 'feature.reviews', fallback: 'Reviews' },
+  { key: 'delivery_map_enabled', aliases: ['maps'], label: 'feature.deliveryMap', fallback: 'Delivery map' },
+  { key: 'promo_codes_enabled', aliases: ['coupons'], label: 'feature.promoCodes', fallback: 'Promo codes' },
+  { key: 'loyalty_points_enabled', aliases: ['loyalty', 'loyalty_points'], label: 'feature.loyaltyPoints', fallback: 'Loyalty points' },
+  { key: 'referrals', aliases: [], label: 'feature.referrals', fallback: 'Referrals' },
+  { key: 'promotions', aliases: [], label: 'feature.promotions', fallback: 'Promotions' },
+  { key: 'gps_delivery', aliases: [], label: 'feature.gpsDelivery', fallback: 'GPS delivery tracking' },
+  { key: 'notifications', aliases: [], label: 'feature.notifications', fallback: 'Notifications' },
+  { key: 'saved_addresses', aliases: [], label: 'feature.savedAddresses', fallback: 'Saved addresses' },
+  { key: 'featured_restaurants', aliases: [], label: 'feature.featuredRestaurants', fallback: 'Featured restaurants' },
+] as const;
+
 // ===================== BUSINESS RULES =====================
 function RulesTab() {
   const { t } = useT();
@@ -1122,7 +1210,7 @@ function RulesTab() {
     try {
       const payload = settings[key] || DEFAULT_SETTINGS[key] || {};
       
-      const { error: rpcErr } = await supabase.rpc('update_platform_setting', {
+      const { error: rpcErr } = await callAdminAction('update_platform_setting', {
         p_key: key,
         p_value: payload,
       });
@@ -1142,6 +1230,16 @@ function RulesTab() {
     setSettings((prev) => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
   };
 
+  const updateFeature = (key: string, aliases: readonly string[], value: boolean) => {
+    setSettings((previous) => {
+      const features = { ...(previous.features ?? {}), [key]: value };
+      aliases.forEach((alias) => {
+        if (alias in features) features[alias] = value;
+      });
+      return { ...previous, features };
+    });
+  };
+
   if (loading) return <Skeleton count={4} />;
   if (error) return <ErrorState title={t('error.genericTitle')} message={error} onRetry={load} retryLabel={t('error.retry')} />;
 
@@ -1150,9 +1248,10 @@ function RulesTab() {
       {saveError && (
         <div className="rounded-lg bg-error-500/10 p-3 text-sm text-error-600 flex items-center justify-between">
           <span>{saveError}</span>
-          <button onClick={() => setSaveError(null)} className="text-xs font-semibold underline hover:text-error-700">Dismiss</button>
+          <button onClick={() => setSaveError(null)} className="text-xs font-semibold underline hover:text-error-700">{t('common.close')}</button>
         </div>
       )}
+      <MarketplaceRuleOverridesEditor globalSettings={settings} />
       {/* Delivery Rules */}
       <RulesCard title={tx('rules.deliveryTitle', 'Delivery Rules')} icon={Settings} onSave={() => save('delivery')} saving={saving} saved={savedKey === 'delivery'}>
         <RuleField label={tx('rules.delivery.pricePerKm', 'Price per km (DZD)')} value={settings.delivery?.price_per_km as number ?? 25}
@@ -1211,7 +1310,7 @@ function RulesTab() {
           onChange={(v) => updateField('maintenance', 'enabled', v)} />
         <RuleToggle label={tx('rules.maintenance.allowAdmin', 'Allow admin access during maintenance')} value={settings.maintenance?.allow_admin_access as boolean ?? true}
           onChange={(v) => updateField('maintenance', 'allow_admin_access', v)} />
-        <RuleField label={tx('rules.maintenance.message', 'Maintenance message')} value={settings.maintenance?.message as string ?? 'We are performing scheduled maintenance. Please check back shortly.'}
+        <RuleField label={tx('rules.maintenance.message', 'Maintenance message')} value={(settings.maintenance?.message as string) === DEFAULT_SETTINGS.maintenance.message ? tx('rules.maintenance.defaultMessage', 'We are performing scheduled maintenance. Please check back shortly.') : settings.maintenance?.message as string ?? tx('rules.maintenance.defaultMessage', 'We are performing scheduled maintenance. Please check back shortly.')}
           onChange={(v) => updateField('maintenance', 'message', v)} type="text" />
       </RulesCard>
 
@@ -1231,10 +1330,18 @@ function RulesTab() {
 
       {/* Feature Flags */}
       <RulesCard title={tx('rules.featureFlagsTitle', 'Feature Flags')} icon={Sparkles} onSave={() => save('features')} saving={saving} saved={savedKey === 'features'}>
-        {Object.entries(settings.features ?? {}).filter(([, v]) => typeof v === 'boolean').map(([key, val]) => (
-          <RuleToggle key={key} label={key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
-            value={val as boolean} onChange={(v) => updateField('features', key, v)} />
-        ))}
+        {FEATURE_RULE_FIELDS.map((field) => {
+          const availableKey = [field.key, ...field.aliases].find((key) => typeof settings.features?.[key] === 'boolean');
+          if (!availableKey) return null;
+          return (
+            <RuleToggle
+              key={field.key}
+              label={tx(field.label, field.fallback)}
+              value={settings.features?.[availableKey] as boolean}
+              onChange={(value) => updateFeature(field.key, field.aliases, value)}
+            />
+          );
+        })}
       </RulesCard>
 
       {/* Taxes & Fees */}
@@ -1345,7 +1452,7 @@ function AnalyticsTab() {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: e } = await supabase.rpc('get_platform_analytics');
+      const { data, error: e } = await callAdminAction('get_platform_analytics');
       if (e) throw e;
       setAnalytics(data as Analytics);
     } catch (err) {
@@ -1403,8 +1510,14 @@ function AnalyticsTab() {
 // ===================== SETTLEMENTS =====================
 function SettlementsTab() {
   const { t } = useT();
+  const { locale } = useAdminT();
+  const copy = SETTLEMENT_COPY[locale as keyof typeof SETTLEMENT_COPY] ?? SETTLEMENT_COPY.en;
   const [overview, setOverview] = useState<{
-    total_owed: number; total_paid: number; overdue_count: number; pending_count: number; paid_count: number;
+    total_owed: number; total_paid: number; overdue_count: number; pending_count: number; paid_count: number; disputed_count: number;
+    eligible_periods?: Array<{
+      restaurant_id: string; restaurant_name: string; period_start: string;
+      entry_count: number; gross_sales: string; platform_commission: string; amount_owed: string; restaurant_payout: string;
+    }>;
     recent: Array<{
       id: string; restaurant_id: string; restaurant_name: string;
       period_start: string; period_end: string;
@@ -1414,18 +1527,20 @@ function SettlementsTab() {
     }>;
   } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    setError(null);
+    setLoadError(null);
     try {
-      const { data, error: e } = await supabase.rpc('get_settlement_overview');
+      const { data, error: e } = await callAdminAction('get_settlement_overview');
       if (e) throw e;
       setOverview(data as typeof overview);
     } catch (err) {
-      setError(adminErrorMessage(err, t('error.genericBody')));
+      setLoadError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
       setLoading(false);
     }
@@ -1434,56 +1549,130 @@ function SettlementsTab() {
   useEffect(() => { void load(); }, [load]);
 
   const markPaid = async (id: string) => {
+    if (!window.confirm(copy.confirmPaid)) return;
     setActingId(id);
-    setError(null);
+    setActionError(null);
+    setNotice(null);
     try {
-      const { error: e } = await supabase.rpc('mark_settlement_paid', {
+      const { error: e } = await callAdminAction('mark_settlement_paid', {
         p_settlement_id: id, p_amount: null, p_notes: 'Marked as paid by admin',
       });
       if (e) throw e;
-      void load();
+      setNotice(copy.paid);
+      await load();
     } catch (err) {
-      setError(adminErrorMessage(err, t('error.genericBody')));
+      setActionError(adminErrorMessage(err, t('error.genericBody')));
+    } finally {
+      setActingId(null);
+    }
+  };
+
+  const generateSettlement = async (restaurantId: string, periodStart: string) => {
+    if (!window.confirm(copy.confirmGenerate)) return;
+    const key = `${restaurantId}:${periodStart}`;
+    setActingId(key);
+    setActionError(null);
+    setNotice(null);
+    try {
+      const { error: actionError } = await callAdminAction('generate_monthly_settlement', {
+        p_restaurant_id: restaurantId,
+        p_period_start: periodStart,
+      });
+      if (actionError) throw actionError;
+      setNotice(copy.generated);
+      await load();
+    } catch (err) {
+      setActionError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
       setActingId(null);
     }
   };
 
   if (loading) return <Skeleton count={3} />;
-  if (error) return <ErrorState title={t('error.genericTitle')} message={error} onRetry={load} retryLabel={t('error.retry')} />;
+  if (loadError) return <ErrorState title={t('error.genericTitle')} message={loadError} onRetry={load} retryLabel={t('error.retry')} />;
   if (!overview) return null;
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard icon={Clock} label="Pending" value={String(overview.pending_count)} accent="warning" />
-        <StatCard icon={AlertTriangle} label="Overdue" value={String(overview.overdue_count)} accent="error" />
-        <StatCard icon={CheckCircle} label="Paid" value={String(overview.paid_count)} accent="sage" />
-        <StatCard icon={DollarSign} label="Total Owed" value={DZD(overview.total_owed)} accent="ember" />
+      {notice && (
+        <div role="status" className="rounded-lg border border-sage-200 bg-sage-50 px-4 py-3 text-sm font-medium text-sage-700">
+          {notice}
+        </div>
+      )}
+      {actionError && (
+        <div role="alert" className="rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm font-medium text-error-700">
+          {actionError}
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+        <StatCard icon={Clock} label={copy.pending} value={String(overview.pending_count)} accent="warning" />
+        <StatCard icon={AlertTriangle} label={copy.overdue} value={String(overview.overdue_count)} accent="error" />
+        <StatCard icon={AlertTriangle} label={copy.disputedLabel} value={String(overview.disputed_count ?? 0)} accent="error" />
+        <StatCard icon={CheckCircle} label={copy.paidLabel} value={String(overview.paid_count)} accent="sage" />
+        <StatCard icon={DollarSign} label={copy.totalOwed} value={DZD(overview.total_owed)} accent="ember" />
       </div>
+
+      <section aria-labelledby="settlement-ready-title">
+        <div className="mb-3">
+          <h3 id="settlement-ready-title" className="font-display text-base font-bold text-ink-900">{copy.ready}</h3>
+          <p className="mt-1 text-sm text-ink-500">{copy.readyHint}</p>
+        </div>
+        {(overview.eligible_periods ?? []).length === 0 ? (
+          <div className="rounded-lg border border-dashed border-ink-200 bg-white px-4 py-5 text-sm text-ink-500">{copy.noReady}</div>
+        ) : (
+          <div className="grid gap-3 lg:grid-cols-2">
+            {(overview.eligible_periods ?? []).map((candidate) => {
+              const actionKey = `${candidate.restaurant_id}:${candidate.period_start}`;
+              return (
+                <div key={actionKey} className="kiyo-card flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-ink-900">{candidate.restaurant_name}</p>
+                    <p className="mt-1 text-sm text-ink-500">
+                      {new Date(`${candidate.period_start}T00:00:00`).toLocaleDateString(locale === 'ar' ? 'ar-DZ' : locale === 'fr' ? 'fr-DZ' : 'en-DZ', { month: 'long', year: 'numeric' })}
+                      {' · '}{candidate.entry_count} {copy.orders}
+                    </p>
+                    <p className="mt-2 text-xs text-ink-500">
+                      {copy.gross}: {DZD(Number(candidate.gross_sales))} · {copy.commission}: {DZD(Number(candidate.platform_commission))} · {copy.totalOwed}: {DZD(Number(candidate.amount_owed))}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void generateSettlement(candidate.restaurant_id, candidate.period_start)}
+                    disabled={actingId !== null}
+                    className="kiyo-btn-primary min-h-11 flex-shrink-0"
+                  >
+                    {actingId === actionKey ? <Spinner className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
+                    {actingId === actionKey ? copy.generating : copy.generate}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
 
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="font-display text-base font-bold text-ink-900">Settlement History</h3>
+          <h3 className="font-display text-base font-bold text-ink-900">{copy.history}</h3>
           <button onClick={exportSettlementsCSV} className="kiyo-btn-secondary">
             <Download className="h-4 w-4" />
-            <span className="hidden sm:inline">Export CSV</span>
+            <span className="hidden sm:inline">{copy.export}</span>
           </button>
         </div>
         {overview.recent.length === 0 ? (
-          <div className="kiyo-card p-6 text-center text-sm text-ink-400">No settlements yet</div>
+          <div className="kiyo-card p-6 text-center text-sm text-ink-400">{copy.empty}</div>
         ) : (
           <div className="kiyo-card overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-ink-100 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
-                  <th className="px-4 py-3">Restaurant</th>
-                  <th className="px-4 py-3">Period</th>
-                  <th className="px-4 py-3 text-right">Gross</th>
-                  <th className="px-4 py-3 text-right">Commission</th>
-                  <th className="px-4 py-3 text-right">Balance</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Action</th>
+                  <th className="px-4 py-3">{copy.restaurant}</th>
+                  <th className="px-4 py-3">{copy.period}</th>
+                  <th className="px-4 py-3 text-right">{copy.gross}</th>
+                  <th className="px-4 py-3 text-right">{copy.commission}</th>
+                  <th className="px-4 py-3 text-right">{copy.balance}</th>
+                  <th className="px-4 py-3">{copy.status}</th>
+                  <th className="px-4 py-3 text-right">{copy.action}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-50">
@@ -1491,7 +1680,7 @@ function SettlementsTab() {
                   <tr key={s.id} className="hover:bg-ink-50/50">
                     <td className="px-4 py-3 font-medium text-ink-900">{s.restaurant_name}</td>
                     <td className="px-4 py-3 text-xs text-ink-500">
-                      {s.period_start} → {s.period_end}
+                      {s.period_start} - {s.period_end}
                     </td>
                     <td className="px-4 py-3 text-right text-ink-700">{DZD(Number(s.gross_sales))}</td>
                     <td className="px-4 py-3 text-right text-ember-600">{DZD(Number(s.commission))}</td>
@@ -1505,16 +1694,17 @@ function SettlementsTab() {
                       }`}>{s.status.replace(/_/g, ' ')}</span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {s.status !== 'paid' && (
+                      {!['paid', 'disputed'].includes(s.status) && (
                         <button
                           onClick={() => markPaid(s.id)}
                           disabled={actingId === s.id}
                           className="kiyo-btn-primary bg-sage-500 text-xs hover:bg-sage-600"
                         >
                           {actingId === s.id ? <Spinner className="h-3 w-3" /> : <CheckCircle className="h-3 w-3" />}
-                          Mark Paid
+                          {copy.markPaid}
                         </button>
                       )}
+                      {s.status === 'disputed' && <span className="text-xs font-semibold text-error-600">{copy.disputed}</span>}
                     </td>
                   </tr>
                 ))}
@@ -2072,7 +2262,7 @@ function AlertsTab() {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: e } = await supabase.rpc('get_admin_alerts');
+      const { data, error: e } = await callAdminAction('get_admin_alerts');
       if (e) throw e;
       setAlerts(data as typeof alerts);
     } catch (err) {
@@ -2299,7 +2489,7 @@ function AdminTicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () 
     if (reply.trim().length < 1) return;
     setSending(true);
     try {
-      const { error: e } = await supabase.rpc('reply_to_ticket', {
+      const { error: e } = await callUserAction('reply_to_ticket', {
         p_ticket_id: ticketId, p_body: reply.trim(), p_is_admin: true,
       });
       if (e) throw e;
@@ -2315,7 +2505,7 @@ function AdminTicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () 
   const updateStatus = async (status: string) => {
     setUpdating(true);
     try {
-      const { error: e } = await supabase.rpc('update_ticket_status', {
+      const { error: e } = await callAdminAction('update_ticket_status', {
         p_ticket_id: ticketId, p_status: status,
       });
       if (e) throw e;
