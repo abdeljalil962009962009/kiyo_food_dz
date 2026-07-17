@@ -15,6 +15,8 @@ import { localizePublicationBlocker } from '../lib/publicationReadiness';
 import { uploadRestaurantImage, validateRestaurantImage } from '../lib/restaurantMedia';
 import { PrivateRestaurantImage } from '../components/PrivateRestaurantImage';
 import { callUserAction } from '../lib/userApi';
+import { matchWilayaFromAddress } from '../lib/algeriaLocation';
+import { FALLBACK_WILAYAS } from '../context/WilayaContext';
 
 type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 const DAYS: { key: DayOfWeek; labelKey: 'day.0' | 'day.1' | 'day.2' | 'day.3' | 'day.4' | 'day.5' | 'day.6' }[] = [
@@ -194,6 +196,7 @@ export default function RestaurantSettingsPage() {
         ? await uploadRestaurantImage(profile.id, imageFile)
         : imageUrl.trim() || null;
       const cuisineList = cuisines.split(',').map((item) => item.trim()).filter(Boolean).slice(0, 12);
+      const matchedWilaya = matchWilayaFromAddress(location.addressParts, FALLBACK_WILAYAS);
       const { error: e } = await supabase
         .from('restaurants')
         .update({
@@ -221,6 +224,7 @@ export default function RestaurantSettingsPage() {
           province: location.addressParts?.province ?? null,
           postal_code: location.addressParts?.postalCode ?? null,
           country: location.addressParts?.country ?? 'Algeria',
+          wilaya_id: matchedWilaya?.id ?? null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', restaurant.id);

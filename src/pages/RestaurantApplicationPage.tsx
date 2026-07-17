@@ -13,6 +13,8 @@ import { supabase, type RestaurantApplication } from '../lib/supabase';
 import { normalizeRestaurantApplicationStatus } from '../lib/restaurantApplicationStateMachine';
 import { uploadRestaurantImage } from '../lib/restaurantMedia';
 import { callUserAction } from '../lib/userApi';
+import { matchWilayaFromAddress } from '../lib/algeriaLocation';
+import { FALLBACK_WILAYAS } from '../context/WilayaContext';
 
 type Location = DeliveryMapLocation;
 const RESTAURANT_APPLICATION_DRAFT_KEY = 'kiyo-restaurant-application-draft-v2';
@@ -203,6 +205,7 @@ export default function RestaurantApplicationPage() {
     try {
       const logoUrl = logo ? await uploadRestaurantImage(profile.id, logo, 'logo') : null;
       const coverUrl = cover ? await uploadRestaurantImage(profile.id, cover, 'cover') : null;
+      const matchedWilaya = matchWilayaFromAddress(location.addressParts, FALLBACK_WILAYAS);
 
       const payload = {
         restaurant_name: restaurantName.trim(),
@@ -230,6 +233,7 @@ export default function RestaurantApplicationPage() {
         province: location.addressParts?.province ?? null,
         postal_code: location.addressParts?.postalCode ?? null,
         country: location.addressParts?.country ?? 'Algeria',
+        wilaya_id: matchedWilaya?.id ?? null,
         proposed_food_commission_rate: proposedRate,
         proposed_delivery_share_rate: proposedDeliveryRate,
         proposed_commission_base: commissionBase,
