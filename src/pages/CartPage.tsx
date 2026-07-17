@@ -1,14 +1,59 @@
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Trash2, ShoppingBag, ChevronLeft } from 'lucide-react';
+import { Trash2, ShoppingBag, ChevronLeft, AlertCircle, MapPin, RefreshCw } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
 import { useCart } from '../context/CartContext';
+import { useWilaya } from '../context/WilayaContext';
 import { AppShell } from '../components/AppShell';
 import { PriceTag } from '../components/ui';
+import { Spinner } from '../components/feedback';
+import { getAuthoritativeDeliveryQuote, type AuthoritativeDeliveryQuote } from '../lib/deliveryQuote';
+
+const copy = {
+  en: {
+    exact: 'Complete price for your selected address', choose: 'Choose a precise delivery location at checkout to calculate every fee.',
+    calculating: 'Calculating road-route price...', retry: 'Retry price', unavailable: 'Exact pricing is temporarily unavailable. Your cart is safe.',
+  },
+  fr: {
+    exact: 'Prix complet pour votre adresse', choose: 'Choisissez une adresse pr\u00e9cise \u00e0 la prochaine \u00e9tape pour calculer tous les frais.',
+    calculating: 'Calcul du prix selon le trajet routier...', retry: 'Recalculer', unavailable: 'Le calcul exact est temporairement indisponible. Votre panier est conserv\u00e9.',
+  },
+  ar: {
+    exact: '\u0627\u0644\u0633\u0639\u0631 \u0627\u0644\u0643\u0627\u0645\u0644 \u0644\u0639\u0646\u0648\u0627\u0646\u0643 \u0627\u0644\u0645\u062d\u062f\u062f', choose: '\u062d\u062f\u062f \u0639\u0646\u0648\u0627\u0646 \u0627\u0644\u062a\u0648\u0635\u064a\u0644 \u0627\u0644\u062f\u0642\u064a\u0642 \u0641\u064a \u0627\u0644\u062e\u0637\u0648\u0629 \u0627\u0644\u062a\u0627\u0644\u064a\u0629 \u0644\u062d\u0633\u0627\u0628 \u062c\u0645\u064a\u0639 \u0627\u0644\u0631\u0633\u0648\u0645.',
+    calculating: '\u062c\u0627\u0631\u064a \u062d\u0633\u0627\u0628 \u0627\u0644\u0633\u0639\u0631 \u062d\u0633\u0628 \u0627\u0644\u0637\u0631\u064a\u0642...', retry: '\u0625\u0639\u0627\u062f\u0629 \u0627\u0644\u062d\u0633\u0627\u0628', unavailable: '\u0627\u0644\u062d\u0633\u0627\u0628 \u0627\u0644\u062f\u0642\u064a\u0642 \u0645\u062a\u0639\u0630\u0631 \u0645\u0624\u0642\u062a\u0627. \u0633\u0644\u062a\u0643 \u0645\u062d\u0641\u0648\u0638\u0629.',
+  },
+} as const;
 
 export default function CartPage() {
-  const { t } = useT();
+  const { t, locale } = useT();
+  const tx = copy[locale];
   const navigate = useNavigate();
   const { state, subtotal, setQuantity, removeItem, clear, totalItems } = useCart();
+  const { deliveryLocation } = useWilaya();
+  const [quote, setQuote] = useState<AuthoritativeDeliveryQuote | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
+  const [cartNotice] = useState(() => {
+    const value = sessionStorage.getItem('kiyo-cart-notice');
+    if (value) sessionStorage.removeItem('kiyo-cart-notice');
+    return value;
+  });
+
+  const calculate = useCallback(async () => {
+    if (!state.restaurantId || !deliveryLocation?.confirmed || state.lines.length === 0) return;
+    setQuoteLoading(true);
+    setQuoteError(null);
+    try {
+      setQuote(await getAuthoritativeDeliveryQuote(state.restaurantId, deliveryLocation, state.lines));
+    } catch {
+      setQuote(null);
+      setQuoteError(tx.unavailable);
+    } finally {
+      setQuoteLoading(false);
+    }
+  }, [deliveryLocation, state.lines, state.restaurantId, tx.unavailable]);
+
+  useEffect(() => { void calculate(); }, [calculate]);
 
   if (state.lines.length === 0) {
     return (
@@ -46,6 +91,7 @@ export default function CartPage() {
         <p className="mb-4 text-sm text-ink-500">{state.restaurantName}</p>
       )}
 
+      {cartNotice && <div className="mb-4 rounded-lg border border-sage-200 bg-sage-50 px-4 py-3 text-sm text-sage-700">{cartNotice}</div>}
       <div className="grid gap-4 lg:grid-cols-[1fr,360px]">
         <div className="space-y-2">
           {state.lines.map((line) => (
@@ -102,20 +148,43 @@ export default function CartPage() {
               <span>{t('cart.subtotal')}</span>
               <PriceTag value={subtotal} />
             </div>
-            <div className="flex justify-between text-ink-400">
+            <div className="flex justify-between text-ink-600">
               <span>{t('cart.deliveryFee')}</span>
-              <span className="text-xs">{t('checkout.idle')}</span>
+              {quote ? <PriceTag value={quote.delivery_fee} /> : <span className="text-xs">--</span>}
             </div>
-            <div className="flex justify-between text-ink-400">
+            <div className="flex justify-between text-ink-600">
               <span>{t('cart.serviceFee')}</span>
-              <span className="text-xs">{t('checkout.idle')}</span>
+              {quote ? <PriceTag value={quote.service_fee} /> : <span className="text-xs">--</span>}
             </div>
           </div>
           <div className="my-3 h-px bg-ink-100" />
           <div className="mb-4 flex items-center justify-between">
             <span className="font-display font-bold text-ink-900">{t('cart.total')}</span>
-            <span className="text-xs text-ink-400">{totalItems} {t('orders.items')}</span>
+            {quote ? <PriceTag value={quote.total} /> : <span className="text-xs text-ink-400">{totalItems} {t('orders.items')}</span>}
           </div>
+          {quoteLoading && (
+            <div className="mb-3 flex min-h-11 items-center gap-2 rounded-lg bg-ink-50 px-3 py-2 text-xs text-ink-500" aria-live="polite">
+              <Spinner className="h-4 w-4" /> {tx.calculating}
+            </div>
+          )}
+          {!quoteLoading && quote && (
+            <div className="mb-3 flex items-start gap-2 rounded-lg bg-sage-50 px-3 py-2 text-xs text-sage-700">
+              <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0" /> {tx.exact}
+            </div>
+          )}
+          {!quoteLoading && !quote && !quoteError && (
+            <div className="mb-3 flex items-start gap-2 rounded-lg bg-ink-50 px-3 py-2 text-xs text-ink-500">
+              <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0" /> {tx.choose}
+            </div>
+          )}
+          {quoteError && (
+            <div className="mb-3 rounded-lg bg-error-50 px-3 py-2 text-xs text-error-700">
+              <div className="flex items-start gap-2"><AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />{quoteError}</div>
+              <button type="button" onClick={() => void calculate()} className="mt-2 inline-flex min-h-11 items-center gap-1 font-bold">
+                <RefreshCw className="h-3.5 w-3.5" /> {tx.retry}
+              </button>
+            </div>
+          )}
           <button
             onClick={() => navigate(`/checkout?id=${state.restaurantId}`)}
             className="kiyo-btn-primary w-full"

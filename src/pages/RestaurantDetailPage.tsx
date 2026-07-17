@@ -8,10 +8,11 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
-import { Skeleton, ErrorState, Spinner } from '../components/feedback';
+import { Skeleton, ErrorState } from '../components/feedback';
 import { RestaurantImage, PriceTag } from '../components/ui';
 import { GoogleMapShell, GOOGLE_MAPS_MAP_ID, MapCircle, MapMarkerBadge } from '../components/GoogleMapShell';
 import { isValidMapCoordinate } from '../lib/googleMaps';
+import { useRealtime } from '../lib/useRealtime';
 
 export default function RestaurantDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -26,6 +27,9 @@ export default function RestaurantDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [favoriteAnimating, setFavoriteAnimating] = useState(false);
+  const [addedItemId, setAddedItemId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -67,25 +71,31 @@ export default function RestaurantDetailPage() {
 
   useEffect(() => { void load(); }, [load]);
 
+  useRealtime('restaurants', (payload) => {
+    if (payload.new.id !== id) return;
+    setRestaurant((current) => current ? { ...current, ...payload.new } as Restaurant : current);
+  }, { enabled: Boolean(id), filter: id ? { id: `eq.${id}` } : undefined });
+
   const toggleFavorite = async () => {
     if (!user || !restaurant) return;
-    if (isFavorite) {
-      await supabase
-        .from('customer_favorites')
-        .delete()
-        .eq('customer_id', user.id)
-        .eq('restaurant_id', restaurant.id);
-      setIsFavorite(false);
-    } else {
-      await supabase
-        .from('customer_favorites')
-        .insert({ customer_id: user.id, restaurant_id: restaurant.id });
-      setIsFavorite(true);
+    setActionError(null);
+    const result = isFavorite
+      ? await supabase.from('customer_favorites').delete().eq('customer_id', user.id).eq('restaurant_id', restaurant.id)
+      : await supabase.from('customer_favorites').insert({ customer_id: user.id, restaurant_id: restaurant.id });
+    if (result.error) {
+      setActionError(t('error.genericBody'));
+      return;
     }
+    setIsFavorite(!isFavorite);
+    setFavoriteAnimating(true);
+    window.setTimeout(() => setFavoriteAnimating(false), 350);
   };
 
   const handleAdd = (item: MenuItem) => {
+    setActionError(null);
     addItem(item, 1);
+    setAddedItemId(item.id);
+    window.setTimeout(() => setAddedItemId(null), 450);
   };
 
   if (loading) {
@@ -114,7 +124,7 @@ export default function RestaurantDetailPage() {
     return (
       <AppShell>
         <ErrorState
-          title={t('error.genericTitle')} message={error ?? 'Error'}
+          title={t('error.genericTitle')} message={t('error.genericBody')}
           onRetry={load} retryLabel={t('error.retry')}
         />
       </AppShell>
@@ -146,8 +156,8 @@ export default function RestaurantDetailPage() {
               {user && (
                 <button
                   onClick={toggleFavorite}
-                  className="absolute right-4 top-4 rounded-full bg-white/90 p-2.5 shadow-lg transition-all hover:bg-white sm:right-5 sm:top-5"
-                  aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                  className={`absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 shadow-lg transition-all hover:bg-white sm:right-5 sm:top-5 ${favoriteAnimating ? 'animate-favorite-pop' : ''}`}
+                  aria-label={t('nav.favorites')}
                 >
                   <Heart className={`h-5 w-5 ${isFavorite ? 'fill-error-500 text-error-500' : 'text-ink-400'}`} />
                 </button>
@@ -195,10 +205,11 @@ export default function RestaurantDetailPage() {
 
           <div className="flex items-center gap-2 bg-ember-500/5 px-4 py-2.5 text-xs text-ember-700 sm:px-5">
             <Truck className="h-3.5 w-3.5 flex-shrink-0" />
-            Delivery is managed directly by the restaurant.
+            {t('checkout.deliveryByRestaurant')}
           </div>
         </div>
 
+        {actionError && <div className="mb-3 rounded-lg border border-error-200 bg-error-50 px-3 py-2 text-xs text-error-700" role="alert">{actionError}</div>}
         {cartHasOtherRestaurant && (
           <div className="mt-3 flex items-start gap-2 rounded-xl bg-warning-500/10 px-3 py-2.5 text-xs text-warning-600">
             <Info className="mt-0.5 h-4 w-4 flex-shrink-0" />
@@ -219,7 +230,7 @@ export default function RestaurantDetailPage() {
               {t('restaurant.noMenu')}
             </div>
           ) : categories.length === 0 ? (
-            <MenuGrid items={menuItems} onAdd={handleAdd} disabled={!isOpen} />
+            <MenuGrid items={menuItems} onAdd={handleAdd} disabled={!isOpen} addedItemId={addedItemId} />
           ) : (
             <div className="space-y-6">
               {categories.map((cat) => {
@@ -228,17 +239,17 @@ export default function RestaurantDetailPage() {
                 return (
                   <div key={cat.id}>
                     <h3 className="mb-2 font-display text-base font-bold text-ink-900">{cat.name}</h3>
-                    <MenuGrid items={items} onAdd={handleAdd} disabled={!isOpen} />
+                    <MenuGrid items={items} onAdd={handleAdd} disabled={!isOpen} addedItemId={addedItemId} />
                   </div>
                 );
               })}
               {/* Uncategorised items */}
               {menuItems.filter((m) => !m.category_id).length > 0 && (
                 <div>
-                  <h3 className="mb-2 font-display text-base font-bold text-ink-900">Other</h3>
+                  <h3 className="mb-2 font-display text-base font-bold text-ink-900">{t('profile.addresses.other')}</h3>
                   <MenuGrid
                     items={menuItems.filter((m) => !m.category_id)}
-                    onAdd={handleAdd} disabled={!isOpen}
+                    onAdd={handleAdd} disabled={!isOpen} addedItemId={addedItemId}
                   />
                 </div>
               )}
@@ -254,7 +265,7 @@ export default function RestaurantDetailPage() {
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-sm font-medium text-ink-700">
               <ShoppingBag className="h-4 w-4" />
-              {cart.lines.reduce((s, l) => s + l.quantity, 0)} items
+              {cart.lines.reduce((s, l) => s + l.quantity, 0)} {t('orders.items')}
             </div>
             <button
               onClick={() => navigate('/cart')}
@@ -316,8 +327,8 @@ function RestaurantMiniMap({ restaurant }: { restaurant: Restaurant }) {
   );
 }
 
-function MenuGrid({ items, onAdd, disabled }: {
-  items: MenuItem[]; onAdd: (item: MenuItem) => void; disabled: boolean;
+function MenuGrid({ items, onAdd, disabled, addedItemId }: {
+  items: MenuItem[]; onAdd: (item: MenuItem) => void; disabled: boolean; addedItemId: string | null;
 }) {
   const { t } = useT();
   return (
@@ -348,7 +359,7 @@ function MenuGrid({ items, onAdd, disabled }: {
             <button
               onClick={() => onAdd(item)}
               disabled={unavailable}
-              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-ink-900 text-white transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+              className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg bg-ink-900 text-white transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 ${addedItemId === item.id ? 'animate-cart-pulse' : ''}`}
               aria-label={t('restaurant.addToCart')}
             >
               <Plus className="h-4 w-4" />
@@ -359,5 +370,3 @@ function MenuGrid({ items, onAdd, disabled }: {
     </div>
   );
 }
-
-void Spinner; // keep import referenced when not used in stable path

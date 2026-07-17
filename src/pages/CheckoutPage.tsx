@@ -13,19 +13,14 @@ import { PriceTag } from '../components/ui';
 import DeliveryMap, { type DeliveryMapLocation } from '../components/DeliveryMap';
 import { withExponentialBackoff } from '../lib/locationNetwork';
 import { isValidAlgerianPhone, normalizeAlgerianPhone } from '../lib/phone';
+import { callUserAction, fetchLocationInsights } from '../lib/userApi';
+import { clearCachedDeliveryQuotes, getAuthoritativeDeliveryQuote, type AuthoritativeDeliveryQuote } from '../lib/deliveryQuote';
+import { useRealtime } from '../lib/useRealtime';
+import { checkoutEtaWindow } from '../lib/deliveryEta';
 
 type Step = 'details' | 'review' | 'success';
 type ContactPhoneMode = 'account' | 'alternate';
-type Finance = {
-  items: { name: string; quantity: number; unit_price: string }[];
-  subtotal: number;
-  delivery_fee: number;
-  service_fee: number;
-  total: number;
-  distance_km?: number;
-  duration_minutes?: number;
-  max_delivery_km?: number;
-};
+type Finance = AuthoritativeDeliveryQuote;
 
 type LocationInsights = {
   serviceable_restaurant_count: number;
@@ -35,10 +30,17 @@ type LocationInsights = {
   location_key: string;
 };
 
-const SUBMIT_TIMEOUT_MS = 12000;
+const SUBMIT_TIMEOUT_MS = 20000;
+
+const availabilityCopy = {
+  en: { closed: 'This restaurant is currently closed or paused. Choose another restaurant or try again later.', changed: 'This restaurant just paused orders. Your cart is safe, but checkout is unavailable until it reopens.' },
+  fr: { closed: 'Ce restaurant est actuellement ferm\u00e9 ou en pause. Choisissez un autre restaurant ou r\u00e9essayez plus tard.', changed: 'Ce restaurant vient de suspendre les commandes. Votre panier est conserv\u00e9, mais la validation est indisponible jusqu\u2019\u00e0 sa r\u00e9ouverture.' },
+  ar: { closed: '\u0627\u0644\u0645\u0637\u0639\u0645 \u0645\u063a\u0644\u0642 \u0623\u0648 \u0645\u062a\u0648\u0642\u0641 \u0645\u0624\u0642\u062a\u0627. \u0627\u062e\u062a\u0631 \u0645\u0637\u0639\u0645\u0627 \u0622\u062e\u0631 \u0623\u0648 \u062d\u0627\u0648\u0644 \u0644\u0627\u062d\u0642\u0627.', changed: '\u0623\u0648\u0642\u0641 \u0627\u0644\u0645\u0637\u0639\u0645 \u0627\u0644\u0637\u0644\u0628\u0627\u062a \u0627\u0644\u0622\u0646. \u0633\u0644\u062a\u0643 \u0645\u062d\u0641\u0648\u0638\u0629\u060c \u0644\u0643\u0646 \u0644\u0627 \u064a\u0645\u0643\u0646 \u0625\u062a\u0645\u0627\u0645 \u0627\u0644\u0637\u0644\u0628 \u062d\u062a\u0649 \u064a\u0639\u0648\u062f \u0644\u0644\u0639\u0645\u0644.' },
+} as const;
 
 export default function CheckoutPage() {
-  const { t } = useT();
+  const { t, locale } = useT();
+  const availability = availabilityCopy[locale];
   const { profile } = useAuth();
   const [search] = useSearchParams();
   const navigate = useNavigate();
@@ -66,7 +68,7 @@ export default function CheckoutPage() {
   const [savingRepeatedAddress, setSavingRepeatedAddress] = useState(false);
 
   // Restaurant coords for delivery zone + map
-  type RestaurantGeo = { lat: number; lng: number; max_km: number };
+  type RestaurantGeo = { lat: number; lng: number; max_km: number; operationalStatus: 'open' | 'busy' | 'closed'; preparationMinutes: number };
   const [restaurantGeo, setRestaurantGeo] = useState<RestaurantGeo | null>(null);
   // Customer-chosen delivery location from the map
   const [mapLocation, setMapLocation] = useState<DeliveryMapLocation | null>(deliveryLocation);
@@ -81,48 +83,62 @@ export default function CheckoutPage() {
       try {
         const { data, error } = await supabase
           .from('restaurants')
-          .select('latitude, longitude, max_delivery_km')
+          .select('latitude, longitude, max_delivery_km, operational_status, estimated_delivery_min')
           .eq('id', cart.restaurantId)
           .maybeSingle();
         if (error) throw error;
         if (data && data.latitude != null && data.longitude != null) {
-          setRestaurantGeo({ lat: data.latitude, lng: data.longitude, max_km: data.max_delivery_km ?? 10 });
+          setRestaurantGeo({
+            lat: data.latitude,
+            lng: data.longitude,
+            max_km: data.max_delivery_km ?? 10,
+            operationalStatus: data.operational_status,
+            preparationMinutes: data.estimated_delivery_min ?? 20,
+          });
+          if (data.operational_status === 'closed') {
+            setCalcError(availability.closed);
+          }
         }
       } catch (err) {
         console.error('Failed to load restaurant delivery geography', err);
         setCalcError(formatWorkflowError(err, t('checkout.errorCalc')));
       }
     })();
-  }, [cart.restaurantId, t]);
+  }, [availability.closed, cart.restaurantId, t]);
+
+  useRealtime('restaurants', (payload) => {
+    if (!payload.new?.id || payload.new.id !== cart.restaurantId) return;
+    const operationalStatus = payload.new.operational_status as RestaurantGeo['operationalStatus'];
+    setRestaurantGeo((current) => current ? { ...current, operationalStatus } : current);
+    if (operationalStatus === 'closed') {
+      setFinance(null);
+      setCalcError(availability.changed);
+    } else {
+      setCalcError(null);
+    }
+  }, {
+    enabled: Boolean(cart.restaurantId),
+    filter: cart.restaurantId ? { id: `eq.${cart.restaurantId}` } : undefined,
+  });
 
   // Sync profile into form once on mount.
   useEffect(() => {
     if (profile && !name) setName(profile.full_name ?? '');
   }, [profile]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Calculate financials server-side whenever we enter the review step.
-  // Distance is unknown without Google Maps (Phase 3); fall back to 0km so the
-  // min delivery fee (100 DZD) applies. Server still enforces the rate.
+  // A private server route obtains Google road distance, records a short-lived
+  // trusted quote, then Supabase applies the authoritative commercial rules.
   const recalcFinancials = useCallback(async () => {
-    if (cart.lines.length === 0 || !cart.restaurantId || !mapLocation?.confirmed) return;
+    if (cart.lines.length === 0 || !cart.restaurantId || !mapLocation?.confirmed || restaurantGeo?.operationalStatus === 'closed') return;
     setCalcLoading(true);
     setCalcError(null);
     setFinance(null);
     try {
-      const itemsPayload = cart.lines.map((l) => ({
-        menu_item_id: l.item.id,
-        quantity: l.quantity,
-      }));
-      const data = await withExponentialBackoff(async () => {
-        const { data: quote, error } = await supabase.rpc('quote_delivery_order', {
-          p_restaurant_id: cart.restaurantId,
-          p_items: itemsPayload,
-          p_delivery_lat: mapLocation.lat,
-          p_delivery_lng: mapLocation.lng,
-        });
-        if (error) throw error;
-        return quote as Finance;
-      }, { attempts: 2, timeoutMs: 15000 });
+      const data = await getAuthoritativeDeliveryQuote(
+        cart.restaurantId,
+        { lat: mapLocation.lat, lng: mapLocation.lng },
+        cart.lines,
+      );
       setFinance(data);
     } catch (err) {
       console.error('Failed to calculate checkout financials', err);
@@ -130,7 +146,7 @@ export default function CheckoutPage() {
     } finally {
       setCalcLoading(false);
     }
-  }, [cart.lines, cart.restaurantId, t, mapLocation]);
+  }, [cart.lines, cart.restaurantId, t, mapLocation, restaurantGeo?.operationalStatus]);
 
   useEffect(() => {
     if (!mapLocation?.confirmed || !restaurantGeo) {
@@ -145,10 +161,7 @@ export default function CheckoutPage() {
     if (step !== 'success' || !profile || !mapLocation?.confirmed) return;
     let active = true;
     void withExponentialBackoff(async () => {
-      const { data, error } = await supabase.rpc('get_location_insights', {
-        p_lat: mapLocation.lat,
-        p_lng: mapLocation.lng,
-      });
+      const { data, error } = await fetchLocationInsights<LocationInsights>(mapLocation.lat, mapLocation.lng);
       if (error) throw error;
       return data as LocationInsights;
     }, { attempts: 2, timeoutMs: 12000 }).then((insights) => {
@@ -227,6 +240,10 @@ export default function CheckoutPage() {
       setSubmitError(t('map.confirmRequired'));
       return;
     }
+    if (!finance?.route_quote_id) {
+      setSubmitError(t('checkout.errorCalc'));
+      return;
+    }
     const contactPhone = normalizeAlgerianPhone(selectedPhone);
     if (!contactPhone) {
       setSubmitError(t('checkout.invalidPhone'));
@@ -266,29 +283,31 @@ export default function CheckoutPage() {
         delivery_postal_code: mapLocation.addressParts?.postalCode ?? null,
         delivery_landmark: mapLocation.details?.landmark || null,
         delivery_instructions: mapLocation.details?.instructions || null,
+        route_quote_id: finance?.route_quote_id,
         notes: notes.trim() || null,
         idempotency_key: idempotencyKey,
       };
 
-      const { data, error: e } = await supabase.rpc('create_order_with_items', {
+      const { data, error: e } = await callUserAction<{ order_id?: string }>('create_order_with_items', {
         p_payload: payload,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any, { signal: controller.signal } as any);
+      }, { signal: controller.signal });
 
       if (e) {
         // ERRCODE P0001 is our own 'duplicate_order' signal.
         if ((e as { code?: string; message?: string }).message?.includes('duplicate_order')) {
-          setPlacedOrderId((data as { order_id?: string } | null)?.order_id ?? null);
+          setPlacedOrderId(data?.order_id ?? null);
           setStep('success');
+          clearCachedDeliveryQuotes();
           clear();
           return;
         }
         throw e;
       }
 
-      const orderId = (data as { order_id?: string })?.order_id ?? null;
+      const orderId = data?.order_id ?? null;
       setPlacedOrderId(orderId);
       setStep('success');
+      clearCachedDeliveryQuotes();
       clear();
     } catch (err) {
       console.error('Failed to place checkout order', err);
@@ -301,7 +320,7 @@ export default function CheckoutPage() {
       clearTimeout(t0);
       setSubmitting(false);
     }
-  }, [submitting, profile, cart, address, selectedPhone, notes, t, clear, mapLocation]);
+  }, [submitting, profile, cart, address, selectedPhone, notes, t, clear, mapLocation, finance?.route_quote_id]);
 
   // Cart empty states for /checkout accessed without items.
   if (cart.lines.length === 0 && step !== 'success') {
@@ -320,7 +339,7 @@ export default function CheckoutPage() {
     return (
       <AppShell>
         <div className="kiyo-card mx-auto max-w-md p-8 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-sage-100">
+          <div className="animate-success-pop mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-sage-100">
             <Check className="h-7 w-7 text-sage-500" />
           </div>
           <h2 className="mt-4 font-display text-2xl font-extrabold tracking-tight text-ink-900">
@@ -469,7 +488,7 @@ export default function CheckoutPage() {
                 {mapLocation?.confirmed && !calcLoading && finance?.duration_minutes != null && (
                   <div className="mt-2 flex min-h-11 items-center justify-between rounded-lg bg-sage-50 px-3 text-xs text-sage-800">
                     <span>{t('location.etaRange')}</span>
-                    <span className="font-bold" data-testid="delivery-eta-range">{formatEtaRange(finance.duration_minutes, t('location.minutesShort'))}</span>
+                    <span className="font-bold" data-testid="delivery-eta-range">{formatEtaRange(finance.duration_minutes, restaurantGeo?.preparationMinutes, t('location.minutesShort'))}</span>
                   </div>
                 )}
                 {mapLocation?.confirmed && !calcLoading && calcError && (
@@ -498,7 +517,7 @@ export default function CheckoutPage() {
 
               <button
                 onClick={() => setStep('review')}
-                disabled={!detailsValid}
+                disabled={!detailsValid || calcLoading || !finance?.route_quote_id}
                 className="kiyo-btn-primary w-full"
               >
                 {t('checkout.step.confirm')}
@@ -558,7 +577,7 @@ export default function CheckoutPage() {
                       </div>
                       <div>
                         <span className="block text-sage-700">{t('location.etaMinutes')}</span>
-                        <span className="mt-1 block font-bold text-sage-900">{finance.duration_minutes != null ? formatEtaRange(finance.duration_minutes, t('location.minutesShort')) : '—'}</span>
+                        <span className="mt-1 block font-bold text-sage-900">{finance.duration_minutes != null ? formatEtaRange(finance.duration_minutes, restaurantGeo?.preparationMinutes, t('location.minutesShort')) : '—'}</span>
                       </div>
                     </div>
                   )}
@@ -686,9 +705,7 @@ function formatWorkflowError(err: unknown, fallback: string): string {
   return fallback;
 }
 
-function formatEtaRange(durationMinutes: number, unit: string): string {
-  const midpoint = Math.max(8, Math.round(durationMinutes));
-  const lower = Math.max(8, midpoint - 3);
-  const upper = midpoint + 6;
-  return `${lower}–${upper} ${unit}`;
+function formatEtaRange(durationMinutes: number, preparationMinutes: number | undefined, unit: string): string {
+  const eta = checkoutEtaWindow(durationMinutes, preparationMinutes ?? 20);
+  return `${eta.minimumMinutes}-${eta.maximumMinutes} ${unit}`;
 }

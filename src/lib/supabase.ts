@@ -182,10 +182,12 @@ export type OrderRow = {
 export type OrderItemRow = {
   id: string;
   order_id: string;
+  menu_item_id: string | null;
   name: string;
   quantity: number;
   unit_price: string;
   notes: string | null;
+  item_snapshot: Record<string, unknown> | null;
 };
 
 export type AuditLog = {

@@ -1,8 +1,11 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight, Heart, ShieldCheck, ShoppingBag, Store, Utensils } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../lib/i18n-react';
 import { AppShell } from '../components/AppShell';
+import { Skeleton } from '../components/feedback';
+import { supabase } from '../lib/supabase';
 
 export default function DashboardPage() {
   const { profile } = useAuth();
@@ -15,6 +18,31 @@ export default function DashboardPage() {
 function CustomerDashboard() {
   const { t } = useT();
   const { profile } = useAuth();
+  const [usual, setUsual] = useState<{ id: string; name: string } | null>(null);
+  const [personalLoading, setPersonalLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    if (!profile?.id) {
+      setPersonalLoading(false);
+      return undefined;
+    }
+    void supabase.from('orders').select('restaurant_id, restaurants(id, name)').order('created_at', { ascending: false }).limit(30).then(({ data }) => {
+      if (!active) return;
+      const counts = new Map<string, { id: string; name: string; count: number }>();
+      for (const row of (data ?? []) as unknown as Array<{ restaurant_id: string; restaurants: { id: string; name: string } | null }>) {
+        if (!row.restaurants) continue;
+        const current = counts.get(row.restaurant_id) ?? { ...row.restaurants, count: 0 };
+        current.count += 1;
+        counts.set(row.restaurant_id, current);
+      }
+      const favorite = [...counts.values()].sort((a, b) => b.count - a.count)[0];
+      setUsual(favorite ? { id: favorite.id, name: favorite.name } : null);
+      setPersonalLoading(false);
+    });
+    return () => { active = false; };
+  }, [profile?.id]);
+
   return (
     <AppShell>
       <Hero
@@ -22,6 +50,14 @@ function CustomerDashboard() {
         subtitle={t('dash.customer.subtitle')}
         name={profile?.full_name ?? profile?.email ?? ''}
       />
+      {personalLoading ? (
+        <div className="kiyo-card mb-4 p-4"><Skeleton count={2} /></div>
+      ) : usual ? (
+        <Link to={`/restaurants/${usual.id}`} className="kiyo-card mb-4 flex items-center justify-between border border-ember-100 p-4 hover:bg-ember-50">
+          <div><p className="text-xs font-bold uppercase text-ember-600">{t('dash.welcome')}</p><p className="mt-1 font-display text-base font-bold text-ink-900">{usual.name}</p><p className="text-xs text-ink-500">{t('orders.reorder')}</p></div>
+          <ChevronRight className="h-5 w-5 text-ember-500" />
+        </Link>
+      ) : null}
       <div className="grid gap-3 sm:grid-cols-2">
         <DashboardAction to="/restaurants" icon={ShoppingBag} title={t('market.browse')} subtitle={t('dash.customer.subtitle')} />
         <DashboardAction to="/orders" icon={Utensils} title={t('orders.title')} subtitle={t('orders.empty')} />

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase, type SupportTicket } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../lib/i18n-react';
@@ -36,10 +37,12 @@ const PRIORITIES = [
 export function SupportPage() {
   const { profile } = useAuth();
   const { t } = useT();
+  const [search] = useSearchParams();
+  const orderIdFromUrl = search.get('order') ?? '';
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm] = useState(Boolean(orderIdFromUrl));
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -100,6 +103,7 @@ export function SupportPage() {
         {showForm && (
           <TicketForm
             userId={profile.id}
+            initialOrderId={orderIdFromUrl}
             onCreated={() => { setShowForm(false); void load(); }}
             onCancel={() => setShowForm(false)}
           />
@@ -110,6 +114,7 @@ export function SupportPage() {
             <MessageCircle className="mb-3 h-10 w-10 text-ink-300" />
             <p className="text-sm text-ink-400">{t('support.noTickets')}</p>
             <p className="mt-1 text-xs text-ink-400">{t('support.needHelp')}</p>
+            <button type="button" onClick={() => setShowForm(true)} className="kiyo-btn-primary mt-4 min-h-11">{t('support.newTicket')}</button>
           </div>
         ) : (
           <ul className="space-y-3">
@@ -156,13 +161,13 @@ export function SupportPage() {
   );
 }
 
-function TicketForm({ userId, onCreated, onCancel }: { userId: string; onCreated: () => void; onCancel: () => void }) {
+function TicketForm({ userId, initialOrderId, onCreated, onCancel }: { userId: string; initialOrderId: string; onCreated: () => void; onCancel: () => void }) {
   const { t } = useT();
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
-  const [category, setCategory] = useState('general');
-  const [priority, setPriority] = useState('normal');
-  const [orderId, setOrderId] = useState('');
+  const [category, setCategory] = useState(initialOrderId ? 'complaint' : 'general');
+  const [priority, setPriority] = useState(initialOrderId ? 'high' : 'normal');
+  const [orderId, setOrderId] = useState(initialOrderId);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

@@ -1,7 +1,6 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, User, LogOut, ChevronDown, Menu, X, ShoppingBag, Store, Utensils, ShieldCheck, MessageCircle, Heart, Bike } from 'lucide-react';
-import { useState } from 'react';
+import { LayoutDashboard, User, LogOut, ChevronDown, Menu, X, ShoppingBag, Store, Utensils, ShieldCheck, MessageCircle, Heart, Bike, WifiOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { useCart } from '../context/CartContext';
@@ -10,6 +9,7 @@ import { Logo } from './Logo';
 import { NotificationBell } from './NotificationBell';
 import { WilayaSelector } from './WilayaSelector';
 import type { Locale } from '../lib/i18n';
+import { useNetworkStatus } from '../lib/useNetworkStatus';
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { profile, signOut, locale, setLocale } = useAuth();
@@ -17,6 +17,19 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { t } = useT();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [cartPulse, setCartPulse] = useState(false);
+  const previousTotal = useRef(totalItems);
+  const network = useNetworkStatus();
+
+  useEffect(() => {
+    if (totalItems > previousTotal.current) {
+      setCartPulse(true);
+      const timer = window.setTimeout(() => setCartPulse(false), 450);
+      previousTotal.current = totalItems;
+      return () => window.clearTimeout(timer);
+    }
+    previousTotal.current = totalItems;
+  }, [totalItems]);
 
   const ROLE_LABEL: Record<string, string> = {
     super_admin: t('role.super_admin'),
@@ -123,7 +136,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             {role === 'customer' && totalItems > 0 && (
               <Link
                 to="/cart"
-                className="relative inline-flex items-center gap-1 rounded-lg border border-ink-100 bg-white px-2.5 py-2 text-xs font-semibold text-ink-700 hover:bg-ink-50"
+                className={`relative inline-flex items-center gap-1 rounded-lg border border-ink-100 bg-white px-2.5 py-2 text-xs font-semibold text-ink-700 hover:bg-ink-50 ${cartPulse ? 'animate-cart-pulse' : ''}`}
                 aria-label={t('cart.title')}
               >
                 <ShoppingBag className="h-4 w-4" />
@@ -188,6 +201,16 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
       </header>
 
+      {(!network.online || network.slow) && (
+        <div className={`border-b px-4 py-2 text-center text-xs font-semibold ${network.online ? 'border-warning-200 bg-warning-50 text-warning-800' : 'border-error-200 bg-error-50 text-error-700'}`} role="status">
+          <WifiOff className="mr-1 inline h-3.5 w-3.5" />
+          {locale === 'fr'
+            ? (network.online ? 'Connexion faible : certaines informations peuvent prendre plus de temps.' : 'Vous \u00eates hors ligne. Reconnectez-vous pour continuer.')
+            : locale === 'ar'
+              ? (network.online ? '\u0627\u0644\u0627\u062a\u0635\u0627\u0644 \u0636\u0639\u064a\u0641: \u0642\u062f \u062a\u0633\u062a\u063a\u0631\u0642 \u0628\u0639\u0636 \u0627\u0644\u0645\u0639\u0644\u0648\u0645\u0627\u062a \u0648\u0642\u062a\u0627 \u0623\u0637\u0648\u0644.' : '\u0623\u0646\u062a \u063a\u064a\u0631 \u0645\u062a\u0635\u0644. \u0623\u0639\u062f \u0627\u0644\u0627\u062a\u0635\u0627\u0644 \u0644\u0644\u0645\u062a\u0627\u0628\u0639\u0629.')
+              : (network.online ? 'Weak connection: some information may take longer to load.' : 'You are offline. Reconnect to continue.')}
+        </div>
+      )}
       <main className="mx-auto max-w-6xl px-4 pb-24 pt-6 sm:px-6 sm:pt-8">
         <div className="route-enter">{children}</div>
       </main>

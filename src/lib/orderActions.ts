@@ -1,24 +1,24 @@
 import { supabase, type OrderRow } from './supabase';
+import { callUserAction } from './userApi';
 
 export type CustomerCancelResult =
   | { status: 'cancelled' }
   | { status: 'support_created' }
   | { status: 'failed'; message: string };
 
-type CancellableOrder = Pick<OrderRow, 'id' | 'customer_id' | 'restaurant_id' | 'status'>;
+type CancellableOrder = Pick<OrderRow, 'id' | 'customer_id' | 'restaurant_id' | 'status' | 'updated_at'>;
 
 export async function requestCustomerCancellation(order: CancellableOrder): Promise<CustomerCancelResult> {
   try {
     if (order.status === 'pending') {
-      const { data, error } = await supabase
-        .from('orders')
-        .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-        .eq('id', order.id)
-        .eq('status', 'pending')
-        .select('id')
-        .maybeSingle();
+      const { data, error } = await callUserAction<{ id: string }>('transition_order_status', {
+        p_order_id: order.id,
+        p_target_status: 'cancelled',
+        p_reason: 'Customer cancelled before restaurant preparation',
+        p_expected_updated_at: order.updated_at,
+      });
 
-      if (!error && data) {
+      if (!error && data?.id) {
         return { status: 'cancelled' };
       }
     }
@@ -40,7 +40,9 @@ export async function requestCustomerCancellation(order: CancellableOrder): Prom
   } catch (err) {
     return {
       status: 'failed',
-      message: err instanceof Error ? err.message : 'Cancellation request failed.',
+      message: err instanceof Error
+        ? err.message
+        : 'We could not send the cancellation request. Please open order support and try again.',
     };
   }
 }

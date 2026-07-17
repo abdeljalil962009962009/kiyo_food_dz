@@ -23,6 +23,7 @@ type CartAction =
   | { type: 'SET_QTY'; itemId: string; quantity: number }
   | { type: 'SET_NOTES'; itemId: string; notes: string }
   | { type: 'SET_RESTAURANT_NAME'; name: string }
+  | { type: 'REPLACE'; restaurantId: string; restaurantName: string; lines: CartLine[] }
   | { type: 'CLEAR' }
   | { type: 'HYDRATE'; state: CartState };
 
@@ -95,6 +96,12 @@ function reducer(state: CartState, action: CartAction): CartState {
       };
     case 'SET_RESTAURANT_NAME':
       return { ...state, restaurantName: action.name };
+    case 'REPLACE':
+      return {
+        restaurantId: action.restaurantId,
+        restaurantName: action.restaurantName,
+        lines: action.lines,
+      };
     case 'CLEAR':
       return emptyState();
     default:
@@ -111,6 +118,7 @@ type CartContextValue = {
   setQuantity: (itemId: string, qty: number) => void;
   setNotes: (itemId: string, notes: string) => void;
   setRestaurantName: (name: string) => void;
+  replaceCart: (restaurantId: string, restaurantName: string, lines: CartLine[]) => void;
   clear: () => void;
 };
 
@@ -153,6 +161,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'SET_NOTES', itemId, notes }), []);
   const setRestaurantName = useCallback((name: string) =>
     dispatch({ type: "SET_RESTAURANT_NAME", name }), []);
+  const replaceCart = useCallback((restaurantId: string, restaurantName: string, lines: CartLine[]) =>
+    dispatch({ type: 'REPLACE', restaurantId, restaurantName, lines }), []);
   const clear = useCallback(() => dispatch({ type: 'CLEAR' }), []);
 
   const totalItems = state.lines.reduce((sum, l) => sum + l.quantity, 0);
@@ -164,9 +174,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const value = useMemo<CartContextValue>(
     () => ({
       state, totalItems, subtotal,
-      addItem, removeItem, setQuantity, setNotes, setRestaurantName, clear,
+      addItem, removeItem, setQuantity, setNotes, setRestaurantName, replaceCart, clear,
     }),
-    [state, totalItems, subtotal, addItem, removeItem, setQuantity, setNotes, setRestaurantName, clear],
+    [state, totalItems, subtotal, addItem, removeItem, setQuantity, setNotes, setRestaurantName, replaceCart, clear],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
