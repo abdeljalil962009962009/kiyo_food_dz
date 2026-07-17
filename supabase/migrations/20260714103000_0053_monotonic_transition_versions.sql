@@ -1,4 +1,4 @@
-﻿BEGIN;
+BEGIN;
 
 -- now() is stable for an entire transaction, so it cannot be used as an
 -- optimistic-concurrency token when more than one transition can occur in the
