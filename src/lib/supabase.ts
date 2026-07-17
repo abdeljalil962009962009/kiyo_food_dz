@@ -76,121 +76,9 @@ export type Wilaya = {
 export type RestaurantStatus =
   | 'draft' | 'pending_approval' | 'published' | 'hidden' | 'suspended';
 
-export type RestaurantApplicationStatus =
-  | 'draft' | 'submitted' | 'under_review' | 'changes_requested' | 'resubmitted'
-  | 'preliminarily_approved' | 'onboarding_in_progress' | 'menu_review'
-  | 'ready_to_publish' | 'published' | 'rejected' | 'suspended' | 'archived';
-
-export type RestaurantApplication = {
-  id: string;
-  applicant_id: string;
-  restaurant_id: string | null;
-  status: RestaurantApplicationStatus;
-  application_version: number;
-  submission_key: string | null;
-  restaurant_name: string;
-  legal_name: string | null;
-  description: string | null;
-  phone: string;
-  address: string;
-  cuisine: string[];
-  opening_hours: Record<string, unknown>;
-  max_delivery_km: number | string;
-  min_order_amount: number | string;
-  logo_url: string | null;
-  cover_image_url: string | null;
-  latitude: number | null;
-  longitude: number | null;
-  location_accuracy_m: number | null;
-  location_confirmed: boolean;
-  place_id: string | null;
-  location_source: 'gps' | 'network' | 'manual' | 'search' | null;
-  address_quality: string | null;
-  street: string | null;
-  neighborhood: string | null;
-  commune: string | null;
-  city: string | null;
-  province: string | null;
-  postal_code: string | null;
-  country: string | null;
-  wilaya_id: number | null;
-  proposed_food_commission_rate: number | string | null;
-  proposed_delivery_share_rate: number | string | null;
-  proposed_commission_base: 'food_subtotal' | 'food_plus_delivery' | null;
-  changes_requested_reason: string | null;
-  rejection_reason: string | null;
-  admin_internal_notes: string | null;
-  reviewed_by: string | null;
-  reviewed_at: string | null;
-  submitted_at: string | null;
-  resubmitted_at: string | null;
-  last_transition_at: string;
-  last_message_at: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-export type RestaurantApplicationMessage = {
-  id: string;
-  application_id: string;
-  sender_id: string;
-  sender_role: 'applicant' | 'super_admin';
-  body: string;
-  client_message_id: string;
-  read_by_recipient_at: string | null;
-  created_at: string;
-};
-
-export type RestaurantApplicationTransition = {
-  id: string;
-  application_id: string;
-  from_status: RestaurantApplicationStatus | null;
-  to_status: RestaurantApplicationStatus;
-  actor_id: string | null;
-  actor_role: 'applicant' | 'super_admin';
-  reason: string | null;
-  metadata: Record<string, unknown>;
-  created_at: string;
-};
-
-export type RestaurantMembership = {
-  id: string;
-  restaurant_id: string;
-  user_id: string;
-  membership_role: 'owner' | 'manager' | 'staff';
-  status: 'invited' | 'active' | 'suspended' | 'revoked';
-  created_at: string;
-  updated_at: string;
-};
-
-export type RestaurantCommercialTerm = {
-  id: string;
-  application_id: string | null;
-  restaurant_id: string | null;
-  version: number;
-  status: 'proposed' | 'counteroffered' | 'accepted' | 'approved' | 'scheduled' | 'active' | 'replaced' | 'rejected' | 'expired';
-  commission_base: 'food_subtotal' | 'food_plus_delivery';
-  food_commission_rate: number | string;
-  delivery_share_rate: number | string;
-  effective_at: string | null;
-  expires_at: string | null;
-  note: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-export type PublicationReadiness = {
-  ready: boolean;
-  blockers: string[];
-  restaurant_id: string;
-  application_id: string | null;
-  checked_at: string;
-};
-
 export type Restaurant = {
   id: string;
   owner_id: string;
-  source_application_id: string | null;
   name: string;
   description: string | null;
   phone: string | null;
@@ -225,6 +113,7 @@ export type Restaurant = {
   location_updated_at: string | null;
   max_delivery_km: number;
   min_order_amount: number;
+  commission_rate: number | string;
   is_verified: boolean;
   is_featured: boolean;
   featured_until: string | null;

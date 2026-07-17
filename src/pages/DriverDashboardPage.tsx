@@ -10,7 +10,6 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../lib/i18n-react';
 import { watchCurrentPosition, type LiveGeoPoint } from '../lib/geo';
-import { callUserAction } from '../lib/userApi';
 
 type Driver = {
   id: string;
@@ -47,7 +46,6 @@ type Delivery = {
   delivery_longitude: number | null;
   driver_notes: string | null;
   created_at: string;
-  updated_at: string;
   orders: {
     id: string;
     restaurant_id: string;
@@ -177,7 +175,7 @@ export default function DriverDashboardPage() {
         locationWriteInFlightRef.current = true;
         lastLocationWriteRef.current = now;
         try {
-          const { data, error: rpcError } = await callUserAction<LocationRpcResult>('update_driver_live_location', {
+          const { data, error: rpcError } = await supabase.rpc('update_driver_live_location', {
             p_driver_id: driver.id,
             p_lat: point.lat,
             p_lng: point.lng,
@@ -185,7 +183,8 @@ export default function DriverDashboardPage() {
             p_heading: point.heading,
             p_speed_mps: point.speed,
             p_recorded_at: new Date(point.timestamp).toISOString(),
-          });
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          } as any);
 
           if (rpcError) throw rpcError;
           const result = data as LocationRpcResult | null;
@@ -243,13 +242,10 @@ export default function DriverDashboardPage() {
   const acceptDelivery = async (deliveryId: string) => {
     setActionError(null);
     setPendingAction(deliveryId);
-    const delivery = pendingDeliveries.find((item) => item.id === deliveryId);
-    const { error: e } = await callUserAction('transition_delivery_status', {
-      p_delivery_id: deliveryId,
-      p_target_status: 'driver_accepted',
-      p_reason: null,
-      p_expected_updated_at: delivery?.updated_at ?? null,
-    });
+    const { error: e } = await supabase
+      .from('deliveries')
+      .update({ status: 'driver_accepted', updated_at: new Date().toISOString() })
+      .eq('id', deliveryId);
     if (e) {
       setActionError(e.message);
       setPendingAction(null);
@@ -262,13 +258,10 @@ export default function DriverDashboardPage() {
   const declineDelivery = async (deliveryId: string) => {
     setActionError(null);
     setPendingAction(deliveryId);
-    const delivery = pendingDeliveries.find((item) => item.id === deliveryId);
-    const { error: e } = await callUserAction('transition_delivery_status', {
-      p_delivery_id: deliveryId,
-      p_target_status: 'driver_declined',
-      p_reason: 'Driver declined assignment',
-      p_expected_updated_at: delivery?.updated_at ?? null,
-    });
+    const { error: e } = await supabase
+      .from('deliveries')
+      .update({ status: 'driver_declined', updated_at: new Date().toISOString() })
+      .eq('id', deliveryId);
     if (e) {
       setActionError(e.message);
       setPendingAction(null);
@@ -281,21 +274,28 @@ export default function DriverDashboardPage() {
   const updateDeliveryStatus = async (deliveryId: string, newStatus: string) => {
     setActionError(null);
     setPendingAction(deliveryId);
-    const delivery = activeDelivery || pendingDeliveries.find((item) => item.id === deliveryId);
-    let reason: string | null = null;
-    if (newStatus === 'failed') {
-      reason = window.prompt('Please explain why delivery failed:')?.trim() ?? null;
-      if (!reason || reason.length < 3) {
-        setPendingAction(null);
-        return;
+    const update: Record<string, unknown> = { status: newStatus, updated_at: new Date().toISOString() };
+    if (newStatus === 'picked_up') update.picked_up_at = new Date().toISOString();
+    if (newStatus === 'delivered') {
+      update.delivered_at = new Date().toISOString();
+      // Also update order status
+      const delivery = activeDelivery || pendingDeliveries.find(d => d.id === deliveryId);
+      if (delivery) {
+        const { error: orderError } = await supabase
+          .from('orders')
+          .update({ status: 'delivered' })
+          .eq('id', delivery.order_id);
+        if (orderError) {
+          setActionError(orderError.message);
+          setPendingAction(null);
+          return;
+        }
       }
     }
-    const { error: e } = await callUserAction('transition_delivery_status', {
-      p_delivery_id: deliveryId,
-      p_target_status: newStatus,
-      p_reason: reason,
-      p_expected_updated_at: delivery?.updated_at ?? null,
-    });
+    const { error: e } = await supabase
+      .from('deliveries')
+      .update(update)
+      .eq('id', deliveryId);
     if (e) {
       setActionError(e.message);
       setPendingAction(null);

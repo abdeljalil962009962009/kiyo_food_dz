@@ -72,7 +72,7 @@ export default function RestaurantOnboardingPage() {
     if (!location?.confirmed) return setError(t('map.confirmRequired'));
     setSubmitting(true);
     try {
-      const { error: e } = await supabase
+      const { data, error: e } = await supabase
         .from('restaurants')
         .insert({
           owner_id: ownerId,
@@ -103,6 +103,17 @@ export default function RestaurantOnboardingPage() {
         .maybeSingle();
       if (e) throw e;
 
+      if (data) {
+        void supabase.rpc('log_activity', {
+          p_action: 'restaurant_created',
+          p_target_type: 'restaurant',
+          p_target_id: data.id,
+          p_metadata: { name, owner_id: ownerId, latitude: location?.lat, longitude: location?.lng },
+        }).then(
+          () => { /* non-fatal */ },
+          (logErr) => console.error('Failed to log restaurant creation activity', logErr),
+        );
+      }
       navigate('/admin/restaurants', { replace: true });
     } catch (err) {
       console.error('Failed to create restaurant', err);

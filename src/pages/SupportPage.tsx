@@ -7,7 +7,6 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Spinner, ErrorState, FullScreenLoader } from '../components/feedback';
 import { AppShell } from '../components/AppShell';
 import { MessageCircle, Plus, Send, ChevronLeft, Package, AlertCircle } from 'lucide-react';
-import { callUserAction } from '../lib/userApi';
 
 type Message = {
   id: string;
@@ -298,7 +297,7 @@ function TicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () => vo
     if (reply.trim().length < 1 || !profile) return;
     setSending(true);
     try {
-      const { error: e } = await callUserAction('reply_to_ticket', {
+      const { error: e } = await supabase.rpc('reply_to_ticket', {
         p_ticket_id: ticketId,
         p_body: reply.trim(),
         p_is_admin: false,

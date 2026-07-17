@@ -1,7 +1,5 @@
 import { memo, type JSX } from 'react';
 import type { OrderStatus } from '../lib/supabase';
-import { useT } from '../lib/i18n-react';
-import { publicRestaurantImageUrl } from '../lib/restaurantMedia';
 
 // Currency configuration - centralized for multi-currency support
 // Default currency is DZD (Algerian Dinar), but architecture supports future expansion
@@ -25,7 +23,6 @@ export function getCurrencySymbol(): string {
 }
 
 export const StatusBadge = memo(function StatusBadge({ status }: { status: OrderStatus }) {
-  const { t } = useT();
   const styles: Record<OrderStatus, string> = {
     pending: 'bg-warning-500/15 text-warning-600',
     accepted: 'bg-blue-100 text-blue-700',
@@ -51,7 +48,7 @@ export const StatusBadge = memo(function StatusBadge({ status }: { status: Order
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${styles[status]}`}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${dot[status]}`} />
-      <span>{t(`status.${status}`)}</span>
+      <span className="capitalize">{status.replace(/_/g, ' ')}</span>
     </span>
   );
 });
@@ -71,13 +68,17 @@ export const RestaurantImage = memo(function RestaurantImage({ url, name, classN
 }) {
   // Stock food photo fallback (free, royalty-free via Unsplash CDN).
   const fallback = 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=800&q=60&auto=format&fit=crop';
-  const resolvedUrl = publicRestaurantImageUrl(url);
+  const srcSet = url
+    ? `${url}?w=400&q=60&auto=format&fit=crop 400w, ${url}?w=800&q=60&auto=format&fit=crop 800w`
+    : undefined;
   return (
     <img
-      src={resolvedUrl || fallback}
+      src={url || fallback}
       alt={name}
       loading="lazy"
       decoding="async"
+      srcSet={srcSet}
+      sizes="(max-width: 640px) 400px, 800px"
       onError={(e) => {
         const img = e.currentTarget;
         if (img.src !== fallback) img.src = fallback;
@@ -87,18 +88,14 @@ export const RestaurantImage = memo(function RestaurantImage({ url, name, classN
   );
 });
 
-/** Format an ISO timestamp using the active document language. */
+/** Format ISO timestamp as relative "5m ago" */
 export function relativeTime(iso: string): string {
-  const timestamp = new Date(iso).getTime();
-  const diffSeconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
-  const documentLocale = typeof document === 'undefined' ? 'fr' : document.documentElement.lang;
-  const locale = documentLocale === 'ar' ? 'ar-DZ' : documentLocale === 'en' ? 'en-DZ' : 'fr-DZ';
-  const formatter = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
-  if (diffSeconds < 60) return formatter.format(-diffSeconds, 'second');
-  if (diffSeconds < 3600) return formatter.format(-Math.floor(diffSeconds / 60), 'minute');
-  if (diffSeconds < 86400) return formatter.format(-Math.floor(diffSeconds / 3600), 'hour');
-  if (diffSeconds < 604800) return formatter.format(-Math.floor(diffSeconds / 86400), 'day');
-  return new Date(iso).toLocaleDateString(locale);
+  const t = new Date(iso).getTime();
+  const diff = (Date.now() - t) / 1000;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return new Date(iso).toLocaleDateString();
 }
 
 /** Conditional class helper kept here to avoid pulling in clsx */

@@ -17,7 +17,6 @@ import { useAuth } from '../context/AuthContext';
 import { useT } from '../lib/i18n-react';
 import { supabase } from '../lib/supabase';
 import { withExponentialBackoff } from '../lib/locationNetwork';
-import { fetchLocationInsights } from '../lib/userApi';
 import {
   EMPTY_DELIVERY_DETAILS,
   LAST_MAP_STATE_STORAGE_KEY,
@@ -161,7 +160,10 @@ function LocationDialog({ onClose }: { onClose: () => void }) {
     let active = true;
     const timer = window.setTimeout(() => {
       void withExponentialBackoff(async () => {
-        const { data, error } = await fetchLocationInsights<LocationInsights>(draft.lat, draft.lng);
+        const { data, error } = await supabase.rpc('get_location_insights', {
+          p_lat: draft.lat,
+          p_lng: draft.lng,
+        });
         if (error) throw error;
         return data as LocationInsights;
       }, { attempts: 2, timeoutMs: 12000 }).then((data) => {

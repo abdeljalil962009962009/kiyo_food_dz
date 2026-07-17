@@ -3,12 +3,10 @@ import { Store, Check, X, ChevronLeft, Plus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useT } from '../lib/i18n-react';
 import { supabase, type Restaurant } from '../lib/supabase';
-import { callAdminAction } from '../lib/adminApi';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Skeleton, ErrorState, Spinner } from '../components/feedback';
 import { RestaurantImage } from '../components/ui';
-import { RestaurantApplicationsPanel } from '../components/RestaurantApplicationsPanel';
 
 export default function AdminRestaurantsPage() {
   const { t } = useT();
@@ -43,7 +41,7 @@ export default function AdminRestaurantsPage() {
   const approve = async (id: string) => {
     setActingId(id);
     try {
-      const { error: e } = await callAdminAction('set_restaurant_status', {
+      const { error: e } = await supabase.rpc('set_restaurant_status', {
         p_restaurant_id: id, p_status: 'published',
       });
       if (e) throw e;
@@ -58,7 +56,7 @@ export default function AdminRestaurantsPage() {
   const reject = async (id: string) => {
     setActingId(id);
     try {
-      const { error: e } = await callAdminAction('set_restaurant_status', {
+      const { error: e } = await supabase.rpc('set_restaurant_status', {
         p_restaurant_id: id, p_status: 'suspended',
       });
       if (e) throw e;
@@ -99,9 +97,6 @@ export default function AdminRestaurantsPage() {
       </div>
 
       <ErrorBoundary variant="inline">
-        <div className="mb-8">
-          <RestaurantApplicationsPanel />
-        </div>
         {loading ? (
           <Skeleton count={3} />
         ) : error ? (
@@ -133,7 +128,7 @@ export default function AdminRestaurantsPage() {
                         )}
                         {r.address && <p className="text-xs text-ink-400">{r.address}</p>}
                       </div>
-                      {!r.source_application_id && <div className="flex gap-2">
+                      <div className="flex gap-2">
                         <button
                           onClick={() => approve(r.id)} disabled={actingId === r.id}
                           className="kiyo-btn-primary bg-sage-500 hover:bg-sage-600"
@@ -148,7 +143,7 @@ export default function AdminRestaurantsPage() {
                           <X className="h-4 w-4" />
                           <span className="hidden sm:inline">{t('admin.reject')}</span>
                         </button>
-                      </div>}
+                      </div>
                     </div>
                   ))}
                 </div>

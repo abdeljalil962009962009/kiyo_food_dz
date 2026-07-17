@@ -30,11 +30,11 @@ export default function RestaurantMenuPage() {
     setLoading(true);
     setError(null);
     try {
-      const { data: managedRestaurantId, error: managedRestaurantError } = await supabase.rpc('get_user_restaurant_id');
-      if (managedRestaurantError) throw managedRestaurantError;
-      const { data: r, error: re } = managedRestaurantId
-        ? await supabase.from('restaurants').select('*').eq('id', managedRestaurantId).maybeSingle()
-        : { data: null, error: null };
+      const { data: r, error: re } = await supabase
+        .from('restaurants')
+        .select('*')
+        .eq('owner_id', profile.id)
+        .maybeSingle();
       if (re) throw re;
       
       if (!r) {

@@ -24,7 +24,7 @@ function CustomerDashboard() {
       />
       <div className="grid gap-3 sm:grid-cols-2">
         <DashboardAction to="/restaurants" icon={ShoppingBag} title={t('market.browse')} subtitle={t('dash.customer.subtitle')} />
-        <DashboardAction to="/orders" icon={Utensils} title={t('orders.title')} subtitle={t('dash.customer.ordersSubtitle')} />
+        <DashboardAction to="/orders" icon={Utensils} title={t('orders.title')} subtitle={t('orders.empty')} />
         <DashboardAction to="/favorites" icon={Heart} title={t('nav.favorites')} subtitle={t('favorites.subtitle')} />
         <DashboardAction to="/restaurant/apply" icon={Store} title={t('restaurant.apply.nav')} subtitle={t('restaurant.apply.subtitle')} />
       </div>
