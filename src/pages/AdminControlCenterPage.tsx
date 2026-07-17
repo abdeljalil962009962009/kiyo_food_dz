@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useT } from '../lib/i18n-react';
-import { supabase, type Profile, type Restaurant, type AuditLog, type PromoCode, type SupportTicket } from '../lib/supabase';
+import { supabase, type Profile, type Restaurant, type AuditLog, type PromoCode, type SupportTicket, type OrderRow } from '../lib/supabase';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Skeleton, ErrorState, Spinner } from '../components/feedback';
@@ -28,7 +28,7 @@ type Analytics = {
   settlements: { pending: number; overdue: number; paid_this_year: number };
 };
 
-type Tab = 'overview' | 'financials' | 'settlements' | 'users' | 'restaurants' | 'rules' | 'analytics' | 'alerts' | 'marketing' | 'support' | 'monitoring' | 'geography';
+type Tab = 'overview' | 'orders' | 'financials' | 'settlements' | 'users' | 'restaurants' | 'rules' | 'analytics' | 'alerts' | 'marketing' | 'support' | 'monitoring' | 'geography';
 
 const DZD = (n: number) => new Intl.NumberFormat('fr-DZ', { style: 'currency', currency: 'DZD', maximumFractionDigits: 0 }).format(n);
 
@@ -77,6 +77,7 @@ const adminErrorMessage = (err: unknown, fallback: string) => {
 const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
   en: {
     'overview': 'Overview',
+    'orders': 'Orders',
     'financials': 'Financial Center',
     'settlements': 'Settlements',
     'users': 'Users',
@@ -120,6 +121,17 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'tbl.joined': 'Joined',
     'tbl.actions': 'Actions',
     'financial.restaurantFinancials': 'Restaurant Financials',
+    'orders.title': 'Order oversight',
+    'orders.subtitle': 'Recent customer orders across all restaurants.',
+    'orders.empty': 'No orders yet',
+    'orders.number': 'Order',
+    'orders.customer': 'Customer',
+    'orders.restaurant': 'Restaurant',
+    'orders.status': 'Status',
+    'orders.total': 'Total',
+    'orders.created': 'Created',
+    'orders.delivery': 'Delivery',
+    'orders.refresh': 'Refresh',
     'financial.exportCsv': 'Export CSV',
     'financial.noData': 'No financial data yet',
     'tbl.restaurant': 'Restaurant',
@@ -226,6 +238,7 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
   },
   fr: {
     'overview': 'Vue d\'ensemble',
+    'orders': 'Commandes',
     'financials': 'Centre Financier',
     'settlements': 'Règlements',
     'users': 'Utilisateurs',
@@ -269,6 +282,17 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'tbl.joined': 'Rejoint',
     'tbl.actions': 'Actions',
     'financial.restaurantFinancials': 'Finances des restaurants',
+    'orders.title': 'Suivi des commandes',
+    'orders.subtitle': 'Commandes client récentes sur tous les restaurants.',
+    'orders.empty': 'Aucune commande pour le moment',
+    'orders.number': 'Commande',
+    'orders.customer': 'Client',
+    'orders.restaurant': 'Restaurant',
+    'orders.status': 'Statut',
+    'orders.total': 'Total',
+    'orders.created': 'Créée',
+    'orders.delivery': 'Livraison',
+    'orders.refresh': 'Actualiser',
     'financial.exportCsv': 'Exporter en CSV',
     'financial.noData': 'Aucune donnée financière pour le moment',
     'tbl.restaurant': 'Restaurant',
@@ -375,6 +399,7 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
   },
   ar: {
     'overview': 'نظرة عامة',
+    'orders': 'الطلبات',
     'financials': 'المركز المالي',
     'settlements': 'التسويات',
     'users': 'المستخدمين',
@@ -418,6 +443,17 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'tbl.joined': 'انضم في',
     'tbl.actions': 'الإجراءات',
     'financial.restaurantFinancials': 'الشؤون المالية للمطاعم',
+    'orders.title': 'متابعة الطلبات',
+    'orders.subtitle': 'أحدث طلبات العملاء عبر جميع المطاعم.',
+    'orders.empty': 'لا توجد طلبات بعد',
+    'orders.number': 'الطلب',
+    'orders.customer': 'العميل',
+    'orders.restaurant': 'المطعم',
+    'orders.status': 'الحالة',
+    'orders.total': 'الإجمالي',
+    'orders.created': 'تاريخ الإنشاء',
+    'orders.delivery': 'التوصيل',
+    'orders.refresh': 'تحديث',
     'financial.exportCsv': 'تصدير CSV',
     'financial.noData': 'لا توجد بيانات مالية بعد',
     'tbl.restaurant': 'المطعم',
@@ -538,6 +574,7 @@ export default function AdminControlCenterPage() {
 
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: 'overview', label: tx('overview', 'Overview'), icon: Activity },
+    { id: 'orders', label: tx('orders', 'Orders'), icon: ShoppingBag },
     { id: 'financials', label: tx('financials', 'Financial Center'), icon: DollarSign },
     { id: 'settlements', label: tx('settlements', 'Settlements'), icon: FileText },
     { id: 'users', label: tx('users', 'Users'), icon: Users },
@@ -585,6 +622,7 @@ export default function AdminControlCenterPage() {
 
       <ErrorBoundary variant="inline">
         {tab === 'overview' && <OverviewTab />}
+        {tab === 'orders' && <OrdersTab />}
         {tab === 'financials' && <FinancialsTab />}
         {tab === 'settlements' && <SettlementsTab />}
         {tab === 'users' && <UsersTab />}
@@ -700,6 +738,132 @@ function OverviewTab() {
           </ul>
         )}
       </div>
+    </div>
+  );
+}
+
+// ===================== ORDERS =====================
+function OrdersTab() {
+  const { t, locale } = useT();
+  const { tx } = useAdminT();
+  const [orders, setOrders] = useState<OrderRow[]>([]);
+  const [restaurants, setRestaurants] = useState<Map<string, string>>(new Map());
+  const [customers, setCustomers] = useState<Map<string, string>>(new Map());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const statusLabel = useCallback((status: OrderRow['status']) => {
+    const copy: Record<typeof status, Record<string, string>> = {
+      pending: { en: 'Pending', fr: 'En attente', ar: 'قيد الانتظار' },
+      accepted: { en: 'Accepted', fr: 'Acceptée', ar: 'مقبول' },
+      preparing: { en: 'Preparing', fr: 'En préparation', ar: 'قيد التحضير' },
+      out_for_delivery: { en: 'Out for delivery', fr: 'En livraison', ar: 'قيد التوصيل' },
+      delivered: { en: 'Delivered', fr: 'Livrée', ar: 'تم التوصيل' },
+      cancelled: { en: 'Cancelled', fr: 'Annulée', ar: 'ملغى' },
+      failed_delivery: { en: 'Failed delivery', fr: 'Échec de livraison', ar: 'فشل التوصيل' },
+      refunded: { en: 'Refunded', fr: 'Remboursée', ar: 'مسترد' },
+    };
+    return copy[status]?.[locale] ?? copy[status]?.fr ?? status;
+  }, [locale]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { data, error: ordersError } = await supabase
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (ordersError) throw ordersError;
+
+      const rows = ((data ?? []) as OrderRow[]);
+      setOrders(rows);
+
+      const restaurantIds = Array.from(new Set(rows.map((order) => order.restaurant_id).filter(Boolean)));
+      const customerIds = Array.from(new Set(rows.map((order) => order.customer_id).filter(Boolean)));
+
+      const [restaurantRes, customerRes] = await Promise.all([
+        restaurantIds.length
+          ? supabase.from('restaurants').select('id, name').in('id', restaurantIds)
+          : Promise.resolve({ data: [], error: null }),
+        customerIds.length
+          ? supabase.from('profiles').select('id, full_name, email').in('id', customerIds)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+
+      if (restaurantRes.error) throw restaurantRes.error;
+      if (customerRes.error) throw customerRes.error;
+
+      setRestaurants(new Map(((restaurantRes.data ?? []) as Pick<Restaurant, 'id' | 'name'>[]).map((restaurant) => [restaurant.id, restaurant.name])));
+      setCustomers(new Map(((customerRes.data ?? []) as Pick<Profile, 'id' | 'full_name' | 'email'>[]).map((profile) => [
+        profile.id,
+        profile.full_name || profile.email || profile.id.slice(0, 8),
+      ])));
+    } catch (err) {
+      setError(adminErrorMessage(err, t('error.genericBody')));
+    } finally {
+      setLoading(false);
+    }
+  }, [t]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  if (loading) return <Skeleton count={4} />;
+  if (error) return <ErrorState title={t('error.genericTitle')} message={error} onRetry={load} retryLabel={t('error.retry')} />;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="font-display text-base font-bold text-ink-900">{tx('orders.title', 'Order oversight')}</h3>
+          <p className="text-sm text-ink-400">{tx('orders.subtitle', 'Recent customer orders across all restaurants.')}</p>
+        </div>
+        <button onClick={load} className="kiyo-btn-secondary">
+          <Activity className="h-4 w-4" />
+          {tx('orders.refresh', 'Refresh')}
+        </button>
+      </div>
+
+      {orders.length === 0 ? (
+        <div className="kiyo-card p-6 text-center text-sm text-ink-400">{tx('orders.empty', 'No orders yet')}</div>
+      ) : (
+        <div className="kiyo-card overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-ink-100 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
+                <th className="px-4 py-3">{tx('orders.number', 'Order')}</th>
+                <th className="px-4 py-3">{tx('orders.restaurant', 'Restaurant')}</th>
+                <th className="px-4 py-3">{tx('orders.customer', 'Customer')}</th>
+                <th className="px-4 py-3">{tx('orders.status', 'Status')}</th>
+                <th className="px-4 py-3 text-right">{tx('orders.total', 'Total')}</th>
+                <th className="px-4 py-3">{tx('orders.delivery', 'Delivery')}</th>
+                <th className="px-4 py-3">{tx('orders.created', 'Created')}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-ink-50">
+              {orders.map((order) => (
+                <tr key={order.id} className="hover:bg-ink-50/50">
+                  <td className="px-4 py-3 font-mono text-xs font-semibold text-ink-900">#{order.id.slice(0, 8)}</td>
+                  <td className="px-4 py-3 font-medium text-ink-800">{restaurants.get(order.restaurant_id) ?? order.restaurant_id.slice(0, 8)}</td>
+                  <td className="px-4 py-3 text-ink-600">{customers.get(order.customer_id) ?? order.customer_id.slice(0, 8)}</td>
+                  <td className="px-4 py-3">
+                    <span className="rounded-full bg-ink-100 px-2 py-1 text-xs font-semibold text-ink-700">
+                      {statusLabel(order.status)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right font-semibold text-ink-900">{DZD(Number(order.total))}</td>
+                  <td className="px-4 py-3 text-xs text-ink-500">
+                    {order.delivery_distance_km != null ? `${Number(order.delivery_distance_km).toLocaleString('fr-DZ')} km` : '—'}
+                    {order.delivery_duration_minutes != null ? ` · ${Math.round(Number(order.delivery_duration_minutes))} min` : ''}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-ink-500">{new Date(order.created_at).toLocaleString(locale === 'ar' ? 'ar-DZ' : locale === 'en' ? 'en-DZ' : 'fr-DZ')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

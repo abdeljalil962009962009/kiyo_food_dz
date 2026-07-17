@@ -1,30 +1,39 @@
-import { useState, useRef, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Bell } from 'lucide-react';
 import { useNotifications } from '../lib/useNotifications';
 import { useAuth } from '../context/AuthContext';
 import { relativeTime } from './ui';
+import { useT } from '../lib/i18n-react';
 
 const TYPE_ICONS: Record<string, string> = {
-  new_order: '🔔',
-  order_accepted: '✅',
-  order_preparing: '👨‍🍳',
-  order_out_for_delivery: '🛵',
-  order_delivered: '📦',
-  order_cancelled: '❌',
-  order_failed_delivery: '⚠️',
-  order_refunded: '💰',
-  support_reply: '💬',
-  new_restaurant: '🏪',
-  high_cancellation: '📊',
-  failed_order: '🔴',
-  suspicious_activity: '🚨',
-  financial_inconsistency: '💸',
-  system_error: '⚙️',
-  settlement_due: '📅',
+  new_order: '!',
+  order_accepted: '+',
+  order_preparing: '~',
+  order_out_for_delivery: '>',
+  order_delivered: '✓',
+  order_cancelled: 'x',
+  order_failed_delivery: '!',
+  order_refunded: '$',
+  support_reply: '@',
+  new_restaurant: 'R',
+  high_cancellation: '%',
+  failed_order: '!',
+  suspicious_activity: '!',
+  financial_inconsistency: '$',
+  system_error: '!',
+  settlement_due: '#',
 };
+
+const NOTIFICATION_COPY = {
+  en: { title: 'Notifications', markAll: 'Mark all read', empty: 'No notifications' },
+  fr: { title: 'Notifications', markAll: 'Tout marquer comme lu', empty: 'Aucune notification' },
+  ar: { title: 'الإشعارات', markAll: 'تحديد الكل كمقروء', empty: 'لا توجد إشعارات' },
+} as const;
 
 export function NotificationBell() {
   const { profile } = useAuth();
+  const { locale } = useT();
+  const copy = NOTIFICATION_COPY[locale] ?? NOTIFICATION_COPY.fr;
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications(profile?.id);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -42,7 +51,7 @@ export function NotificationBell() {
       <button
         onClick={() => setOpen((v) => !v)}
         className="relative flex h-9 w-9 items-center justify-center rounded-lg text-ink-600 transition-colors hover:bg-ink-100"
-        aria-label="Notifications"
+        aria-label={copy.title}
       >
         <Bell className="h-5 w-5" />
         {unreadCount > 0 && (
@@ -53,32 +62,34 @@ export function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-ink-100 bg-white shadow-card-lg">
+        <div className="absolute end-0 top-full z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-ink-100 bg-white shadow-card-lg">
           <div className="flex items-center justify-between border-b border-ink-100 px-4 py-3">
-            <h3 className="font-display text-sm font-bold text-ink-900">Notifications</h3>
+            <h3 className="font-display text-sm font-bold text-ink-900">{copy.title}</h3>
             {unreadCount > 0 && (
               <button
                 onClick={markAllRead}
                 className="text-xs font-semibold text-ember-600 hover:text-ember-700"
               >
-                Mark all read
+                {copy.markAll}
               </button>
             )}
           </div>
           <div className="max-h-96 overflow-y-auto">
             {notifications.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-ink-400">No notifications</div>
+              <div className="px-4 py-8 text-center text-sm text-ink-400">{copy.empty}</div>
             ) : (
               <ul className="divide-y divide-ink-50">
                 {notifications.slice(0, 20).map((n) => (
                   <li key={n.id}>
                     <button
                       onClick={() => markRead(n.id)}
-                      className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-ink-50 ${
+                      className={`flex w-full items-start gap-3 px-4 py-3 text-start transition-colors hover:bg-ink-50 ${
                         !n.is_read ? 'bg-ember-500/5' : ''
                       }`}
                     >
-                      <span className="mt-0.5 text-base">{TYPE_ICONS[n.type] ?? '🔔'}</span>
+                      <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-ember-50 text-xs font-bold text-ember-600">
+                        {TYPE_ICONS[n.type] ?? '!'}
+                      </span>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-ink-900">{n.title}</p>
                         <p className="truncate text-xs text-ink-500">{n.body}</p>
