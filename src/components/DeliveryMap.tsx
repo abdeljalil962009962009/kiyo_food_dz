@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { AdvancedMarker, ControlPosition, Map, MapControl, useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
 import {
   AlertTriangle,
@@ -76,6 +76,8 @@ type CameraTarget = {
   nonce: number;
 };
 
+const OpenStreetMapPicker = lazy(() => import('./OpenStreetMapPicker'));
+
 const PRECISE_ADDRESS_TYPES = new Set([
   'street_address',
   'premise',
@@ -88,10 +90,22 @@ const PRECISE_ADDRESS_TYPES = new Set([
 
 export default function DeliveryMap(props: Props) {
   return (
-    <GoogleMapShell fallbackHeightClass="h-[440px]">
+    <GoogleMapShell
+      fallbackHeightClass="h-[440px]"
+      fallback={(
+        <Suspense fallback={<BackupMapLoading />}>
+          <OpenStreetMapPicker {...props} />
+        </Suspense>
+      )}
+    >
       <DeliveryMapInner {...props} />
     </GoogleMapShell>
   );
+}
+
+function BackupMapLoading() {
+  const { t } = useT();
+  return <div className="h-[440px] animate-pulse rounded-xl bg-ink-100" aria-label={t('map.loading')} />;
 }
 
 function DeliveryMapInner({

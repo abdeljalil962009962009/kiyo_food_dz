@@ -49,6 +49,7 @@ export type GeoSearchResult = Coordinates & {
 };
 
 const NOMINATIM_MIN_DELAY_MS = 1100;
+const NOMINATIM_TIMEOUT_MS = 12000;
 export const GEOLOCATION_DEFAULT_OPTIONS: PositionOptions = {
   enableHighAccuracy: true,
   maximumAge: 0,
@@ -222,6 +223,32 @@ async function waitForNominatimSlot() {
   lastNominatimRequestAt = Date.now();
 }
 
+async function fetchNominatimJson<T>(url: string, language: string): Promise<T> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await waitForNominatimSlot();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), NOMINATIM_TIMEOUT_MS);
+    try {
+      const response = await fetch(url, {
+        headers: { 'Accept-Language': language },
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error(`nominatim_http_${response.status}`);
+      return await response.json() as T;
+    } catch (error) {
+      lastError = error;
+      if (attempt === 2) break;
+      await new Promise((resolve) => setTimeout(resolve, 700 * 2 ** attempt));
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('nominatim_unavailable');
+}
+
 function normalizeOsmAddress(data: {
   display_name?: string;
   place_id?: number | string;
@@ -251,14 +278,16 @@ export async function reverseGeocode(lat: number, lng: number, language = 'fr'):
     };
   }
 
-  await waitForNominatimSlot();
   try {
-    const res = await fetch(
+    const data = await fetchNominatimJson<{
+      display_name?: string;
+      place_id?: number | string;
+      address?: Record<string, string | undefined>;
+    }>(
       `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
-      { headers: { 'Accept-Language': language } },
+      language,
     );
-    if (!res.ok) throw new Error('Reverse geocode failed');
-    return normalizeOsmAddress(await res.json());
+    return normalizeOsmAddress(data);
   } catch {
     return {
       displayName: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
@@ -270,14 +299,16 @@ export async function reverseGeocode(lat: number, lng: number, language = 'fr'):
 export async function searchAddresses(query: string, language = 'fr', limit = 5): Promise<GeoSearchResult[]> {
   const trimmed = query.trim();
   if (trimmed.length < 2) return [];
-  await waitForNominatimSlot();
   try {
-    const res = await fetch(
+    const items = await fetchNominatimJson<Array<{
+      lat: string;
+      lon: string;
+      display_name: string;
+      place_id?: number | string;
+    }>>(
       `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&countrycodes=dz&limit=${limit}&q=${encodeURIComponent(trimmed)}`,
-      { headers: { 'Accept-Language': language } },
+      language,
     );
-    if (!res.ok) return [];
-    const items = await res.json();
     if (!Array.isArray(items)) return [];
     return items
       .map((item) => ({

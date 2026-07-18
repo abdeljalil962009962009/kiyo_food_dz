@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { classifyGeolocationError, getAccuracyQuality, haversineKm, isCoordinateInAlgeria, isUsableAccuracy, shouldPrioritizeGps } from './geo';
+import { describe, expect, it, vi } from 'vitest';
+import { classifyGeolocationError, getAccuracyQuality, haversineKm, isCoordinateInAlgeria, isUsableAccuracy, searchAddresses, shouldPrioritizeGps } from './geo';
 
 describe('geolocation safety', () => {
   it('accepts Constantine coordinates in latitude-longitude order', () => {
@@ -57,6 +57,35 @@ describe('geolocation safety', () => {
     expect(shouldPrioritizeGps(true, false, 1440)).toBe(false);
     expect(shouldPrioritizeGps(true, true, 1024)).toBe(false);
     expect(shouldPrioritizeGps(false, true, 390)).toBe(false);
+  });
+
+  it('retries a transient fallback address-search failure', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn()
+      .mockRejectedValueOnce(new TypeError('temporary network failure'))
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{
+          lat: '36.365',
+          lon: '6.6147',
+          display_name: 'Constantine, Algeria',
+          place_id: 25,
+        }],
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const pending = searchAddresses('Constantine', 'fr', 3);
+    await vi.runAllTimersAsync();
+    const results = await pending;
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(results[0]).toMatchObject({
+      lat: 36.365,
+      lng: 6.6147,
+      label: 'Constantine, Algeria',
+    });
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 });
 

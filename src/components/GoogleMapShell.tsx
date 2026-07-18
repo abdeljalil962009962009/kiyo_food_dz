@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { APIProvider, useMap } from '@vis.gl/react-google-maps';
+import {
+  APILoadingStatus,
+  APIProvider,
+  useApiLoadingStatus,
+  useMap,
+} from '@vis.gl/react-google-maps';
 import { AlertTriangle, Bike, Home, MapPin, RefreshCw, SignalLow, Store } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
 import {
@@ -10,6 +15,13 @@ import {
   mapLanguage,
 } from '../lib/googleMaps';
 import { getConnectionQuality, type NetworkInformationLike } from '../lib/locationNetwork';
+import {
+  classifyGoogleMapsLoadFailure,
+  ensureGoogleMapsAuthFailureHandler,
+  hasGoogleMapsAuthFailure,
+  subscribeToGoogleMapsAuthFailure,
+  type GoogleMapsRuntimeFailure,
+} from '../lib/googleMapsRuntime';
 
 type GoogleMapShellProps = {
   children: ReactNode;
@@ -47,11 +59,20 @@ export function useMapReadiness(resetKey: string | number = 'default') {
 
 export function GoogleMapShell({ children, fallback, fallbackHeightClass = 'h-[360px]' }: GoogleMapShellProps) {
   const { t, locale } = useT();
-  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadFailure, setLoadFailure] = useState<GoogleMapsRuntimeFailure | null>(() => {
+    ensureGoogleMapsAuthFailureHandler();
+    return hasGoogleMapsAuthFailure() ? 'authorization' : null;
+  });
   const [online, setOnline] = useState(() => navigator.onLine);
   const [attempt, setAttempt] = useState(0);
   const [automaticRetries, setAutomaticRetries] = useState(0);
   const [connectionQuality, setConnectionQuality] = useState(() => readConnectionQuality());
+  const [apiLanguage] = useState(() => mapLanguage(locale));
+
+  useEffect(() => subscribeToGoogleMapsAuthFailure(() => {
+    console.error('[Kiyo Maps] Google Maps rejected the browser key or current domain');
+    setLoadFailure('authorization');
+  }), []);
 
   useEffect(() => {
     const connection = getNetworkInformation();
@@ -72,26 +93,30 @@ export function GoogleMapShell({ children, fallback, fallbackHeightClass = 'h-[3
   }, []);
 
   useEffect(() => {
-    if (!loadFailed || !online || automaticRetries >= 3) return;
+    if (loadFailure !== 'network' || !online || automaticRetries >= 3) return;
     const delay = 1500 * 2 ** automaticRetries;
     const timer = window.setTimeout(() => {
       setAutomaticRetries((value) => value + 1);
-      setLoadFailed(false);
+      setLoadFailure(null);
       setAttempt((value) => value + 1);
     }, delay);
     return () => window.clearTimeout(timer);
-  }, [automaticRetries, loadFailed, online]);
+  }, [automaticRetries, loadFailure, online]);
 
-  if (!hasGoogleMapsKey() || loadFailed || !online) {
+  if (!hasGoogleMapsKey() || loadFailure || !online) {
     const title = !online
       ? t('map.offlineTitle')
-      : loadFailed
-        ? t('map.loadFailedTitle')
+      : loadFailure === 'authorization'
+        ? t('map.primaryUnavailableTitle')
+        : loadFailure === 'network'
+          ? t('map.loadFailedTitle')
         : t('map.configurationMissingTitle');
     const body = !online
       ? t('map.offlineBody')
-      : loadFailed
-        ? t('map.loadFailedBody')
+      : loadFailure === 'authorization'
+        ? t('map.primaryUnavailableBody')
+        : loadFailure === 'network'
+          ? t('map.loadFailedBody')
         : t('map.configurationMissingBody');
     const recoveryPanel = (
       <div className={`flex ${fallback ? 'min-h-0 py-4' : `${fallbackHeightClass} min-h-64`} flex-col items-center justify-center rounded-xl border border-ink-200 bg-ink-50 px-6 text-center`}>
@@ -104,13 +129,13 @@ export function GoogleMapShell({ children, fallback, fallbackHeightClass = 'h-[3
         <p className="mt-1 max-w-sm text-xs leading-5 text-ink-500">
           {body}
         </p>
-        {(loadFailed || !online) && (
+        {(loadFailure === 'network' || !online) && (
           <button
             type="button"
             onClick={() => {
               setOnline(navigator.onLine);
               setConnectionQuality(readConnectionQuality());
-              setLoadFailed(false);
+              setLoadFailure(null);
               setAutomaticRetries(0);
               setAttempt((value) => value + 1);
             }}
@@ -144,20 +169,44 @@ export function GoogleMapShell({ children, fallback, fallbackHeightClass = 'h-[3
         </div>
       )}
       <APIProvider
-        key={`${mapLanguage(locale)}-${attempt}`}
+        key={`kiyo-google-maps-${attempt}`}
         apiKey={GOOGLE_MAPS_API_KEY}
         version="weekly"
-        language={mapLanguage(locale)}
+        language={apiLanguage}
         region={GOOGLE_MAPS_REGION}
         onError={(error) => {
           console.error('[Kiyo Maps] Google Maps failed to load', error);
-          setLoadFailed(true);
+          setLoadFailure(classifyGoogleMapsLoadFailure(error, navigator.onLine));
         }}
       >
+        <GoogleMapsRuntimeMonitor onFailure={setLoadFailure} />
         {children}
       </APIProvider>
     </div>
   );
+}
+
+function GoogleMapsRuntimeMonitor({ onFailure }: { onFailure: (failure: GoogleMapsRuntimeFailure) => void }) {
+  const status = useApiLoadingStatus();
+
+  useEffect(() => {
+    if (status === APILoadingStatus.AUTH_FAILURE) onFailure('authorization');
+    if (status === APILoadingStatus.FAILED) onFailure('network');
+  }, [onFailure, status]);
+
+  useEffect(() => {
+    const detectNativeFailure = () => {
+      if (document.querySelector('.gm-err-container, .gm-err-title, .gm-err-message')) {
+        onFailure('authorization');
+      }
+    };
+    detectNativeFailure();
+    const observer = new MutationObserver(detectNativeFailure);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [onFailure]);
+
+  return null;
 }
 
 type NavigatorWithConnection = Navigator & {

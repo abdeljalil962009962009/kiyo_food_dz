@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { lazy, Suspense, useEffect, useState, useCallback } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { Map, AdvancedMarker } from '@vis.gl/react-google-maps';
 import { Star, Clock, MapPin, Plus, ChevronLeft, ShoppingBag, Info, Truck, Heart, BadgeCheck, ShieldCheck, Utensils } from 'lucide-react';
@@ -14,6 +14,8 @@ import { GoogleMapShell, GOOGLE_MAPS_MAP_ID, MapCircle, MapMarkerBadge } from '.
 import { isValidMapCoordinate } from '../lib/googleMaps';
 import { useRealtime } from '../lib/useRealtime';
 import { publicRestaurantImageUrl } from '../lib/restaurantMedia';
+
+const OpenStreetMapDisplay = lazy(() => import('../components/OpenStreetMapDisplay'));
 
 const detailCopy = {
   en: {
@@ -340,7 +342,18 @@ function RestaurantMiniMap({ restaurant }: { restaurant: Restaurant }) {
   const position = { lat: lat as number, lng: lng as number };
   
   return (
-    <GoogleMapShell fallbackHeightClass="h-64">
+    <GoogleMapShell
+      fallbackHeightClass="h-64"
+      fallback={(
+        <Suspense fallback={<div className="h-64 animate-pulse rounded-xl bg-ink-100" />}>
+          <OpenStreetMapDisplay
+            points={[{ lat: position.lat, lng: position.lng, kind: 'restaurant', title: restaurant.name }]}
+            radiusMeters={maxKm && maxKm > 0 ? maxKm * 1000 : null}
+            heightClass="h-64"
+          />
+        </Suspense>
+      )}
+    >
       <div className="relative h-64 w-full overflow-hidden rounded-xl border border-ink-200 bg-ink-100 shadow-card">
         <Map
           defaultCenter={position}
