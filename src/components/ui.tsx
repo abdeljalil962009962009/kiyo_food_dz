@@ -61,7 +61,7 @@ export const PriceTag = memo(function PriceTag({ value }: { value: number | stri
   return (
     <span className="font-display font-semibold text-ink-900">
       {n.toFixed(0)}
-      <span className="ml-0.5 text-xs font-medium text-ink-400">{getCurrencySymbol()}</span>
+      <span className="ms-0.5 text-xs font-medium text-ink-400">{getCurrencySymbol()}</span>
     </span>
   );
 });

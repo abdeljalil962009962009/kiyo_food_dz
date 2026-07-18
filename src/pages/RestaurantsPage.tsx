@@ -8,7 +8,7 @@ import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { ErrorState, PremiumEmptyState } from '../components/feedback';
 import { RestaurantImage } from '../components/ui';
-import { haversineKm, formatDistanceKm } from '../lib/geo';
+import { haversineKm } from '../lib/geo';
 import { withExponentialBackoff } from '../lib/locationNetwork';
 
 type RestaurantWithDistance = Restaurant & {
@@ -26,11 +26,11 @@ const pageCopy = {
     showAll: 'Show all restaurants',
   },
   fr: {
-    trustAvailability: 'Disponibilite verifiee avant paiement',
+    trustAvailability: 'Disponibilité vérifiée avant la commande',
     trustPricing: 'Prix de livraison selon le trajet routier',
-    trustCod: 'Paiement a la livraison, sans surprise',
+    trustCod: 'Paiement à la livraison, sans débit de carte',
     emptyTitle: 'Aucun restaurant correspondant',
-    emptyBody: 'Essayez une autre recherche, retirez le filtre ou ajustez votre adresse. Kiyo Food affiche uniquement les restaurants reellement publies pour votre zone.',
+    emptyBody: 'Essayez une autre recherche, retirez le filtre ou ajustez votre adresse. Kiyo Food affiche uniquement les restaurants réellement publiés pour votre zone.',
     clearSearch: 'Effacer la recherche',
     showAll: 'Voir tous les restaurants',
   },
@@ -227,12 +227,6 @@ export default function RestaurantsPage() {
                         <span className="flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur">
                           <Clock className="h-3 w-3" />
                           {r.estimated_delivery_min}m
-                        </span>
-                      )}
-                      {r.distance_km != null && (
-                        <span className="flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur">
-                          <MapPin className="h-3 w-3" />
-                          {formatDistanceKm(r.distance_km)}
                         </span>
                       )}
                     </div>

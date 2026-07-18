@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useT } from '../lib/i18n-react';
 
 const SPINNER_SIZE_CLASS: Record<'sm' | 'md' | 'lg', string> = {
   sm: 'h-3 w-3',
@@ -71,6 +72,7 @@ export function Skeleton({ count = 3 }: { count?: number }) {
 export function ErrorState({ title, message, onRetry, retryLabel }: {
   title: string; message: string; onRetry?: () => void; retryLabel?: string;
 }): ReactNode {
+  const { t } = useT();
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
       <div className="flex h-11 w-11 items-center justify-center rounded-full bg-error-500/10">
@@ -81,7 +83,7 @@ export function ErrorState({ title, message, onRetry, retryLabel }: {
       <h2 className="text-base font-semibold text-ink-900">{title}</h2>
       <p className="max-w-sm text-sm text-ink-500">{message}</p>
       {onRetry && (
-        <button onClick={onRetry} className="kiyo-btn-secondary mt-1">{retryLabel ?? 'Retry'}</button>
+        <button onClick={onRetry} className="kiyo-btn-secondary mt-1 min-h-11">{retryLabel ?? t('error.retry')}</button>
       )}
     </div>
   );
@@ -101,18 +103,14 @@ export function PremiumEmptyState({
   secondary?: ReactNode;
 }) {
   return (
-    <div className="kiyo-card relative overflow-hidden px-6 py-12 text-center">
-      <div
-        className="absolute inset-x-10 top-0 h-20 rounded-b-full bg-ember-500/5 blur-2xl"
-        aria-hidden
-      />
-      <div className="relative mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-ember-100 bg-ember-50 text-ember-600">
+    <div className="kiyo-card px-6 py-12 text-center">
+      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-lg border border-ember-100 bg-ember-50 text-ember-600">
         {icon}
       </div>
-      <h2 className="relative mt-4 font-display text-lg font-extrabold text-ink-900">{title}</h2>
-      <p className="relative mx-auto mt-2 max-w-md text-sm leading-6 text-ink-500">{message}</p>
+      <h2 className="mt-4 font-display text-lg font-extrabold text-ink-900">{title}</h2>
+      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-ink-500">{message}</p>
       {(action || secondary) && (
-        <div className="relative mt-5 flex flex-col items-center justify-center gap-2 sm:flex-row">
+        <div className="mt-5 flex flex-col items-center justify-center gap-2 sm:flex-row">
           {action}
           {secondary}
         </div>
