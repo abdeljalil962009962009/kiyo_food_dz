@@ -1,11 +1,11 @@
-import { Heart, Trash2 } from 'lucide-react';
+import { Heart, Trash2, Star } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useT } from '../lib/i18n-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
-import { Skeleton } from '../components/feedback';
+import { Skeleton, PremiumEmptyState } from '../components/feedback';
 import { RestaurantImage } from '../components/ui';
 import { useEffect, useState, useCallback } from 'react';
 
@@ -26,11 +26,16 @@ type FavoriteRestaurant = {
 };
 
 export function FavoritesPage() {
-  const { t } = useT();
+  const { t, locale } = useT();
   const { user } = useAuth();
   const [favorites, setFavorites] = useState<FavoriteRestaurant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const removeError = locale === 'ar'
+    ? 'تعذر حذف المطعم من المفضلة. بقي محفوظاً ويمكنك إعادة المحاولة.'
+    : locale === 'fr'
+      ? 'Impossible de retirer ce restaurant des favoris. Il reste enregistré et vous pouvez réessayer.'
+      : 'Could not remove this restaurant from favorites. It remains saved, and you can try again.';
 
   const loadFavorites = useCallback(async () => {
     if (!user) {
@@ -65,7 +70,7 @@ export function FavoritesPage() {
     const { error: e } = await supabase.from('customer_favorites').delete().eq('id', favoriteId);
     if (e) {
       setFavorites(previous);
-      setError(e.message);
+      setError(removeError);
     }
   };
 
@@ -95,13 +100,16 @@ export function FavoritesPage() {
 
       <ErrorBoundary variant="inline">
         {favorites.length === 0 ? (
-          <div className="kiyo-card flex flex-col items-center gap-3 py-12 text-center">
-            <Heart className="h-10 w-10 text-ink-200" />
-            <p className="text-sm text-ink-500">{t('favorites.none')}</p>
-            <Link to="/restaurants" className="kiyo-btn-primary text-sm">
-              {t('market.browse')}
-            </Link>
-          </div>
+          <PremiumEmptyState
+            icon={<Heart className="h-7 w-7" />}
+            title={t('favorites.none')}
+            message={locale === 'ar'
+              ? 'احفظ المطاعم التي تحبها لتعود إلى قوائمها بسرعة.'
+              : locale === 'fr'
+                ? 'Enregistrez les restaurants que vous aimez pour retrouver rapidement leur menu.'
+                : 'Save restaurants you enjoy so you can return to their menus quickly.'}
+            action={<Link to="/restaurants" className="kiyo-btn-primary min-h-11 text-sm">{t('market.browse')}</Link>}
+          />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {favorites.map((fav) => (
@@ -121,14 +129,14 @@ export function FavoritesPage() {
                       </h3>
                       {fav.restaurants.rating > 0 && (
                         <span className="flex items-center gap-1 text-xs font-medium text-amber-600">
-                          <span className="text-amber-500">â˜…</span>
+                          <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" aria-hidden />
                           {fav.restaurants.rating.toFixed(1)}
                         </span>
                       )}
                     </div>
                     {fav.restaurants.cuisine && fav.restaurants.cuisine.length > 0 && (
                       <p className="mt-1 text-xs text-ink-400">
-                        {fav.restaurants.cuisine.slice(0, 3).join(' â€¢ ')}
+                        {fav.restaurants.cuisine.slice(0, 3).join(' / ')}
                       </p>
                     )}
                     <div className="mt-2 flex items-center gap-2">
@@ -148,7 +156,8 @@ export function FavoritesPage() {
                     e.preventDefault();
                     removeFavorite(fav.id);
                   }}
-                  className="absolute right-2 top-2 rounded-lg bg-white/90 p-2 text-ink-400 opacity-0 shadow-sm transition-opacity hover:text-error-600 group-hover:opacity-100"
+                  className="absolute top-2 flex h-11 w-11 items-center justify-center rounded-lg bg-white/95 text-ink-500 shadow-sm transition-colors hover:bg-error-50 hover:text-error-600"
+                  style={{ insetInlineEnd: '0.5rem' }}
                   aria-label={t('restaurant.delete')}
                 >
                   <Trash2 className="h-4 w-4" />

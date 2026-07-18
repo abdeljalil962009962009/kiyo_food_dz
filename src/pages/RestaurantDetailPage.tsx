@@ -1,25 +1,48 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { Map, AdvancedMarker } from '@vis.gl/react-google-maps';
-import { Star, Clock, MapPin, Plus, ChevronLeft, ShoppingBag, Info, Truck, Heart } from 'lucide-react';
+import { Star, Clock, MapPin, Plus, ChevronLeft, ShoppingBag, Info, Truck, Heart, BadgeCheck, ShieldCheck, Utensils } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
 import { supabase, type Restaurant, type MenuItem, type MenuCategory } from '../lib/supabase';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
-import { Skeleton, ErrorState } from '../components/feedback';
+import { Skeleton, ErrorState, PremiumEmptyState } from '../components/feedback';
 import { RestaurantImage, PriceTag } from '../components/ui';
 import { GoogleMapShell, GOOGLE_MAPS_MAP_ID, MapCircle, MapMarkerBadge } from '../components/GoogleMapShell';
 import { isValidMapCoordinate } from '../lib/googleMaps';
 import { useRealtime } from '../lib/useRealtime';
+import { publicRestaurantImageUrl } from '../lib/restaurantMedia';
+
+const detailCopy = {
+  en: {
+    verified: 'Verified by Kiyo Food', reviews: '{count} reviews', preparation: 'Typical preparation: about {minutes} min',
+    closedTitle: 'Orders are paused', closedBody: 'You can view the menu, but new items cannot be added until the restaurant reopens.',
+    pricing: 'Availability and the final road-route delivery price are checked again before your order is created.',
+    emptyTitle: 'The menu is being prepared', emptyBody: 'This published restaurant has no available dishes to order right now. Check again later or choose another restaurant.',
+  },
+  fr: {
+    verified: 'Vérifié par Kiyo Food', reviews: '{count} avis', preparation: 'Préparation habituelle : environ {minutes} min',
+    closedTitle: 'Les commandes sont en pause', closedBody: 'Vous pouvez consulter le menu, mais aucun nouvel article ne peut être ajouté avant la réouverture du restaurant.',
+    pricing: 'La disponibilité et le prix final selon le trajet routier sont revérifiés avant la création de votre commande.',
+    emptyTitle: 'Le menu est en préparation', emptyBody: 'Ce restaurant publié ne propose aucun plat disponible pour le moment. Revenez plus tard ou choisissez un autre restaurant.',
+  },
+  ar: {
+    verified: 'موثّق من كيو فود', reviews: '{count} تقييم', preparation: 'مدة التحضير المعتادة: نحو {minutes} دقيقة',
+    closedTitle: 'الطلبات متوقفة مؤقتا', closedBody: 'يمكنك تصفح القائمة، لكن لا يمكن إضافة عناصر جديدة إلى أن يعيد المطعم فتح الطلبات.',
+    pricing: 'يُعاد التحقق من التوفر وسعر التوصيل النهائي حسب المسار الطرقي قبل إنشاء طلبك.',
+    emptyTitle: 'قائمة الطعام قيد التحضير', emptyBody: 'لا يقدّم هذا المطعم المنشور أطباقا متاحة للطلب حاليا. عُد لاحقا أو اختر مطعما آخر.',
+  },
+} as const;
 
 export default function RestaurantDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { t } = useT();
   const navigate = useNavigate();
   const { addItem, state: cart, setRestaurantName } = useCart();
-  const { user } = useAuth();
+  const { user, locale } = useAuth();
+  const tx = detailCopy[locale];
 
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [categories, setCategories] = useState<MenuCategory[]>([]);
@@ -138,9 +161,9 @@ export default function RestaurantDetailPage() {
     <AppShell>
       <Link
         to="/restaurants"
-        className="mb-3 inline-flex items-center gap-1 text-xs font-semibold text-ink-500 hover:text-ink-900"
+        className="mb-3 inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-ink-500 hover:text-ink-900"
       >
-        <ChevronLeft className="h-4 w-4" />
+        <ChevronLeft className={`h-4 w-4 ${locale === 'ar' ? 'rotate-180' : ''}`} />
         {t('market.browse')}
       </Link>
 
@@ -156,17 +179,24 @@ export default function RestaurantDetailPage() {
               {user && (
                 <button
                   onClick={toggleFavorite}
-                  className={`absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 shadow-lg transition-all hover:bg-white sm:right-5 sm:top-5 ${favoriteAnimating ? 'animate-favorite-pop' : ''}`}
+                  className={`absolute top-4 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 shadow-lg transition-all hover:bg-white sm:top-5 ${favoriteAnimating ? 'animate-favorite-pop' : ''}`}
+                  style={{ insetInlineEnd: '1rem' }}
                   aria-label={t('nav.favorites')}
                 >
                   <Heart className={`h-5 w-5 ${isFavorite ? 'fill-error-500 text-error-500' : 'text-ink-400'}`} />
                 </button>
               )}
               <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-ink-100">
-                {restaurant.rating > 0 && (
+                {restaurant.rating > 0 && restaurant.review_count > 0 && (
                   <span className="flex items-center gap-0.5 rounded-full bg-white/20 px-2 py-0.5 font-semibold backdrop-blur">
                     <Star className="h-3 w-3 fill-ember-500 text-ember-500" />
                     {Number(restaurant.rating).toFixed(1)}
+                    <span className="font-medium text-white/80">({tx.reviews.replace('{count}', String(restaurant.review_count))})</span>
+                  </span>
+                )}
+                {restaurant.is_verified && (
+                  <span className="flex items-center gap-1 rounded-full bg-white/95 px-2 py-0.5 font-bold text-sage-700">
+                    <BadgeCheck className="h-3.5 w-3.5" aria-hidden /> {tx.verified}
                   </span>
                 )}
                 <span className={`rounded-full px-2 py-0.5 font-semibold backdrop-blur ${
@@ -178,7 +208,7 @@ export default function RestaurantDetailPage() {
                 </span>
                 {restaurant.estimated_delivery_min && (
                   <span className="flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 font-semibold backdrop-blur">
-                    <Clock className="h-3 w-3" /> {restaurant.estimated_delivery_min}m
+                    <Clock className="h-3 w-3" /> {tx.preparation.replace('{minutes}', String(restaurant.estimated_delivery_min))}
                   </span>
                 )}
                 {restaurant.cuisine && restaurant.cuisine.length > 0 && (
@@ -207,6 +237,10 @@ export default function RestaurantDetailPage() {
             <Truck className="h-3.5 w-3.5 flex-shrink-0" />
             {t('checkout.deliveryByRestaurant')}
           </div>
+          <div className="flex items-start gap-2 border-t border-ember-100 bg-white px-4 py-2.5 text-xs leading-5 text-ink-600 sm:px-5">
+            <ShieldCheck className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-sage-600" />
+            {tx.pricing}
+          </div>
         </div>
 
         {actionError && <div className="mb-3 rounded-lg border border-error-200 bg-error-50 px-3 py-2 text-xs text-error-700" role="alert">{actionError}</div>}
@@ -218,17 +252,21 @@ export default function RestaurantDetailPage() {
         )}
 
         {!isOpen && (
-          <div className="mt-3 rounded-xl bg-ink-100 px-3 py-2 text-xs font-medium text-ink-500">
-            {t('restaurant.closed')} — {t('restaurant.addToCart')} disabled.
+          <div className="mt-3 rounded-lg border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-800" role="status">
+            <strong className="block font-bold">{tx.closedTitle}</strong>
+            <span className="mt-0.5 block text-xs leading-5">{tx.closedBody}</span>
           </div>
         )}
 
         <div className="mt-6">
           <h2 className="mb-3 font-display text-lg font-bold text-ink-900">{t('restaurant.menu')}</h2>
           {menuItems.length === 0 ? (
-            <div className="kiyo-card p-8 text-center text-sm text-ink-400">
-              {t('restaurant.noMenu')}
-            </div>
+            <PremiumEmptyState
+              icon={<Utensils className="h-7 w-7" />}
+              title={tx.emptyTitle}
+              message={tx.emptyBody}
+              action={<Link to="/restaurants" className="kiyo-btn-primary min-h-11">{t('market.browse')}</Link>}
+            />
           ) : categories.length === 0 ? (
             <MenuGrid items={menuItems} onAdd={handleAdd} disabled={!isOpen} addedItemId={addedItemId} />
           ) : (
@@ -269,10 +307,10 @@ export default function RestaurantDetailPage() {
             </div>
             <button
               onClick={() => navigate('/cart')}
-              className="kiyo-btn-primary"
+              className="kiyo-btn-primary min-h-11"
             >
               {t('cart.checkout')}
-              <ChevronLeft className="h-4 w-4 rotate-180" />
+              <ChevronLeft className={`h-4 w-4 ${locale === 'ar' ? '' : 'rotate-180'}`} />
             </button>
           </div>
         </div>
@@ -342,6 +380,7 @@ function MenuGrid({ items, onAdd, disabled, addedItemId }: {
               unavailable ? 'opacity-60' : ''
             }`}
           >
+            {item.image_url && <MenuItemPhoto url={item.image_url} name={item.name} />}
             <div className="min-w-0 flex-1">
               <div className="flex items-start justify-between gap-2">
                 <h4 className="font-display text-sm font-bold text-ink-900">{item.name}</h4>
@@ -368,5 +407,21 @@ function MenuGrid({ items, onAdd, disabled, addedItemId }: {
         );
       })}
     </div>
+  );
+}
+
+function MenuItemPhoto({ url, name }: { url: string; name: string }) {
+  const [failed, setFailed] = useState(false);
+  const resolvedUrl = publicRestaurantImageUrl(url);
+  if (!resolvedUrl || failed) return null;
+  return (
+    <img
+      src={resolvedUrl}
+      alt={name}
+      loading="lazy"
+      decoding="async"
+      onError={() => setFailed(true)}
+      className="h-[4.5rem] w-[4.5rem] flex-shrink-0 rounded-lg object-cover"
+    />
   );
 }

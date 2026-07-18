@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, User, LogOut, ChevronDown, Menu, X, ShoppingBag, Store, Utensils, ShieldCheck, MessageCircle, Heart, Bike, WifiOff } from 'lucide-react';
+import { LayoutDashboard, User, LogOut, Menu, X, ShoppingBag, Store, Utensils, ShieldCheck, MessageCircle, Heart, Bike, WifiOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { useCart } from '../context/CartContext';
@@ -8,8 +8,8 @@ import { useT } from '../lib/i18n-react';
 import { Logo } from './Logo';
 import { NotificationBell } from './NotificationBell';
 import { WilayaSelector } from './WilayaSelector';
-import type { Locale } from '../lib/i18n';
 import { useNetworkStatus } from '../lib/useNetworkStatus';
+import { LocaleSwitcher } from './LocaleSwitcher';
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { profile, signOut, locale, setLocale } = useAuth();
@@ -20,6 +20,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [cartPulse, setCartPulse] = useState(false);
   const previousTotal = useRef(totalItems);
   const network = useNetworkStatus();
+  const menuLabel = locale === 'ar' ? 'فتح القائمة' : locale === 'fr' ? 'Ouvrir le menu' : 'Open menu';
 
   useEffect(() => {
     if (totalItems > previousTotal.current) {
@@ -96,9 +97,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-2">
             <button
-              className="kiyo-btn-ghost -ml-2 p-2 lg:hidden"
+              className="kiyo-btn-ghost p-2 lg:hidden"
+              style={{ marginInlineStart: '-0.5rem' }}
               onClick={() => setMobileOpen((v) => !v)}
-              aria-label="Toggle menu"
+              aria-label={menuLabel}
             >
               {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
@@ -214,52 +216,6 @@ export function AppShell({ children }: { children: ReactNode }) {
       <main className="mx-auto max-w-6xl px-4 pb-24 pt-6 sm:px-6 sm:pt-8">
         <div className="route-enter">{children}</div>
       </main>
-    </div>
-  );
-}
-
-function LocaleSwitcher({ locale, onChange }: {
-  locale: Locale; onChange: (l: Locale) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const langs: { code: Locale; label: string; flag: string }[] = [
-    { code: 'en', label: 'English', flag: 'EN' },
-    { code: 'fr', label: 'Français', flag: 'FR' },
-    { code: 'ar', label: 'العربية', flag: 'AR' },
-  ];
-  const current = langs.find((l) => l.code === locale) ?? langs[0];
-
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1 rounded-lg border border-ink-100 bg-white px-2.5 py-2 text-xs font-semibold text-ink-700 hover:bg-ink-50"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-      >
-        {current.flag}
-        <ChevronDown className="h-3 w-3 opacity-60" />
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <ul className="absolute right-0 z-20 mt-1 w-32 overflow-hidden rounded-lg border border-ink-100 bg-white shadow-card-lg">
-            {langs.map((l) => (
-              <li key={l.code}>
-                <button
-                  onClick={() => { onChange(l.code); setOpen(false); }}
-                  className={`flex w-full items-center justify-between px-3 py-2 text-xs ${
-                    l.code === locale ? 'bg-ink-50 font-semibold text-ink-900' : 'text-ink-600 hover:bg-ink-50'
-                  }`}
-                >
-                  {l.label}
-                  <span className="opacity-60">{l.flag}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
     </div>
   );
 }

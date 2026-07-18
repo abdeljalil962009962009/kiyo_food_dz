@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Star, Clock, MapPin } from 'lucide-react';
+import { Search, Star, Clock, MapPin, BadgeCheck } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
 import { supabase, type Restaurant } from '../lib/supabase';
 import { useWilaya, getWilayaName } from '../context/WilayaContext';
@@ -8,7 +8,7 @@ import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { ErrorState, PremiumEmptyState } from '../components/feedback';
 import { RestaurantImage } from '../components/ui';
-import { haversineKm, formatDistanceKm } from '../lib/geo';
+import { haversineKm } from '../lib/geo';
 import { withExponentialBackoff } from '../lib/locationNetwork';
 
 type RestaurantWithDistance = Restaurant & {
@@ -24,15 +24,21 @@ const pageCopy = {
     emptyBody: 'Try another search, clear the filter, or adjust your delivery location. Kiyo Food only shows restaurants that are actually published for your area.',
     clearSearch: 'Clear search',
     showAll: 'Show all restaurants',
+    verified: 'Verified by Kiyo Food',
+    preparation: 'Prep. ~{minutes} min',
+    reviews: '{count} reviews',
   },
   fr: {
-    trustAvailability: 'Disponibilite verifiee avant paiement',
+    trustAvailability: 'Disponibilité vérifiée avant la commande',
     trustPricing: 'Prix de livraison selon le trajet routier',
-    trustCod: 'Paiement a la livraison, sans surprise',
+    trustCod: 'Paiement à la livraison, sans débit de carte',
     emptyTitle: 'Aucun restaurant correspondant',
-    emptyBody: 'Essayez une autre recherche, retirez le filtre ou ajustez votre adresse. Kiyo Food affiche uniquement les restaurants reellement publies pour votre zone.',
+    emptyBody: 'Essayez une autre recherche, retirez le filtre ou ajustez votre adresse. Kiyo Food affiche uniquement les restaurants réellement publiés pour votre zone.',
     clearSearch: 'Effacer la recherche',
     showAll: 'Voir tous les restaurants',
+    verified: 'Vérifié par Kiyo Food',
+    preparation: 'Préparation ~{minutes} min',
+    reviews: '{count} avis',
   },
   ar: {
     trustAvailability: 'يتم التحقق من التوفر قبل تأكيد الطلب',
@@ -42,6 +48,9 @@ const pageCopy = {
     emptyBody: 'جرّب بحثاً آخر، أزل الفلتر أو عدّل عنوان التوصيل. كيو فود يعرض فقط المطاعم المنشورة فعلاً في منطقتك.',
     clearSearch: 'مسح البحث',
     showAll: 'عرض كل المطاعم',
+    verified: 'موثّق من كيو فود',
+    preparation: 'التحضير نحو {minutes} د',
+    reviews: '{count} تقييم',
   },
 } as const;
 
@@ -132,12 +141,14 @@ export default function RestaurantsPage() {
 
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
+          <Search
+            className={`pointer-events-none absolute top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400 ${locale === 'ar' ? 'right-3' : 'left-3'}`}
+          />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t('market.searchPlaceholder')}
-            className="kiyo-input pl-10"
+            className={`kiyo-input ${locale === 'ar' ? 'pr-10' : 'pl-10'}`}
             aria-label={t('market.searchPlaceholder')}
           />
         </div>
@@ -150,7 +161,7 @@ export default function RestaurantsPage() {
             <button
               key={f.id}
               onClick={() => setFilter(f.id as typeof filter)}
-              className={`rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
+              className={`min-h-11 rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
                 filter === f.id ? 'bg-ink-900 text-white' : 'bg-white text-ink-600 hover:bg-ink-100'
               }`}
             >
@@ -220,19 +231,23 @@ export default function RestaurantsPage() {
               >
                 <div className="relative h-36 overflow-hidden">
                   <RestaurantImage url={r.image_url} name={r.name} className="transition-transform duration-500 group-hover:scale-105" />
+                  {r.is_verified && (
+                    <span
+                      className="absolute top-3 inline-flex min-h-7 items-center gap-1 rounded-full bg-white/95 px-2 text-[10px] font-bold text-sage-700 shadow-sm"
+                      style={{ insetInlineEnd: '0.75rem' }}
+                      title={tx.verified}
+                    >
+                      <BadgeCheck className="h-3.5 w-3.5" aria-hidden />
+                      {tx.verified}
+                    </span>
+                  )}
                   <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-3">
                     <div className="flex items-center gap-2">
                       <StatusChip status={r.operational_status} />
                       {r.estimated_delivery_min && (
                         <span className="flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur">
                           <Clock className="h-3 w-3" />
-                          {r.estimated_delivery_min}m
-                        </span>
-                      )}
-                      {r.distance_km != null && (
-                        <span className="flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur">
-                          <MapPin className="h-3 w-3" />
-                          {formatDistanceKm(r.distance_km)}
+                          {tx.preparation.replace('{minutes}', String(r.estimated_delivery_min))}
                         </span>
                       )}
                     </div>
@@ -241,10 +256,15 @@ export default function RestaurantsPage() {
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-2">
                     <h3 className="font-display text-base font-bold text-ink-900">{r.name}</h3>
-                    {r.rating > 0 && (
-                      <span className="flex items-center gap-0.5 text-xs font-semibold text-ink-700">
-                        <Star className="h-3 w-3 fill-ember-500 text-ember-500" />
-                        {Number(r.rating).toFixed(1)}
+                    {r.rating > 0 && r.review_count > 0 && (
+                      <span className="text-end text-xs font-semibold text-ink-700">
+                        <span className="flex items-center justify-end gap-0.5">
+                          <Star className="h-3 w-3 fill-ember-500 text-ember-500" />
+                          {Number(r.rating).toFixed(1)}
+                        </span>
+                        <span className="block text-[10px] font-medium text-ink-400">
+                          {tx.reviews.replace('{count}', String(r.review_count))}
+                        </span>
                       </span>
                     )}
                   </div>
