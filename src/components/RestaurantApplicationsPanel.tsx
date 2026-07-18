@@ -58,6 +58,8 @@ const labels = {
     foodOnly: 'Food subtotal only',
     foodDelivery: 'Food and delivery combined',
     ratesInvalid: 'Approved rates must be between 0% and 100%.',
+    loadFailed: 'Restaurant applications could not be loaded. Retry in a moment.',
+    actionFailed: 'The application action could not be completed. Review the status and try again.',
     approveConfirm: (name: string, rate: string) => `Approve ${name} for onboarding with ${rate}% food commission?`,
     publishConfirm: (name: string) => `Publish ${name} to all customers?`,
     transitionConfirm: (status: string, name: string) => `${status.replace(/_/g, ' ')}: ${name}?`,
@@ -104,6 +106,8 @@ const labels = {
     foodOnly: 'Sous-total nourriture uniquement',
     foodDelivery: 'Nourriture et livraison',
     ratesInvalid: 'Les taux approuvés doivent être entre 0 % et 100 %.',
+    loadFailed: 'Les demandes de restaurants n’ont pas pu être chargées. Réessayez dans un instant.',
+    actionFailed: 'L’action sur la demande n’a pas pu être terminée. Vérifiez le statut puis réessayez.',
     approveConfirm: (name: string, rate: string) => `Approuver ${name} pour l’intégration avec ${rate} % de commission nourriture ?`,
     publishConfirm: (name: string) => `Publier ${name} pour tous les clients ?`,
     transitionConfirm: (status: string, name: string) => `${status.replace(/_/g, ' ')} : ${name} ?`,
@@ -150,6 +154,8 @@ const labels = {
     foodOnly: 'إجمالي الطعام فقط',
     foodDelivery: 'الطعام والتوصيل معاً',
     ratesInvalid: 'يجب أن تكون النسب المعتمدة بين 0٪ و100٪.',
+    loadFailed: 'تعذر تحميل طلبات المطاعم. أعد المحاولة بعد لحظات.',
+    actionFailed: 'تعذر إكمال إجراء الطلب. تحقق من الحالة ثم أعد المحاولة.',
     approveConfirm: (name: string, rate: string) => `هل توافق على إدماج ${name} بعمولة طعام ${rate}٪؟`,
     publishConfirm: (name: string) => `هل تريد نشر ${name} لجميع العملاء؟`,
     transitionConfirm: (status: string, name: string) => `${status.replace(/_/g, ' ')}: ${name}؟`,
@@ -183,8 +189,9 @@ export function RestaurantApplicationsPanel() {
       .select('*')
       .order('updated_at', { ascending: false });
     if (applicationsError) {
+      console.error('[Kiyo] Load restaurant applications error:', applicationsError);
       setLoading(false);
-      setError(applicationsError.message);
+      setError(tx.loadFailed);
       return;
     }
     const normalized = ((applicationRows ?? []) as Array<Omit<RestaurantApplication, 'status'> & { status: string }>)
@@ -197,8 +204,9 @@ export function RestaurantApplicationsPanel() {
         .select('id,email,full_name,phone')
         .in('id', applicantIds);
       if (profilesError) {
+        console.error('[Kiyo] Load application applicants error:', profilesError);
         setLoading(false);
-        setError(profilesError.message);
+        setError(tx.loadFailed);
         return;
       }
       profileMap = Object.fromEntries(((profileRows ?? []) as Applicant[]).map((profile) => [profile.id, profile]));
@@ -218,7 +226,7 @@ export function RestaurantApplicationsPanel() {
     setSelectedId((current) => current && normalized.some((item) => item.id === current)
       ? current : normalized[0]?.id ?? null);
     setLoading(false);
-  }, []);
+  }, [tx.loadFailed]);
 
   useEffect(() => {
     void load();
@@ -277,7 +285,8 @@ export function RestaurantApplicationsPanel() {
     const result = await operation();
     setActing(false);
     if (result.error) {
-      setError(result.error.message);
+      console.error('[Kiyo] Restaurant application action failed:', result.error);
+      setError(tx.actionFailed);
       return;
     }
     await load();

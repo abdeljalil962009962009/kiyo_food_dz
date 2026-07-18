@@ -11,9 +11,9 @@ type Props = {
 };
 
 const copy = {
-  en: { title: 'Application conversation', empty: 'No messages yet.', placeholder: 'Write a clear message...', send: 'Send', unavailable: 'Conversation becomes available after the marketplace workflow migration is applied.' },
-  fr: { title: 'Conversation de la demande', empty: 'Aucun message pour le moment.', placeholder: 'Écrivez un message clair…', send: 'Envoyer', unavailable: 'La conversation sera disponible après l’application de la migration du workflow marketplace.' },
-  ar: { title: 'محادثة الطلب', empty: 'لا توجد رسائل بعد.', placeholder: 'اكتب رسالة واضحة…', send: 'إرسال', unavailable: 'ستصبح المحادثة متاحة بعد تطبيق ترحيل نظام السوق.' },
+  en: { title: 'Application conversation', empty: 'No messages yet.', placeholder: 'Write a clear message...', send: 'Send', unavailable: 'Conversation becomes available after the marketplace workflow migration is applied.', loadFailed: 'Conversation could not be loaded. Refresh and try again.', sendFailed: 'Message could not be sent. Check your connection and try again.' },
+  fr: { title: 'Conversation de la demande', empty: 'Aucun message pour le moment.', placeholder: 'Écrivez un message clair…', send: 'Envoyer', unavailable: 'La conversation sera disponible après l’application de la migration du workflow marketplace.', loadFailed: 'La conversation n’a pas pu être chargée. Actualisez puis réessayez.', sendFailed: 'Le message n’a pas pu être envoyé. Vérifiez votre connexion puis réessayez.' },
+  ar: { title: 'محادثة الطلب', empty: 'لا توجد رسائل بعد.', placeholder: 'اكتب رسالة واضحة…', send: 'إرسال', unavailable: 'ستصبح المحادثة متاحة بعد تطبيق ترحيل نظام السوق.', loadFailed: 'تعذر تحميل المحادثة. حدّث الصفحة ثم أعد المحاولة.', sendFailed: 'تعذر إرسال الرسالة. تحقق من الاتصال ثم أعد المحاولة.' },
 } as const;
 
 export function RestaurantApplicationThread({ applicationId, viewer }: Props) {
@@ -38,7 +38,8 @@ export function RestaurantApplicationThread({ applicationId, viewer }: Props) {
         setUnavailable(true);
         return;
       }
-      setError(loadError.message);
+      console.error('[Kiyo] Load restaurant application thread error:', loadError);
+      setError(labels.loadFailed);
       return;
     }
     setMessages((data as RestaurantApplicationMessage[]) ?? []);
@@ -46,7 +47,7 @@ export function RestaurantApplicationThread({ applicationId, viewer }: Props) {
     void callUserAction('mark_restaurant_application_messages_read', {
       p_application_id: applicationId,
     });
-  }, [applicationId]);
+  }, [applicationId, labels.loadFailed]);
 
   useEffect(() => {
     void load();
@@ -72,7 +73,8 @@ export function RestaurantApplicationThread({ applicationId, viewer }: Props) {
     });
     setSending(false);
     if (sendError) {
-      setError(sendError.message);
+      console.error('[Kiyo] Send restaurant application message error:', sendError);
+      setError(labels.sendFailed);
       return;
     }
     setBody('');

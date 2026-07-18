@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Map, useMap } from '@vis.gl/react-google-maps';
-import { Activity, AlertTriangle, Layers3 } from 'lucide-react';
+import { Activity, AlertTriangle, Home, Layers3, Store } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useT } from '../lib/i18n-react';
 import { ALGERIA_MAP_BOUNDS, ALGERIA_MAP_CENTER, isValidMapCoordinate } from '../lib/googleMaps';
@@ -124,7 +124,7 @@ export default function AdminCoverageMap() {
           <p className="mt-1 max-w-md text-xs leading-5 text-ink-500">{t('map.coverageSummary')}</p>
         </div>
       ) : (
-        <GoogleMapShell fallbackHeightClass="h-[400px]">
+        <GoogleMapShell fallbackHeightClass="h-[400px]" fallback={<CoverageDataFallback points={filteredPoints} locale={locale} />}>
           <div className="relative h-[400px] w-full bg-ink-100">
             <Map
               defaultBounds={{ ...ALGERIA_MAP_BOUNDS, padding: 36 }}
@@ -153,6 +153,60 @@ export default function AdminCoverageMap() {
         {t('map.coverageSummary')}
       </footer>
     </section>
+  );
+}
+
+const coverageFallbackCopy = {
+  en: {
+    title: 'Coverage data is still available',
+    body: 'Google Maps is delayed, but Kiyo Food already loaded the verified operational points for review.',
+    restaurants: 'Published restaurant locations',
+    customers: 'Confirmed customer destinations',
+    total: 'Total verified points',
+  },
+  fr: {
+    title: 'Les données de couverture restent disponibles',
+    body: 'Google Maps est retardé, mais Kiyo Food a déjà chargé les points opérationnels vérifiés.',
+    restaurants: 'Emplacements de restaurants publiés',
+    customers: 'Destinations client confirmées',
+    total: 'Points vérifiés au total',
+  },
+  ar: {
+    title: 'بيانات التغطية ما زالت متاحة',
+    body: 'خدمة خرائط Google متأخرة، لكن كيو فود حمّل نقاط التشغيل المؤكدة للمراجعة.',
+    restaurants: 'مواقع المطاعم المنشورة',
+    customers: 'وجهات العملاء المؤكدة',
+    total: 'إجمالي النقاط المؤكدة',
+  },
+} as const;
+
+function CoverageDataFallback({ points, locale }: { points: LocationPoint[]; locale: keyof typeof coverageFallbackCopy }) {
+  const copy = coverageFallbackCopy[locale] ?? coverageFallbackCopy.fr;
+  const restaurantCount = points.filter((point) => point.type === 'restaurant').length;
+  const customerCount = points.filter((point) => point.type === 'customer').length;
+
+  return (
+    <div className="grid min-h-[260px] gap-3 rounded-xl border border-ink-100 bg-white p-4 sm:grid-cols-3">
+      <div className="sm:col-span-3">
+        <h4 className="font-display text-sm font-bold text-ink-900">{copy.title}</h4>
+        <p className="mt-1 max-w-2xl text-xs leading-5 text-ink-500">{copy.body}</p>
+      </div>
+      <CoverageStat icon={<Store className="h-4 w-4" />} label={copy.restaurants} value={restaurantCount.toLocaleString(locale)} />
+      <CoverageStat icon={<Home className="h-4 w-4" />} label={copy.customers} value={customerCount.toLocaleString(locale)} />
+      <CoverageStat icon={<Layers3 className="h-4 w-4" />} label={copy.total} value={points.length.toLocaleString(locale)} />
+    </div>
+  );
+}
+
+function CoverageStat({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-ink-100 bg-ink-50 p-4">
+      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-ember-600 shadow-sm">
+        {icon}
+      </div>
+      <p className="mt-3 text-2xl font-extrabold text-ink-900">{value}</p>
+      <p className="mt-1 text-xs leading-5 text-ink-500">{label}</p>
+    </div>
   );
 }
 

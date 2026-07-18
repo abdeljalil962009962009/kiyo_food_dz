@@ -45,6 +45,18 @@ const TYPE_ICONS: Record<string, string> = {
   restaurant_suspended: 'R',
 };
 
+const TYPE_ALIASES: Record<string, string> = {
+  applicant_replied: 'application_message',
+  restaurant_application_message: 'application_message',
+  new_application_message: 'application_message',
+  restaurant_application_submitted: 'application_submitted',
+  new_restaurant_application: 'application_submitted',
+  restaurant_application_status_changed: 'application_status_changed',
+  restaurant_application_under_review: 'application_under_review',
+  restaurant_application_changes_requested: 'application_changes_requested',
+  restaurant_application_preliminarily_approved: 'application_preliminarily_approved',
+};
+
 const NOTIFICATION_COPY: Record<NotificationLocale, NotificationCopy> = {
   en: {
     title: 'Notifications',
@@ -169,8 +181,38 @@ const normalizeLocale = (locale: string): NotificationLocale => (
 
 const containsMojibake = (value: string) => /Ã|Ø|Ù|�/.test(value);
 
+function resolveNotificationType(notification: Notification) {
+  const normalized = TYPE_ALIASES[notification.type] ?? notification.type;
+  const title = notification.title?.trim().toLowerCase() ?? '';
+
+  if (title.includes('applicant replied') || title.includes('new message about your restaurant application')) {
+    return 'application_message';
+  }
+  if (title.includes('restaurant application waiting for review') || title.includes('new restaurant application')) {
+    return 'application_submitted';
+  }
+  if (title.includes('changes requested for your restaurant application')) {
+    return 'application_changes_requested';
+  }
+  if (title.includes('restaurant application approved')) {
+    return 'application_preliminarily_approved';
+  }
+  if (title.includes('restaurant suspended')) {
+    return 'restaurant_suspended';
+  }
+
+  return normalized;
+}
+
+export function localizeNotification(notification: Notification, locale: string) {
+  const notificationLocale = normalizeLocale(locale);
+  const copy = NOTIFICATION_COPY[notificationLocale];
+  return localizedNotification(notification, copy);
+}
+
 function localizedNotification(notification: Notification, copy: NotificationCopy) {
-  const template = copy.types[notification.type];
+  const resolvedType = resolveNotificationType(notification);
+  const template = copy.types[resolvedType];
   const orderRef = valueFromMetadata(notification.metadata, ['order_number', 'order_id']);
   const restaurant = valueFromMetadata(notification.metadata, ['restaurant_name', 'restaurant']);
   const suffix = copy.restaurantSuffix(restaurant, orderRef);
@@ -203,9 +245,10 @@ export function NotificationBell() {
   const renderedNotifications = useMemo(
     () => notifications.slice(0, 20).map((notification) => ({
       notification,
-      display: localizedNotification(notification, copy),
+      display: localizeNotification(notification, notificationLocale),
+      iconType: resolveNotificationType(notification),
     })),
-    [copy, notifications],
+    [notificationLocale, notifications],
   );
 
   useEffect(() => {
@@ -249,7 +292,7 @@ export function NotificationBell() {
               <div className="px-4 py-8 text-center text-sm text-ink-400">{copy.empty}</div>
             ) : (
               <ul className="divide-y divide-ink-50">
-                {renderedNotifications.map(({ notification, display }) => (
+                {renderedNotifications.map(({ notification, display, iconType }) => (
                   <li key={notification.id}>
                     <button
                       onClick={() => markRead(notification.id)}
@@ -258,7 +301,7 @@ export function NotificationBell() {
                       }`}
                     >
                       <span className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-ember-50 text-[10px] font-bold text-ember-600">
-                        {TYPE_ICONS[notification.type] ?? '!'}
+                        {TYPE_ICONS[iconType] ?? TYPE_ICONS[notification.type] ?? '!'}
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block text-sm font-medium text-ink-900">{display.title}</span>

@@ -151,6 +151,7 @@ export type TranslationKey =
   | 'restaurant.reviews'
   | 'restaurant.about'
   | 'restaurant.noMenu'
+  | 'restaurant.notAssigned'
   | 'restaurant.addCategory'
   | 'restaurant.addItem'
   | 'restaurant.editItem'
@@ -173,9 +174,12 @@ export type TranslationKey =
   | 'restaurant.creating'
   | 'restaurant.openRestaurant'
   | 'restaurant.available'
+  | 'restaurant.hidden'
   | 'restaurant.outOfStock'
   | 'restaurant.price'
+  | 'restaurant.category'
   | 'restaurant.categoryName'
+  | 'restaurant.deleteCategoryConfirm'
   | 'restaurant.itemName'
   | 'restaurant.description'
   | 'restaurant.delete'
@@ -789,6 +793,7 @@ const en: Dict = {
   'restaurant.reviews': 'reviews',
   'restaurant.about': 'About',
   'restaurant.noMenu': 'Menu not published yet.',
+  'restaurant.notAssigned': 'No restaurant is assigned to your account yet. Contact the platform administrator to finish onboarding.',
   'restaurant.addCategory': 'Add category',
   'restaurant.addItem': 'Add item',
   'restaurant.editItem': 'Edit item',
@@ -811,9 +816,12 @@ const en: Dict = {
   'restaurant.creating': 'Creating…',
   'restaurant.openRestaurant': 'Open a restaurant',
   'restaurant.available': 'Available',
+  'restaurant.hidden': 'Hidden',
   'restaurant.outOfStock': 'Out of stock',
   'restaurant.price': 'Price (DZD)',
+  'restaurant.category': 'Category',
   'restaurant.categoryName': 'Category name',
+  'restaurant.deleteCategoryConfirm': 'Delete category "{name}"? Its items will stay in your menu without a category.',
   'restaurant.itemName': 'Item name',
   'restaurant.description': 'Description',
   'restaurant.delete': 'Delete',
@@ -1422,6 +1430,7 @@ const fr: Dict = {
   'restaurant.reviews': 'avis',
   'restaurant.about': 'À propos',
   'restaurant.noMenu': 'Menu non publié.',
+  'restaurant.notAssigned': 'Aucun restaurant n’est encore lié à votre compte. Contactez l’administrateur de la plateforme pour terminer l’intégration.',
   'restaurant.addCategory': 'Ajouter une catégorie',
   'restaurant.addItem': 'Ajouter un plat',
   'restaurant.editItem': 'Modifier',
@@ -1444,9 +1453,12 @@ const fr: Dict = {
   'restaurant.creating': 'Création…',
   'restaurant.openRestaurant': 'Ouvrir un restaurant',
   'restaurant.available': 'Disponible',
+  'restaurant.hidden': 'Masqué',
   'restaurant.outOfStock': 'Épuisé',
   'restaurant.price': 'Prix (DZD)',
+  'restaurant.category': 'Catégorie',
   'restaurant.categoryName': 'Nom de catégorie',
+  'restaurant.deleteCategoryConfirm': 'Supprimer la catégorie « {name} » ? Ses plats resteront dans votre menu sans catégorie.',
   'restaurant.itemName': 'Nom du plat',
   'restaurant.description': 'Description',
   'restaurant.delete': 'Supprimer',
@@ -2055,6 +2067,7 @@ const ar: Dict = {
   'restaurant.reviews': 'تقييمات',
   'restaurant.about': 'حول',
   'restaurant.noMenu': 'لم يُنشر القائمة بعد.',
+  'restaurant.notAssigned': 'لا يوجد مطعم مرتبط بحسابك بعد. تواصل مع مدير المنصة لإكمال الانضمام.',
   'restaurant.addCategory': 'إضافة فئة',
   'restaurant.addItem': 'إضافة طبق',
   'restaurant.editItem': 'تعديل',
@@ -2077,9 +2090,12 @@ const ar: Dict = {
   'restaurant.creating': 'جاري الإنشاء…',
   'restaurant.openRestaurant': 'افتح مطعماً',
   'restaurant.available': 'متوفر',
+  'restaurant.hidden': 'مخفي',
   'restaurant.outOfStock': 'نفد',
   'restaurant.price': 'السعر (دج)',
+  'restaurant.category': 'الفئة',
   'restaurant.categoryName': 'اسم الفئة',
+  'restaurant.deleteCategoryConfirm': 'هل تريد حذف فئة "{name}"؟ ستبقى أطباقها في قائمتك بدون فئة.',
   'restaurant.itemName': 'اسم الطبق',
   'restaurant.description': 'الوصف',
   'restaurant.delete': 'حذف',

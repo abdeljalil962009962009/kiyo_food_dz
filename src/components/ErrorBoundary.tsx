@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { translate, type Locale } from '../lib/i18n';
 
 type Props = {
   children: ReactNode;
@@ -31,12 +32,12 @@ export class ErrorBoundary extends Component<Props, State> {
 }
 
 function DefaultFallback({
-  error, reset, variant,
+  reset, variant,
 }: {
   error: Error; reset: () => void; variant: 'page' | 'inline';
 }) {
   const isPage = variant === 'page';
-  const reference = error.name || 'RenderError';
+  const locale = getFallbackLocale();
   const body = (
     <div className="space-y-3 text-center">
       <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-error-500/10">
@@ -44,20 +45,13 @@ function DefaultFallback({
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86l-8.18 14.18A2 2 0 003.83 21h16.34a2 2 0 001.72-2.96L13.71 3.86a2 2 0 00-3.42 0z" />
         </svg>
       </div>
-      <h2 className="text-lg font-semibold text-ink-900">This screen could not render</h2>
+      <h2 className="text-lg font-semibold text-ink-900">{translate(locale, 'error.genericTitle')}</h2>
       <p className="text-sm text-ink-500">
-        The app caught a screen-level error before the request could complete. The technical details were logged in the browser console.
+        {translate(locale, 'error.genericBody')}
       </p>
-      <p className="text-xs text-ink-400">Reference: {reference}</p>
-      {error.message && (
-        <details className="mx-auto max-w-md rounded-lg bg-ink-50 p-3 text-left text-xs text-ink-600">
-          <summary className="cursor-pointer font-semibold text-ink-700">Technical message</summary>
-          <pre className="mt-2 whitespace-pre-wrap break-words">{error.message}</pre>
-        </details>
-      )}
       <div className="flex items-center justify-center gap-2 pt-1">
-        <button onClick={reset} className="kiyo-btn-primary">Try again</button>
-        <button onClick={() => window.location.reload()} className="kiyo-btn-secondary">Reload page</button>
+        <button onClick={reset} className="kiyo-btn-primary">{translate(locale, 'error.retry')}</button>
+        <button onClick={() => window.location.reload()} className="kiyo-btn-secondary">{translate(locale, 'error.reload')}</button>
       </div>
     </div>
   );
@@ -70,4 +64,13 @@ function DefaultFallback({
     );
   }
   return <div className="flex items-center justify-center py-16">{body}</div>;
+}
+
+function getFallbackLocale(): Locale {
+  if (typeof window === 'undefined') return 'fr';
+  const stored = window.localStorage.getItem('kiyo-locale');
+  if (stored === 'en' || stored === 'fr' || stored === 'ar') return stored;
+  const htmlLang = document.documentElement.lang;
+  if (htmlLang === 'en' || htmlLang === 'fr' || htmlLang === 'ar') return htmlLang;
+  return 'fr';
 }

@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
+import { getConnectionQuality } from './locationNetwork';
 
 type NetworkInformation = {
   effectiveType?: string;
+  downlink?: number;
   saveData?: boolean;
   addEventListener?: (type: 'change', listener: () => void) => void;
   removeEventListener?: (type: 'change', listener: () => void) => void;
@@ -14,10 +16,11 @@ function connection() {
 
 function readStatus() {
   const info = connection();
-  const effectiveType = info?.effectiveType ?? '';
+  const online = typeof navigator === 'undefined' ? true : navigator.onLine;
+  const quality = getConnectionQuality(online, info);
   return {
-    online: typeof navigator === 'undefined' ? true : navigator.onLine,
-    slow: Boolean(info?.saveData || effectiveType === 'slow-2g' || effectiveType === '2g'),
+    online,
+    slow: quality === 'slow',
   };
 }
 

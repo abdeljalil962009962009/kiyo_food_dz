@@ -38,7 +38,7 @@ export default function RestaurantMenuPage() {
       if (re) throw re;
       
       if (!r) {
-        setError('No restaurant assigned to your account. Please contact the platform administrator to onboard your restaurant.');
+        setError(t('restaurant.notAssigned'));
         return;
       }
 
@@ -74,7 +74,8 @@ export default function RestaurantMenuPage() {
       setItems((prev) =>
         prev.map((i) => (i.id === item.id ? { ...i, is_available: item.is_available } : i)),
       );
-      setError(e.message);
+      console.error(e);
+      setError(t('error.genericBody'));
     }
   };
 
@@ -84,7 +85,8 @@ export default function RestaurantMenuPage() {
     const { error: e } = await supabase.from('menu_items').delete().eq('id', item.id);
     if (e) {
       setItems(previous);
-      setError(e.message);
+      console.error(e);
+      setError(t('error.genericBody'));
     }
   };
 
@@ -162,16 +164,17 @@ export default function RestaurantMenuPage() {
                   <h2 className="font-display text-base font-bold text-ink-900">{cat.name}</h2>
                   <button
                     onClick={async () => {
-                      if (!confirm(`Delete category "${cat.name}"? Items will be uncategorised.`)) return;
+                      if (!confirm(t('restaurant.deleteCategoryConfirm').replace('{name}', cat.name))) return;
                       const { error: e } = await supabase.from('menu_categories').delete().eq('id', cat.id);
                       if (e) {
-                        setError(e.message);
+                        console.error(e);
+                        setError(t('error.genericBody'));
                         return;
                       }
                       setCategories((prev) => prev.filter((c) => c.id !== cat.id));
                     }}
                     className="text-ink-400 hover:text-error-600"
-                    aria-label="delete category"
+                    aria-label={t('restaurant.delete')}
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -223,6 +226,7 @@ function ItemGroup({ items, onToggle, onEdit, onDelete }: {
   onEdit: (i: MenuItem) => void;
   onDelete: (i: MenuItem) => void;
 }) {
+  const { t } = useT();
   if (items.length === 0) return null;
   return (
     <div className="space-y-2">
@@ -244,22 +248,22 @@ function ItemGroup({ items, onToggle, onEdit, onDelete }: {
                 ? 'bg-sage-100 text-sage-600 hover:bg-sage-200'
                 : 'bg-ink-100 text-ink-500 hover:bg-ink-200'
             }`}
-            aria-label="toggle availability"
+            aria-label={item.is_available ? t('restaurant.outOfStock') : t('restaurant.available')}
           >
             <Power className="h-3 w-3" />
-            {item.is_available ? 'Available' : 'Hidden'}
+            {item.is_available ? t('restaurant.available') : t('restaurant.hidden')}
           </button>
           <button
             onClick={() => onEdit(item)}
             className="rounded-lg p-1.5 text-ink-500 hover:bg-ink-100"
-            aria-label="edit"
+            aria-label={t('common.edit')}
           >
             <Pencil className="h-4 w-4" />
           </button>
           <button
             onClick={() => onDelete(item)}
             className="rounded-lg p-1.5 text-ink-400 hover:bg-error-500/10 hover:text-error-600"
-            aria-label="delete"
+            aria-label={t('restaurant.delete')}
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -350,12 +354,12 @@ function ItemFormModal({ restaurantId, categories, item, onClose, onSaved }: {
           onChange={(e) => setImageUrl(e.target.value)} type="url" placeholder="https://..." />
         {categories.length > 0 && (
           <div>
-            <label htmlFor="i-cat" className="kiyo-label">Category</label>
+            <label htmlFor="i-cat" className="kiyo-label">{t('restaurant.category')}</label>
             <select
               id="i-cat" className="kiyo-input"
               value={categoryId} onChange={(e) => setCategoryId(e.target.value)}
             >
-              <option value="">â€”</option>
+              <option value="">{t('common.none')}</option>
               {categories.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
             </select>
           </div>

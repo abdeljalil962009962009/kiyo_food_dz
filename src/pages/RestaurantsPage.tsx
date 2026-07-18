@@ -9,6 +9,7 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { ErrorState } from '../components/feedback';
 import { RestaurantImage } from '../components/ui';
 import { haversineKm, formatDistanceKm } from '../lib/geo';
+import { withExponentialBackoff } from '../lib/locationNetwork';
 
 type RestaurantWithDistance = Restaurant & {
   distance_km?: number | null;
@@ -30,17 +31,21 @@ export default function RestaurantsPage() {
     setLoading(true);
     setError(null);
     try {
-      let q = supabase
-        .from('restaurants')
-        .select('*')
-        .eq('status', 'published');
+      const { data } = await withExponentialBackoff(async () => {
+        let q = supabase
+          .from('restaurants')
+          .select('*')
+          .eq('status', 'published');
 
-      if (selectedWilaya) {
-        q = q.eq('wilaya_id', selectedWilaya.id);
-      }
+        if (selectedWilaya) {
+          q = q.eq('wilaya_id', selectedWilaya.id);
+        }
 
-      const { data, error: e } = await q.order('rating', { ascending: false }).limit(50);
-      if (e) throw e;
+        const result = await q.order('rating', { ascending: false }).limit(50);
+        if (result.error) throw result.error;
+        return result;
+      }, { attempts: 3, timeoutMs: 16_000 });
+
       const restaurants = ((data as RestaurantWithDistance[]) ?? []).map((restaurant) => ({
         ...restaurant,
         distance_km: currentLocation && restaurant.latitude != null && restaurant.longitude != null

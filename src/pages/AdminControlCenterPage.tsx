@@ -69,10 +69,12 @@ const adminErrorMessage = (err: unknown, fallback: string) => {
     const details = typeof maybe.details === 'string' ? maybe.details : '';
     const hint = typeof maybe.hint === 'string' ? maybe.hint : '';
     const combined = [message, details, hint].filter(Boolean).join(' ');
-    if (combined) return combined;
+    if (combined && !isTechnicalDatabaseError(combined)) return combined;
   }
   return fallback;
 };
+
+const isTechnicalDatabaseError = (message: string) => /(?:function\s+public\.|column\s+["\w.]+\s+does not exist|relation\s+["\w.]+\s+does not exist|schema cache|SQL statement|PL\/pgSQL|PGRST|violates row-level security|permission denied for (?:table|schema|function)|invalid input syntax)/i.test(message);
 
 const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
   en: {
@@ -109,6 +111,9 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'no.recent.activity': 'No recent activity',
     'btn.restore': 'Restore',
     'btn.suspend': 'Suspend',
+    'confirm.suspendUser': 'Suspend this user? They will lose platform access until restored.',
+    'confirm.restoreUser': 'Restore this user’s platform access?',
+    'reason.suspendedByAdmin': 'Suspended by platform owner',
     'btn.verify': 'Verify',
     'btn.unverify': 'Unverify',
     'btn.feature': 'Feature',
@@ -174,6 +179,12 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'geography.expansionDesc': 'Wilayas with customer interest but no restaurants yet.',
     'geography.customersSuffix': 'customers',
     'geography.demandServed': 'All customer demand is currently served.',
+    'geography.loadFailed': 'Geographic controls could not be loaded. Retry in a moment.',
+    'geography.zoneNameRequired': 'Enter a delivery zone name before saving.',
+    'geography.zoneFeesInvalid': 'Delivery zone fees must be valid positive numbers.',
+    'geography.createFailed': 'Delivery zone could not be created. Retry after checking the values.',
+    'geography.zoneUpdateFailed': 'Delivery zone status could not be updated. Retry in a moment.',
+    'geography.wilayaUpdateFailed': 'Wilaya status could not be updated. Retry in a moment.',
     'rules.deliveryTitle': 'Delivery Rules',
     'rules.delivery.pricePerKm': 'Price per km (DZD)',
     'rules.delivery.minFee': 'Minimum fee (DZD)',
@@ -270,6 +281,9 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'no.recent.activity': 'Aucune activité récente',
     'btn.restore': 'Rétablir',
     'btn.suspend': 'Suspendre',
+    'confirm.suspendUser': 'Suspendre cet utilisateur ? Il perdra l’accès à la plateforme jusqu’à rétablissement.',
+    'confirm.restoreUser': 'Rétablir l’accès de cet utilisateur à la plateforme ?',
+    'reason.suspendedByAdmin': 'Suspendu par le propriétaire de la plateforme',
     'btn.verify': 'Vérifier',
     'btn.unverify': 'Dé-vérifier',
     'btn.feature': 'Mettre en vedette',
@@ -335,6 +349,12 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'geography.expansionDesc': 'Wilayas avec intérêt des clients mais sans restaurants pour le moment.',
     'geography.customersSuffix': 'clients',
     'geography.demandServed': 'Toute la demande des clients est actuellement servie.',
+    'geography.loadFailed': 'Les contrôles géographiques n’ont pas pu être chargés. Réessayez dans un instant.',
+    'geography.zoneNameRequired': 'Saisissez le nom de la zone de livraison avant d’enregistrer.',
+    'geography.zoneFeesInvalid': 'Les frais de la zone de livraison doivent être des nombres positifs valides.',
+    'geography.createFailed': 'La zone de livraison n’a pas pu être créée. Vérifiez les valeurs puis réessayez.',
+    'geography.zoneUpdateFailed': 'Le statut de la zone de livraison n’a pas pu être mis à jour. Réessayez dans un instant.',
+    'geography.wilayaUpdateFailed': 'Le statut de la Wilaya n’a pas pu être mis à jour. Réessayez dans un instant.',
     'rules.deliveryTitle': 'Règles de Livraison',
     'rules.delivery.pricePerKm': 'Prix par km (DZD)',
     'rules.delivery.minFee': 'Frais minimum (DZD)',
@@ -431,6 +451,9 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'no.recent.activity': 'لا توجد أنشطة أخيرة',
     'btn.restore': 'إستعادة',
     'btn.suspend': 'تعليق',
+    'confirm.suspendUser': 'هل تريد تعليق هذا المستخدم؟ سيفقد الوصول إلى المنصة إلى أن تتم استعادته.',
+    'confirm.restoreUser': 'هل تريد استعادة وصول هذا المستخدم إلى المنصة؟',
+    'reason.suspendedByAdmin': 'تم التعليق بواسطة مالك المنصة',
     'btn.verify': 'التحقق',
     'btn.unverify': 'إلغاء التحقق',
     'btn.feature': 'تمييز',
@@ -496,6 +519,12 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'geography.expansionDesc': 'ولايات بها اهتمام من الزبائن ولكن لا توجد بها مطاعم بعد.',
     'geography.customersSuffix': 'زبائن',
     'geography.demandServed': 'يتم تلبية جميع طلبات الزبائن حالياً.',
+    'geography.loadFailed': 'تعذر تحميل أدوات الجغرافيا. أعد المحاولة بعد لحظات.',
+    'geography.zoneNameRequired': 'أدخل اسم منطقة التوصيل قبل الحفظ.',
+    'geography.zoneFeesInvalid': 'يجب أن تكون رسوم منطقة التوصيل أرقاماً صحيحة وموجبة.',
+    'geography.createFailed': 'تعذر إنشاء منطقة التوصيل. تحقق من القيم ثم أعد المحاولة.',
+    'geography.zoneUpdateFailed': 'تعذر تحديث حالة منطقة التوصيل. أعد المحاولة بعد لحظات.',
+    'geography.wilayaUpdateFailed': 'تعذر تحديث حالة الولاية. أعد المحاولة بعد لحظات.',
     'rules.deliveryTitle': 'قواعد التوصيل',
     'rules.delivery.pricePerKm': 'السعر لكل كيلومتر (د.ج)',
     'rules.delivery.minFee': 'الحد الأدنى للرسوم (د.ج)',
@@ -1021,16 +1050,22 @@ function UsersTab() {
   useEffect(() => { void load(); }, [load]);
 
   const toggleSuspend = async (user: Profile) => {
+    const nextSuspended = !user.is_suspended;
+    const confirmation = nextSuspended
+      ? tx('confirm.suspendUser', 'Suspend this user? They will lose platform access until restored.')
+      : tx('confirm.restoreUser', 'Restore this user’s platform access?');
+    if (!window.confirm(confirmation)) return;
+
     setActingId(user.id);
     setError(null);
     try {
       const { error: e } = await callAdminAction('set_user_suspended', {
         p_user_id: user.id,
-        p_suspended: !user.is_suspended,
-        p_reason: !user.is_suspended ? 'Suspended by admin' : null,
+        p_suspended: nextSuspended,
+        p_reason: nextSuspended ? tx('reason.suspendedByAdmin', 'Suspended by platform owner') : null,
       });
       if (e) throw e;
-      setUsers((prev) => prev.map((u) => u.id === user.id ? { ...u, is_suspended: !u.is_suspended } : u));
+      setUsers((prev) => prev.map((u) => u.id === user.id ? { ...u, is_suspended: nextSuspended } : u));
     } catch (err) {
       setError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
@@ -2859,7 +2894,7 @@ type WilayaStats = {
 };
 
 function GeographyTab() {
-  const { currentLocale } = useT();
+  const { currentLocale, t } = useT();
   const { tx } = useAdminT();
   const [wilayaStats, setWilayaStats] = useState<WilayaStats[]>([]);
   const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
@@ -2920,11 +2955,11 @@ function GeographyTab() {
       setDeliveryZones((zonesRes.data as DeliveryZone[]) ?? []);
     } catch (err) {
       console.error('[Kiyo] Load geography controls error:', err);
-      setError(adminErrorMessage(err, 'Failed to load geographic stats'));
+      setError(adminErrorMessage(err, tx('geography.loadFailed', 'Geographic controls could not be loaded. Retry in a moment.')));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tx]);
 
   useEffect(() => {
     void loadStats();
@@ -2937,12 +2972,12 @@ function GeographyTab() {
     const minFee = Number(newZone.min_fee);
 
     if (!name) {
-      setError('Delivery zone name is required.');
+      setError(tx('geography.zoneNameRequired', 'Enter a delivery zone name before saving.'));
       return;
     }
 
     if (![baseFee, perKmFee, minFee].every((value) => Number.isFinite(value) && value >= 0)) {
-      setError('Delivery zone fees must be valid positive numbers.');
+      setError(tx('geography.zoneFeesInvalid', 'Delivery zone fees must be valid positive numbers.'));
       return;
     }
 
@@ -2962,7 +2997,7 @@ function GeographyTab() {
       setDeliveryZones((prev) => [...prev, data as DeliveryZone].sort((a, b) => a.name.localeCompare(b.name)));
     } catch (err) {
       console.error('[Kiyo] Create delivery zone error:', err);
-      setError(adminErrorMessage(err, 'Failed to create zone'));
+      setError(adminErrorMessage(err, tx('geography.createFailed', 'Delivery zone could not be created. Retry after checking the values.')));
     } finally {
       setSavingZone(false);
     }
@@ -2978,7 +3013,7 @@ function GeographyTab() {
       setDeliveryZones((prev) => prev.map((x) => x.id === z.id ? { ...x, is_active: nextActive } : x));
     } catch (err) {
       console.error('[Kiyo] Toggle delivery zone error:', err);
-      setError(adminErrorMessage(err, 'Failed to update delivery zone'));
+      setError(adminErrorMessage(err, tx('geography.zoneUpdateFailed', 'Delivery zone status could not be updated. Retry in a moment.')));
     } finally {
       setMutatingId(null);
     }
@@ -2994,7 +3029,7 @@ function GeographyTab() {
       setWilayaStats((prev) => prev.map((x) => x.id === w.id ? { ...x, is_active: nextActive } : x));
     } catch (err) {
       console.error('[Kiyo] Toggle Wilaya error:', err);
-      setError(adminErrorMessage(err, 'Failed to update Wilaya status'));
+      setError(adminErrorMessage(err, tx('geography.wilayaUpdateFailed', 'Wilaya status could not be updated. Retry in a moment.')));
     } finally {
       setMutatingId(null);
     }
@@ -3002,7 +3037,7 @@ function GeographyTab() {
 
   if (loading) return <Skeleton count={4} />;
   if (error && wilayaStats.length === 0 && deliveryZones.length === 0) {
-    return <ErrorState title="Error" message={error} onRetry={loadStats} retryLabel="Retry" />;
+    return <ErrorState title={t('error.genericTitle')} message={error} onRetry={loadStats} retryLabel={t('error.retry')} />;
   }
 
   const totalRestaurants = wilayaStats.reduce((sum, w) => sum + w.restaurant_count, 0);

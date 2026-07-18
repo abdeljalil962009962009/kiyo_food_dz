@@ -13,6 +13,7 @@ import { getConnectionQuality, type NetworkInformationLike } from '../lib/locati
 
 type GoogleMapShellProps = {
   children: ReactNode;
+  fallback?: ReactNode;
   fallbackHeightClass?: string;
 };
 
@@ -44,7 +45,7 @@ export function useMapReadiness(resetKey: string | number = 'default') {
   };
 }
 
-export function GoogleMapShell({ children, fallbackHeightClass = 'h-[360px]' }: GoogleMapShellProps) {
+export function GoogleMapShell({ children, fallback, fallbackHeightClass = 'h-[360px]' }: GoogleMapShellProps) {
   const { t, locale } = useT();
   const [loadFailed, setLoadFailed] = useState(false);
   const [online, setOnline] = useState(() => navigator.onLine);
@@ -92,8 +93,8 @@ export function GoogleMapShell({ children, fallbackHeightClass = 'h-[360px]' }: 
       : loadFailed
         ? t('map.loadFailedBody')
         : t('map.configurationMissingBody');
-    return (
-      <div className={`flex ${fallbackHeightClass} min-h-64 flex-col items-center justify-center rounded-xl border border-ink-200 bg-ink-50 px-6 text-center`}>
+    const recoveryPanel = (
+      <div className={`flex ${fallback ? 'min-h-0 py-4' : `${fallbackHeightClass} min-h-64`} flex-col items-center justify-center rounded-xl border border-ink-200 bg-ink-50 px-6 text-center`}>
         <span className="flex h-11 w-11 items-center justify-center rounded-full bg-warning-500/10 text-warning-600">
           <AlertTriangle className="h-5 w-5" />
         </span>
@@ -121,6 +122,17 @@ export function GoogleMapShell({ children, fallbackHeightClass = 'h-[360px]' }: 
         )}
       </div>
     );
+
+    if (fallback) {
+      return (
+        <div className="space-y-3">
+          {recoveryPanel}
+          {fallback}
+        </div>
+      );
+    }
+
+    return recoveryPanel;
   }
 
   return (
