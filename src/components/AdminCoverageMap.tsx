@@ -124,7 +124,7 @@ export default function AdminCoverageMap() {
           <p className="mt-1 max-w-md text-xs leading-5 text-ink-500">{t('map.coverageSummary')}</p>
         </div>
       ) : (
-        <GoogleMapShell fallbackHeightClass="h-[400px]" fallback={<CoverageDataFallback points={filteredPoints} locale={locale} />}>
+        <GoogleMapShell fallbackHeightClass="h-[400px]" fallback={<CoverageDataFallback points={filteredPoints} />}>
           <div className="relative h-[400px] w-full bg-ink-100">
             <Map
               defaultBounds={{ ...ALGERIA_MAP_BOUNDS, padding: 36 }}
@@ -156,44 +156,20 @@ export default function AdminCoverageMap() {
   );
 }
 
-const coverageFallbackCopy = {
-  en: {
-    title: 'Coverage data is still available',
-    body: 'Google Maps is delayed, but Kiyo Food already loaded the verified operational points for review.',
-    restaurants: 'Published restaurant locations',
-    customers: 'Confirmed customer destinations',
-    total: 'Total verified points',
-  },
-  fr: {
-    title: 'Les données de couverture restent disponibles',
-    body: 'Google Maps est retardé, mais Kiyo Food a déjà chargé les points opérationnels vérifiés.',
-    restaurants: 'Emplacements de restaurants publiés',
-    customers: 'Destinations client confirmées',
-    total: 'Points vérifiés au total',
-  },
-  ar: {
-    title: 'بيانات التغطية ما زالت متاحة',
-    body: 'خدمة خرائط Google متأخرة، لكن كيو فود حمّل نقاط التشغيل المؤكدة للمراجعة.',
-    restaurants: 'مواقع المطاعم المنشورة',
-    customers: 'وجهات العملاء المؤكدة',
-    total: 'إجمالي النقاط المؤكدة',
-  },
-} as const;
-
-function CoverageDataFallback({ points, locale }: { points: LocationPoint[]; locale: keyof typeof coverageFallbackCopy }) {
-  const copy = coverageFallbackCopy[locale] ?? coverageFallbackCopy.fr;
+function CoverageDataFallback({ points }: { points: LocationPoint[] }) {
+  const { t, locale } = useT();
   const restaurantCount = points.filter((point) => point.type === 'restaurant').length;
   const customerCount = points.filter((point) => point.type === 'customer').length;
 
   return (
     <div className="grid min-h-[260px] gap-3 rounded-xl border border-ink-100 bg-white p-4 sm:grid-cols-3">
       <div className="sm:col-span-3">
-        <h4 className="font-display text-sm font-bold text-ink-900">{copy.title}</h4>
-        <p className="mt-1 max-w-2xl text-xs leading-5 text-ink-500">{copy.body}</p>
+        <h4 className="font-display text-sm font-bold text-ink-900">{t('map.coverageFallbackTitle')}</h4>
+        <p className="mt-1 max-w-2xl text-xs leading-5 text-ink-500">{t('map.coverageFallbackBody')}</p>
       </div>
-      <CoverageStat icon={<Store className="h-4 w-4" />} label={copy.restaurants} value={restaurantCount.toLocaleString(locale)} />
-      <CoverageStat icon={<Home className="h-4 w-4" />} label={copy.customers} value={customerCount.toLocaleString(locale)} />
-      <CoverageStat icon={<Layers3 className="h-4 w-4" />} label={copy.total} value={points.length.toLocaleString(locale)} />
+      <CoverageStat icon={<Store className="h-4 w-4" />} label={t('map.coverageFallbackRestaurants')} value={restaurantCount.toLocaleString(locale)} />
+      <CoverageStat icon={<Home className="h-4 w-4" />} label={t('map.coverageFallbackCustomers')} value={customerCount.toLocaleString(locale)} />
+      <CoverageStat icon={<Layers3 className="h-4 w-4" />} label={t('map.coverageFallbackTotal')} value={points.length.toLocaleString(locale)} />
     </div>
   );
 }

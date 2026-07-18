@@ -267,6 +267,8 @@ export type TranslationKey =
   | 'map.loadFailedBody'
   | 'map.configurationMissingTitle'
   | 'map.configurationMissingBody'
+  | 'map.primaryUnavailableTitle'
+  | 'map.primaryUnavailableBody'
   | 'map.offlineTitle'
   | 'map.offlineBody'
   | 'map.customerMarker'
@@ -280,6 +282,11 @@ export type TranslationKey =
   | 'map.coverageEmpty'
   | 'map.coverageSummary'
   | 'map.coverageLoadFailed'
+  | 'map.coverageFallbackTitle'
+  | 'map.coverageFallbackBody'
+  | 'map.coverageFallbackRestaurants'
+  | 'map.coverageFallbackCustomers'
+  | 'map.coverageFallbackTotal'
   | 'map.gpsLive'
   | 'map.gpsIdle'
   | 'map.gpsError'
@@ -909,6 +916,8 @@ const en: Dict = {
   'map.loadFailedBody': 'Check your connection and retry. Your form data has not been lost.',
   'map.configurationMissingTitle': 'Map service is unavailable',
   'map.configurationMissingBody': 'Location selection is temporarily unavailable. Please try again shortly.',
+  'map.primaryUnavailableTitle': 'The primary map is temporarily unavailable',
+  'map.primaryUnavailableBody': 'Kiyo Food switched to the backup map automatically. You can still search, place the pin, and confirm your exact location.',
   'map.customerMarker': 'Delivery location',
   'map.driverMarker': 'Driver location',
   'map.coverageTitle': 'Delivery activity map',
@@ -920,6 +929,11 @@ const en: Dict = {
   'map.coverageEmpty': 'No verified location data matches this filter yet.',
   'map.coverageSummary': 'verified location points displayed for operational coverage planning.',
   'map.coverageLoadFailed': 'Location activity could not be loaded. Verify owner access and try again.',
+  'map.coverageFallbackTitle': 'Coverage data is still available',
+  'map.coverageFallbackBody': 'The primary map is unavailable, but Kiyo Food already loaded the verified operational points for review.',
+  'map.coverageFallbackRestaurants': 'Published restaurant locations',
+  'map.coverageFallbackCustomers': 'Confirmed customer destinations',
+  'map.coverageFallbackTotal': 'Total verified points',
   'map.gpsLive': 'live',
   'map.gpsIdle': 'idle',
   'map.gpsError': 'unavailable',
@@ -1546,6 +1560,8 @@ const fr: Dict = {
   'map.loadFailedBody': 'Vérifiez votre connexion puis réessayez. Les données du formulaire sont conservées.',
   'map.configurationMissingTitle': 'Le service de carte est indisponible',
   'map.configurationMissingBody': 'La sélection d’emplacement est temporairement indisponible. Réessayez dans un instant.',
+  'map.primaryUnavailableTitle': 'La carte principale est temporairement indisponible',
+  'map.primaryUnavailableBody': 'Kiyo Food a activé automatiquement la carte de secours. Vous pouvez toujours rechercher une adresse, placer le repère et confirmer le lieu exact.',
   'map.customerMarker': 'Adresse de livraison',
   'map.driverMarker': 'Position du livreur',
   'map.coverageTitle': 'Carte de l’activité de livraison',
@@ -1557,6 +1573,11 @@ const fr: Dict = {
   'map.coverageEmpty': 'Aucune donnée de localisation vérifiée ne correspond à ce filtre.',
   'map.coverageSummary': 'points de localisation vérifiés affichés pour planifier la couverture opérationnelle.',
   'map.coverageLoadFailed': 'Impossible de charger l’activité géographique. Vérifiez l’accès propriétaire puis réessayez.',
+  'map.coverageFallbackTitle': 'Les données de couverture restent disponibles',
+  'map.coverageFallbackBody': 'La carte principale est indisponible, mais Kiyo Food a déjà chargé les points opérationnels vérifiés.',
+  'map.coverageFallbackRestaurants': 'Emplacements de restaurants publiés',
+  'map.coverageFallbackCustomers': 'Destinations client confirmées',
+  'map.coverageFallbackTotal': 'Total des points vérifiés',
   'map.gpsLive': 'en direct',
   'map.gpsIdle': 'en attente',
   'map.gpsError': 'indisponible',
@@ -2183,6 +2204,8 @@ const ar: Dict = {
   'map.loadFailedBody': 'تحقق من الاتصال ثم أعد المحاولة. لم يتم فقدان بيانات النموذج.',
   'map.configurationMissingTitle': 'خدمة الخرائط غير متاحة',
   'map.configurationMissingBody': 'اختيار الموقع غير متاح مؤقتاً. أعد المحاولة بعد قليل.',
+  'map.primaryUnavailableTitle': 'الخريطة الرئيسية غير متاحة مؤقتاً',
+  'map.primaryUnavailableBody': 'فعّلت كيو فود الخريطة الاحتياطية تلقائياً. ما زال بإمكانك البحث عن العنوان ووضع الدبوس وتأكيد الموقع الدقيق.',
   'map.customerMarker': 'موقع التوصيل',
   'map.driverMarker': 'موقع السائق',
   'map.coverageTitle': 'خريطة نشاط التوصيل',
@@ -2194,6 +2217,11 @@ const ar: Dict = {
   'map.coverageEmpty': 'لا توجد بيانات مواقع مؤكدة تطابق هذا التصفية بعد.',
   'map.coverageSummary': 'نقطة موقع مؤكدة معروضة لتخطيط التغطية التشغيلية.',
   'map.coverageLoadFailed': 'تعذر تحميل نشاط المواقع. تحقق من صلاحيات المالك ثم أعد المحاولة.',
+  'map.coverageFallbackTitle': 'بيانات التغطية ما زالت متاحة',
+  'map.coverageFallbackBody': 'الخريطة الرئيسية غير متاحة، لكن كيو فود حمّل نقاط التشغيل المؤكدة للمراجعة.',
+  'map.coverageFallbackRestaurants': 'مواقع المطاعم المنشورة',
+  'map.coverageFallbackCustomers': 'وجهات العملاء المؤكدة',
+  'map.coverageFallbackTotal': 'إجمالي النقاط المؤكدة',
   'map.gpsLive': 'مباشر',
   'map.gpsIdle': 'في الانتظار',
   'map.gpsError': 'غير متاح',

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { AdvancedMarker, Map, useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
 import { Clock3, Navigation } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
@@ -25,11 +25,29 @@ type RouteSummary = {
   duration: string;
 };
 
+const OpenStreetMapDisplay = lazy(() => import('./OpenStreetMapDisplay'));
+
 export default function TrackingMap(props: TrackingMapProps) {
   return (
-    <GoogleMapShell fallbackHeightClass="h-[320px]">
+    <GoogleMapShell fallbackHeightClass="h-[320px]" fallback={<TrackingMapFallback {...props} />}>
       <TrackingMapInner {...props} />
     </GoogleMapShell>
+  );
+}
+
+function TrackingMapFallback(props: TrackingMapProps) {
+  const { t } = useT();
+  const points = [
+    { lat: props.restaurantLat, lng: props.restaurantLng, kind: 'restaurant' as const, title: t('map.restaurantMarker') },
+    { lat: props.deliveryLat, lng: props.deliveryLng, kind: 'customer' as const, title: t('map.customerMarker') },
+    ...(isValidMapCoordinate(props.driverLat, props.driverLng)
+      ? [{ lat: props.driverLat as number, lng: props.driverLng as number, kind: 'driver' as const, title: t('map.driverMarker') }]
+      : []),
+  ];
+  return (
+    <Suspense fallback={<div className="h-[320px] animate-pulse rounded-xl bg-ink-100" />}>
+      <OpenStreetMapDisplay points={points} heightClass="h-[320px] sm:h-[360px]" />
+    </Suspense>
   );
 }
 
