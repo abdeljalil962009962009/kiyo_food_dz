@@ -7,6 +7,21 @@ import { AppShell } from '../components/AppShell';
 import { Skeleton } from '../components/feedback';
 import { supabase } from '../lib/supabase';
 
+const customerCopy = {
+  en: {
+    usual: 'Your usual',
+    usualBody: 'Ready when you want to reorder from a place you already trust.',
+  },
+  fr: {
+    usual: 'Votre habituel',
+    usualBody: 'Pret pour recommander chez un restaurant que vous connaissez deja.',
+  },
+  ar: {
+    usual: 'اختيارك المعتاد',
+    usualBody: 'جاهز لإعادة الطلب من مطعم تثق به بالفعل.',
+  },
+} as const;
+
 export default function DashboardPage() {
   const { profile } = useAuth();
   const role = profile?.role ?? 'customer';
@@ -16,7 +31,8 @@ export default function DashboardPage() {
 }
 
 function CustomerDashboard() {
-  const { t } = useT();
+  const { t, locale } = useT();
+  const tx = customerCopy[locale];
   const { profile } = useAuth();
   const [usual, setUsual] = useState<{ id: string; name: string } | null>(null);
   const [personalLoading, setPersonalLoading] = useState(true);
@@ -53,8 +69,8 @@ function CustomerDashboard() {
       {personalLoading ? (
         <div className="kiyo-card mb-4 p-4"><Skeleton count={2} /></div>
       ) : usual ? (
-        <Link to={`/restaurants/${usual.id}`} className="kiyo-card mb-4 flex items-center justify-between border border-ember-100 p-4 hover:bg-ember-50">
-          <div><p className="text-xs font-bold uppercase text-ember-600">{t('dash.welcome')}</p><p className="mt-1 font-display text-base font-bold text-ink-900">{usual.name}</p><p className="text-xs text-ink-500">{t('orders.reorder')}</p></div>
+        <Link to={`/restaurant/${usual.id}`} className="kiyo-card mb-4 flex items-center justify-between border border-ember-100 p-4 hover:bg-ember-50">
+          <div><p className="text-xs font-bold uppercase text-ember-600">{tx.usual}</p><p className="mt-1 font-display text-base font-bold text-ink-900">{usual.name}</p><p className="text-xs text-ink-500">{tx.usualBody}</p></div>
           <ChevronRight className="h-5 w-5 text-ember-500" />
         </Link>
       ) : null}

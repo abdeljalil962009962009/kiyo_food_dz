@@ -25,9 +25,22 @@ describe('notification localization', () => {
       metadata: { restaurant_name: 'Kiyo Test' },
     }), 'ar');
 
-    expect(display.title).toContain('\u0631\u0633\u0627\u0644\u0629');
+    expect(display.title).toBe('\u0631\u0633\u0627\u0644\u0629 \u062d\u0648\u0644 \u0637\u0644\u0628 \u0645\u0637\u0639\u0645');
     expect(display.body).not.toContain('Bonjour');
     expect(display.body).toContain('Kiyo Test');
+  });
+
+  it('localizes legacy waiting-for-review rows instead of showing stored English in Arabic', () => {
+    const display = localizeNotification(notification({
+      type: 'legacy_admin_notice',
+      title: 'Restaurant application waiting for review',
+      body: 'Kiyo E2E Test Restaurant',
+      metadata: { restaurant_name: 'Kiyo E2E Test Restaurant' },
+    }), 'ar');
+
+    expect(display.title).toBe('\u0637\u0644\u0628 \u0645\u0637\u0639\u0645 \u0628\u0627\u0646\u062a\u0638\u0627\u0631 \u0627\u0644\u0645\u0631\u0627\u062c\u0639\u0629');
+    expect(display.body).not.toContain('Restaurant application waiting');
+    expect(display.body).toContain('Kiyo E2E Test Restaurant');
   });
 
   it('uses localized templates for application review notifications', () => {
@@ -38,7 +51,7 @@ describe('notification localization', () => {
       metadata: { restaurant_name: 'Kiyo E2E Test Restaurant' },
     }), 'fr');
 
-    expect(display.title).toBe('Demande restaurant à examiner');
+    expect(display.title).toBe('Demande restaurant \u00e0 examiner');
     expect(display.body).toContain('Kiyo E2E Test Restaurant');
   });
 });

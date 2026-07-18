@@ -244,6 +244,17 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'rules.loyalty.referrerReward': 'Referrer Reward (DZD)',
     'rules.loyalty.refereeDiscount': 'Referee Sign-up Discount (DZD)',
     'rules.loyalty.minOrderToRedeem': 'Min Order to Redeem (DZD)',
+    'alerts.failedOrders': 'Failed Orders (24h)',
+    'alerts.noFailedOrders': 'No failed orders in the last 24 hours',
+    'alerts.highCancellation': 'High Cancellation Rate (7d)',
+    'alerts.noHighCancellation': 'No restaurants with high cancellation rates',
+    'alerts.cancelled': 'cancelled',
+    'alerts.totalOrders': 'total orders',
+    'alerts.cancelRate': 'cancel rate',
+    'alerts.suspiciousActivity': 'Suspicious Activity (1h)',
+    'alerts.noSuspiciousActivity': 'No suspicious activity detected',
+    'alerts.user': 'User',
+    'alerts.ordersIn': 'orders in',
     'common.saved': 'Saved!',
     'common.save': 'Save',
   },
@@ -414,6 +425,17 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'rules.loyalty.referrerReward': 'Récompense du parrain (DZD)',
     'rules.loyalty.refereeDiscount': 'Remise d\'inscription du filleul (DZD)',
     'rules.loyalty.minOrderToRedeem': 'Commande min pour utiliser (DZD)',
+    'alerts.failedOrders': 'Commandes échouées (24 h)',
+    'alerts.noFailedOrders': 'Aucune commande échouée ces dernières 24 heures',
+    'alerts.highCancellation': 'Taux d\'annulation élevé (7 j)',
+    'alerts.noHighCancellation': 'Aucun restaurant avec un taux d\'annulation élevé',
+    'alerts.cancelled': 'annulées',
+    'alerts.totalOrders': 'commandes totales',
+    'alerts.cancelRate': 'taux d\'annulation',
+    'alerts.suspiciousActivity': 'Activité suspecte (1 h)',
+    'alerts.noSuspiciousActivity': 'Aucune activité suspecte détectée',
+    'alerts.user': 'Utilisateur',
+    'alerts.ordersIn': 'commandes en',
     'common.saved': 'Enregistré !',
     'common.save': 'Enregistrer',
   },
@@ -584,6 +606,17 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'rules.loyalty.referrerReward': 'مكافأة المحيل (د.ج)',
     'rules.loyalty.refereeDiscount': 'خصم تسجيل المحال (د.ج)',
     'rules.loyalty.minOrderToRedeem': 'الحد الأدنى للطلب للاسترداد (د.ج)',
+    'alerts.failedOrders': 'الطلبات الفاشلة خلال 24 ساعة',
+    'alerts.noFailedOrders': 'لا توجد طلبات فاشلة خلال آخر 24 ساعة',
+    'alerts.highCancellation': 'معدل إلغاء مرتفع خلال 7 أيام',
+    'alerts.noHighCancellation': 'لا توجد مطاعم بمعدل إلغاء مرتفع',
+    'alerts.cancelled': 'ملغاة',
+    'alerts.totalOrders': 'إجمالي الطلبات',
+    'alerts.cancelRate': 'معدل الإلغاء',
+    'alerts.suspiciousActivity': 'نشاط مشبوه خلال ساعة',
+    'alerts.noSuspiciousActivity': 'لم يتم رصد نشاط مشبوه',
+    'alerts.user': 'المستخدم',
+    'alerts.ordersIn': 'طلبات خلال',
     'common.saved': 'تم الحفظ!',
     'common.save': 'حفظ',
   }
@@ -2449,6 +2482,7 @@ function MarketingTab() {
 // ===================== ALERTS =====================
 function AlertsTab() {
   const { t } = useT();
+  const { tx } = useAdminT();
   const [alerts, setAlerts] = useState<{
     failed_orders: Array<{ id: string; restaurant_id: string; total: string; status: string; created_at: string }>;
     high_cancellation_restaurants: Array<{ restaurant_id: string; name: string; cancelled: number; total: number; rate: number }>;
@@ -2482,9 +2516,9 @@ function AlertsTab() {
     <div className="space-y-6">
       {/* Failed orders */}
       <div>
-        <h3 className="mb-3 font-display text-base font-bold text-ink-900">Failed Orders (24h)</h3>
+        <h3 className="mb-3 font-display text-base font-bold text-ink-900">{tx('alerts.failedOrders', 'Failed Orders (24h)')}</h3>
         {alerts.failed_orders.length === 0 ? (
-          <div className="kiyo-card p-6 text-center text-sm text-ink-400">No failed orders in the last 24 hours</div>
+          <div className="kiyo-card p-6 text-center text-sm text-ink-400">{tx('alerts.noFailedOrders', 'No failed orders in the last 24 hours')}</div>
         ) : (
           <ul className="kiyo-card divide-y divide-ink-100">
             {alerts.failed_orders.map((o) => (
@@ -2494,7 +2528,7 @@ function AlertsTab() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-ink-800">
-                    #{o.id.slice(0, 8)} · {o.status.replace(/_/g, ' ')}
+                    #{o.id.slice(0, 8)} / {o.status.replace(/_/g, ' ')}
                   </span>
                   <span className="text-xs text-ink-400">{new Date(o.created_at).toLocaleString()}</span>
                 </div>
@@ -2507,9 +2541,9 @@ function AlertsTab() {
 
       {/* High cancellation restaurants */}
       <div>
-        <h3 className="mb-3 font-display text-base font-bold text-ink-900">High Cancellation Rate (7d)</h3>
+        <h3 className="mb-3 font-display text-base font-bold text-ink-900">{tx('alerts.highCancellation', 'High Cancellation Rate (7d)')}</h3>
         {alerts.high_cancellation_restaurants.length === 0 ? (
-          <div className="kiyo-card p-6 text-center text-sm text-ink-400">No restaurants with high cancellation rates</div>
+          <div className="kiyo-card p-6 text-center text-sm text-ink-400">{tx('alerts.noHighCancellation', 'No restaurants with high cancellation rates')}</div>
         ) : (
           <ul className="kiyo-card divide-y divide-ink-100">
             {alerts.high_cancellation_restaurants.map((r) => (
@@ -2519,10 +2553,10 @@ function AlertsTab() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-ink-800">{r.name}</span>
-                  <span className="text-xs text-ink-400">{r.cancelled} cancelled / {r.total} total orders</span>
+                  <span className="text-xs text-ink-400">{r.cancelled} {tx('alerts.cancelled', 'cancelled')} / {r.total} {tx('alerts.totalOrders', 'total orders')}</span>
                 </div>
                 <span className="rounded-full bg-error-500/10 px-2 py-0.5 text-xs font-bold text-error-600">
-                  {r.rate}% cancel rate
+                  {r.rate}% {tx('alerts.cancelRate', 'cancel rate')}
                 </span>
               </li>
             ))}
@@ -2532,9 +2566,9 @@ function AlertsTab() {
 
       {/* Suspicious activity */}
       <div>
-        <h3 className="mb-3 font-display text-base font-bold text-ink-900">Suspicious Activity (1h)</h3>
+        <h3 className="mb-3 font-display text-base font-bold text-ink-900">{tx('alerts.suspiciousActivity', 'Suspicious Activity (1h)')}</h3>
         {alerts.suspicious_activity.length === 0 ? (
-          <div className="kiyo-card p-6 text-center text-sm text-ink-400">No suspicious activity detected</div>
+          <div className="kiyo-card p-6 text-center text-sm text-ink-400">{tx('alerts.noSuspiciousActivity', 'No suspicious activity detected')}</div>
         ) : (
           <ul className="kiyo-card divide-y divide-ink-100">
             {alerts.suspicious_activity.map((s) => (
@@ -2544,9 +2578,9 @@ function AlertsTab() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-ink-800">
-                    User {s.user_id.slice(0, 8)}...
+                    {tx('alerts.user', 'User')} {s.user_id.slice(0, 8)}...
                   </span>
-                  <span className="text-xs text-ink-400">{s.order_count} orders in {s.window}</span>
+                  <span className="text-xs text-ink-400">{s.order_count} {tx('alerts.ordersIn', 'orders in')} {s.window}</span>
                 </div>
               </li>
             ))}

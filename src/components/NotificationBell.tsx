@@ -47,10 +47,20 @@ const TYPE_ICONS: Record<string, string> = {
 
 const TYPE_ALIASES: Record<string, string> = {
   applicant_replied: 'application_message',
+  applicant_response: 'application_message',
+  application_reply: 'application_message',
+  application_replied: 'application_message',
+  application_conversation_reply: 'application_message',
   restaurant_application_message: 'application_message',
   new_application_message: 'application_message',
   restaurant_application_submitted: 'application_submitted',
+  restaurant_application_waiting_for_review: 'application_submitted',
+  restaurant_application_pending_review: 'application_submitted',
+  application_waiting_for_review: 'application_submitted',
+  application_pending_review: 'application_submitted',
   new_restaurant_application: 'application_submitted',
+  restaurant_application_approved: 'application_preliminarily_approved',
+  application_approved: 'application_preliminarily_approved',
   restaurant_application_status_changed: 'application_status_changed',
   restaurant_application_under_review: 'application_under_review',
   restaurant_application_changes_requested: 'application_changes_requested',
@@ -184,20 +194,34 @@ const containsMojibake = (value: string) => /Ã|Ø|Ù|�/.test(value);
 function resolveNotificationType(notification: Notification) {
   const normalized = TYPE_ALIASES[notification.type] ?? notification.type;
   const title = notification.title?.trim().toLowerCase() ?? '';
+  const body = notification.body?.trim().toLowerCase() ?? '';
+  const text = `${title} ${body}`;
 
-  if (title.includes('applicant replied') || title.includes('new message about your restaurant application')) {
+  if (
+    text.includes('applicant replied') ||
+    text.includes('applicant response') ||
+    text.includes('new message about your restaurant application') ||
+    text.includes('restaurant application message') ||
+    text.includes('application conversation')
+  ) {
     return 'application_message';
   }
-  if (title.includes('restaurant application waiting for review') || title.includes('new restaurant application')) {
+  if (
+    text.includes('restaurant application waiting for review') ||
+    text.includes('application waiting for review') ||
+    text.includes('restaurant application pending review') ||
+    text.includes('new restaurant application') ||
+    (text.includes('restaurant application') && text.includes('waiting for'))
+  ) {
     return 'application_submitted';
   }
-  if (title.includes('changes requested for your restaurant application')) {
+  if (text.includes('changes requested for your restaurant application') || text.includes('changes requested')) {
     return 'application_changes_requested';
   }
-  if (title.includes('restaurant application approved')) {
+  if (text.includes('restaurant application approved') || text.includes('application approved')) {
     return 'application_preliminarily_approved';
   }
-  if (title.includes('restaurant suspended')) {
+  if (text.includes('restaurant suspended')) {
     return 'restaurant_suspended';
   }
 

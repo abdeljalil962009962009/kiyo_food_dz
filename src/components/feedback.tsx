@@ -86,3 +86,37 @@ export function ErrorState({ title, message, onRetry, retryLabel }: {
     </div>
   );
 }
+
+export function PremiumEmptyState({
+  icon,
+  title,
+  message,
+  action,
+  secondary,
+}: {
+  icon: ReactNode;
+  title: string;
+  message: string;
+  action?: ReactNode;
+  secondary?: ReactNode;
+}) {
+  return (
+    <div className="kiyo-card relative overflow-hidden px-6 py-12 text-center">
+      <div
+        className="absolute inset-x-10 top-0 h-20 rounded-b-full bg-ember-500/5 blur-2xl"
+        aria-hidden
+      />
+      <div className="relative mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-ember-100 bg-ember-50 text-ember-600">
+        {icon}
+      </div>
+      <h2 className="relative mt-4 font-display text-lg font-extrabold text-ink-900">{title}</h2>
+      <p className="relative mx-auto mt-2 max-w-md text-sm leading-6 text-ink-500">{message}</p>
+      {(action || secondary) && (
+        <div className="relative mt-5 flex flex-col items-center justify-center gap-2 sm:flex-row">
+          {action}
+          {secondary}
+        </div>
+      )}
+    </div>
+  );
+}

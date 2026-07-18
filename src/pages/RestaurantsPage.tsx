@@ -6,7 +6,7 @@ import { supabase, type Restaurant } from '../lib/supabase';
 import { useWilaya, getWilayaName } from '../context/WilayaContext';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
-import { ErrorState } from '../components/feedback';
+import { ErrorState, PremiumEmptyState } from '../components/feedback';
 import { RestaurantImage } from '../components/ui';
 import { haversineKm, formatDistanceKm } from '../lib/geo';
 import { withExponentialBackoff } from '../lib/locationNetwork';
@@ -15,9 +15,40 @@ type RestaurantWithDistance = Restaurant & {
   distance_km?: number | null;
 };
 
+const pageCopy = {
+  en: {
+    trustAvailability: 'Availability checked before checkout',
+    trustPricing: 'Road-route delivery pricing',
+    trustCod: 'Cash on Delivery, no surprise card charge',
+    emptyTitle: 'No matching restaurants yet',
+    emptyBody: 'Try another search, clear the filter, or adjust your delivery location. Kiyo Food only shows restaurants that are actually published for your area.',
+    clearSearch: 'Clear search',
+    showAll: 'Show all restaurants',
+  },
+  fr: {
+    trustAvailability: 'Disponibilite verifiee avant paiement',
+    trustPricing: 'Prix de livraison selon le trajet routier',
+    trustCod: 'Paiement a la livraison, sans surprise',
+    emptyTitle: 'Aucun restaurant correspondant',
+    emptyBody: 'Essayez une autre recherche, retirez le filtre ou ajustez votre adresse. Kiyo Food affiche uniquement les restaurants reellement publies pour votre zone.',
+    clearSearch: 'Effacer la recherche',
+    showAll: 'Voir tous les restaurants',
+  },
+  ar: {
+    trustAvailability: 'يتم التحقق من التوفر قبل تأكيد الطلب',
+    trustPricing: 'تسعير التوصيل حسب الطريق الحقيقي',
+    trustCod: 'الدفع عند التوصيل بدون مفاجآت',
+    emptyTitle: 'لا توجد مطاعم مطابقة حالياً',
+    emptyBody: 'جرّب بحثاً آخر، أزل الفلتر أو عدّل عنوان التوصيل. كيو فود يعرض فقط المطاعم المنشورة فعلاً في منطقتك.',
+    clearSearch: 'مسح البحث',
+    showAll: 'عرض كل المطاعم',
+  },
+} as const;
+
 export default function RestaurantsPage() {
   const { t } = useT();
   const { selectedWilaya, deliveryLocation, loading: wilayaLoading, locale } = useWilaya();
+  const tx = pageCopy[locale];
   const [items, setItems] = useState<RestaurantWithDistance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -129,6 +160,12 @@ export default function RestaurantsPage() {
         </div>
       </div>
 
+      <div className="mb-5 grid gap-2 text-xs font-semibold text-ink-600 sm:grid-cols-3">
+        <TrustPill icon={<Clock className="h-4 w-4" />} label={tx.trustAvailability} />
+        <TrustPill icon={<MapPin className="h-4 w-4" />} label={tx.trustPricing} />
+        <TrustPill icon={<Star className="h-4 w-4" />} label={tx.trustCod} />
+      </div>
+
       <ErrorBoundary variant="inline">
         {loading ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -150,10 +187,29 @@ export default function RestaurantsPage() {
             retryLabel={t('error.retry')}
           />
         ) : filtered.length === 0 ? (
-          <div className="kiyo-card flex flex-col items-center gap-2 p-10 text-center">
-            <MapPin className="h-8 w-8 text-ink-300" />
-            <p className="text-sm text-ink-500">{t('market.empty')}</p>
-          </div>
+          <PremiumEmptyState
+            icon={<MapPin className="h-7 w-7" />}
+            title={query.trim() || filter !== 'all' ? tx.emptyTitle : t('market.empty')}
+            message={tx.emptyBody}
+            action={(query.trim() || filter !== 'all') ? (
+              <button
+                type="button"
+                className="kiyo-btn-primary min-h-11"
+                onClick={() => { setQuery(''); setFilter('all'); }}
+              >
+                {tx.showAll}
+              </button>
+            ) : undefined}
+            secondary={query.trim() ? (
+              <button
+                type="button"
+                className="kiyo-btn-secondary min-h-11"
+                onClick={() => setQuery('')}
+              >
+                {tx.clearSearch}
+              </button>
+            ) : undefined}
+          />
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((r) => (
@@ -205,6 +261,17 @@ export default function RestaurantsPage() {
         )}
       </ErrorBoundary>
     </AppShell>
+  );
+}
+
+function TrustPill({ icon, label }: { icon: React.ReactNode; label: string }) {
+  return (
+    <div className="flex min-h-11 items-center gap-2 rounded-xl border border-ink-100 bg-white px-3 py-2 shadow-sm">
+      <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-ember-50 text-ember-600">
+        {icon}
+      </span>
+      <span className="leading-5">{label}</span>
+    </div>
   );
 }
 
