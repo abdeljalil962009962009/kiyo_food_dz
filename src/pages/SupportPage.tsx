@@ -270,7 +270,8 @@ function TicketForm({ userId, initialOrderId, onCreated, onCancel }: { userId: s
 }
 
 function TicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () => void }) {
-  const { t } = useT();
+  const { t, locale } = useT();
+  const dateLocale = locale === 'ar' ? 'ar-DZ' : locale === 'fr' ? 'fr-DZ' : 'en-DZ';
   const { profile } = useAuth();
   const [ticket, setTicket] = useState<SupportTicket | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -346,7 +347,7 @@ function TicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () => vo
               ticket.status === 'in_progress' ? 'bg-blue-100 text-blue-600' :
               ticket.status === 'resolved' ? 'bg-sage-500/10 text-sage-600' :
               'bg-ink-100 text-ink-500'
-            }`}>{ticket.status.replace(/_/g, ' ')}</span>
+            }`}>{t(`support.status.${ticket.status}` as TranslationKey)}</span>
           </div>
           <p className="mt-2 text-sm text-ink-600">{ticket.body}</p>
           <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-ink-400">
@@ -357,7 +358,7 @@ function TicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () => vo
                 <Package className="h-3 w-3" /> {t('orders.id')}: {ticket.order_id.slice(0, 8)}
               </span>
             )}
-            <span>{new Date(ticket.created_at).toLocaleString()}</span>
+            <span>{new Date(ticket.created_at).toLocaleString(dateLocale)}</span>
           </div>
         </div>
 
@@ -378,7 +379,7 @@ function TicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () => vo
                   }`}>
                     <p className="whitespace-pre-wrap">{m.body}</p>
                     <p className={`mt-1 text-[10px] ${m.is_admin ? 'text-ink-400' : 'text-ember-100'}`}>
-                      {m.is_admin ? t('support.staff') : t('support.you')} · {new Date(m.created_at).toLocaleString()}
+                      {m.is_admin ? t('support.staff') : t('support.you')} · {new Date(m.created_at).toLocaleString(dateLocale)}
                     </p>
                   </div>
                 </div>

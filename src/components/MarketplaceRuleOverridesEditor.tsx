@@ -4,6 +4,7 @@ import { useT } from '../lib/i18n-react';
 import { supabase } from '../lib/supabase';
 import { callAdminAction } from '../lib/adminApi';
 import { userFacingError } from '../lib/userFacingError';
+import { restaurantStatusLabel } from '../lib/domainStatus';
 import { Spinner } from './feedback';
 
 type ScopeType = 'wilaya' | 'restaurant';
@@ -211,7 +212,7 @@ export function MarketplaceRuleOverridesEditor({ globalSettings }: { globalSetti
 
   const optionLabel = (option: WilayaOption | RestaurantOption) => {
     if ('code' in option) return `${option.code} · ${locale === 'ar' ? option.name_ar : locale === 'fr' ? option.name_fr : option.name_en}`;
-    return `${option.name} · ${option.status}`;
+    return `${option.name} · ${restaurantStatusLabel(option.status, locale)}`;
   };
 
   return (

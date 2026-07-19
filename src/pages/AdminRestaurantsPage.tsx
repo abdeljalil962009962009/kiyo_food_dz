@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Store, Check, X, ChevronLeft, Plus } from 'lucide-react';
+import { Store, X, ChevronLeft, Plus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useT } from '../lib/i18n-react';
 import { supabase, type Restaurant } from '../lib/supabase';
@@ -41,29 +41,17 @@ export default function AdminRestaurantsPage() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const approve = async (id: string) => {
-    setActingId(id);
-    try {
-      const { error: e } = await callAdminAction('set_restaurant_status', {
-        p_restaurant_id: id, p_status: 'published',
-      });
-      if (e) throw e;
-      setPending((prev) => prev.filter((r) => r.id !== id));
-      const r = pending.find((x) => x.id === id);
-      if (r) setActive((prev) => [{ ...r, status: 'published' }, ...prev]);
-    } finally {
-      setActingId(null);
-    }
-  };
-
   const reject = async (id: string) => {
     setActingId(id);
+    setError(null);
     try {
       const { error: e } = await callAdminAction('set_restaurant_status', {
         p_restaurant_id: id, p_status: 'suspended',
       });
       if (e) throw e;
       setPending((prev) => prev.filter((r) => r.id !== id));
+    } catch (err) {
+      setError(userFacingError(err, locale, t('error.genericBody')));
     } finally {
       setActingId(null);
     }
@@ -89,7 +77,7 @@ export default function AdminRestaurantsPage() {
               {t('admin.restaurantsManagement')}
             </h1>
             <p className="text-xs text-ink-400">
-              {pending.length} {t('admin.pendingApproval').toLowerCase()} · {active.length} live
+              {pending.length} {t('admin.pendingApproval').toLowerCase()} · {active.length} {t('admin.liveRestaurants')}
             </p>
           </div>
         </div>
@@ -134,19 +122,13 @@ export default function AdminRestaurantsPage() {
                         )}
                         {r.address && <p className="text-xs text-ink-400">{r.address}</p>}
                       </div>
-                      {!r.source_application_id && <div className="flex gap-2">
-                        <button
-                          onClick={() => approve(r.id)} disabled={actingId === r.id}
-                          className="kiyo-btn-primary bg-sage-500 hover:bg-sage-600"
-                        >
-                          {actingId === r.id ? <Spinner className="h-4 w-4" /> : <Check className="h-4 w-4" />}
-                          <span className="hidden sm:inline">{t('admin.approve')}</span>
-                        </button>
+                      {!r.source_application_id && <div className="flex flex-col items-end gap-2">
+                        <span className="max-w-52 text-right text-xs font-medium text-warning-700">{t('admin.applicationRequired')}</span>
                         <button
                           onClick={() => reject(r.id)} disabled={actingId === r.id}
                           className="kiyo-btn-secondary border-error-500/30 text-error-600 hover:bg-error-500/10"
                         >
-                          <X className="h-4 w-4" />
+                          {actingId === r.id ? <Spinner className="h-4 w-4" /> : <X className="h-4 w-4" />}
                           <span className="hidden sm:inline">{t('admin.reject')}</span>
                         </button>
                       </div>}

@@ -12,6 +12,7 @@ import { localizePublicationBlocker } from '../lib/publicationReadiness';
 import { callAdminAction } from '../lib/adminApi';
 import { callUserAction } from '../lib/userApi';
 import { PrivateRestaurantImage } from './PrivateRestaurantImage';
+import { applicationStatusLabel } from '../lib/domainStatus';
 
 type Applicant = Pick<Profile, 'id' | 'email' | 'full_name' | 'phone'>;
 
@@ -298,7 +299,7 @@ export function RestaurantApplicationsPanel() {
       setError(tx.reason);
       return;
     }
-    if (['rejected', 'suspended'].includes(target) && !window.confirm(tx.transitionConfirm(target, selected.restaurant_name))) return;
+    if (['rejected', 'suspended'].includes(target) && !window.confirm(tx.transitionConfirm(applicationStatusLabel(target, locale), selected.restaurant_name))) return;
     await run(() => callAdminAction('review_restaurant_application', {
       p_application_id: selected.id,
       p_target_status: target,
@@ -370,7 +371,7 @@ export function RestaurantApplicationsPanel() {
         <select value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)} className="kiyo-input min-h-11 sm:w-56">
           <option value="waiting">{tx.waiting}</option>
           <option value="all">{tx.all}</option>
-          {statuses.map((status) => <option key={status} value={status}>{status.replace(/_/g, ' ')}</option>)}
+          {statuses.map((status) => <option key={status} value={status}>{applicationStatusLabel(status, locale)}</option>)}
         </select>
       </div>
 
@@ -386,7 +387,7 @@ export function RestaurantApplicationsPanel() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-bold text-ink-900">{application.restaurant_name}</p>
                     <p className="truncate text-xs text-ink-400">{applicant?.full_name ?? applicant?.email ?? application.applicant_id}</p>
-                    <span className="mt-1 inline-flex rounded-full bg-ink-100 px-2 py-0.5 text-[11px] font-semibold text-ink-600">{application.status.replace(/_/g, ' ')}</span>
+                    <span className="mt-1 inline-flex rounded-full bg-ink-100 px-2 py-0.5 text-[11px] font-semibold text-ink-600">{applicationStatusLabel(application.status, locale)}</span>
                     {(unreadByApplication[application.id] ?? 0) > 0 && (
                       <span className="ml-1 inline-flex rounded-full bg-ember-600 px-2 py-0.5 text-[11px] font-bold text-white">
                         {unreadByApplication[application.id]} {tx.newBadge}
@@ -407,7 +408,7 @@ export function RestaurantApplicationsPanel() {
                 <h3 className="font-display text-xl font-extrabold text-ink-900">{selected.restaurant_name}</h3>
                 <p className="text-sm text-ink-500">{applicants[selected.applicant_id]?.email}</p>
               </div>
-              <span className="rounded-full bg-ember-50 px-3 py-1 text-xs font-bold text-ember-700">{selected.status.replace(/_/g, ' ')}</span>
+              <span className="rounded-full bg-ember-50 px-3 py-1 text-xs font-bold text-ember-700">{applicationStatusLabel(selected.status, locale)}</span>
             </div>
 
             <dl className="grid gap-3 text-sm sm:grid-cols-2">

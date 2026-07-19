@@ -12,6 +12,7 @@ import { useT } from '../lib/i18n-react';
 import { watchCurrentPosition, type LiveGeoPoint } from '../lib/geo';
 import { callUserAction } from '../lib/userApi';
 import { userFacingError } from '../lib/userFacingError';
+import { deliveryStatusLabel } from '../lib/domainStatus';
 
 type Driver = {
   id: string;
@@ -450,7 +451,7 @@ export default function DriverDashboardPage() {
                 {t('driver.dash.activeDelivery')}
               </span>
               <span className="rounded-full bg-ember-100 px-2 py-0.5 text-xs font-medium text-ember-700">
-                {activeDelivery.status.replace('_', ' ')}
+                {deliveryStatusLabel(activeDelivery.status, locale)}
               </span>
             </div>
             <h3 className="font-display text-base font-bold text-ink-900">

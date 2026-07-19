@@ -411,6 +411,8 @@ export type TranslationKey =
   | 'admin.reject'
   | 'admin.pendingApproval'
   | 'admin.noPending'
+  | 'admin.liveRestaurants'
+  | 'admin.applicationRequired'
   // wilaya
   | 'wilaya.select'
   | 'wilaya.searchPlaceholder'
@@ -1074,6 +1076,8 @@ const en: Dict = {
   'admin.reject': 'Reject',
   'admin.pendingApproval': 'Pending approval',
   'admin.noPending': 'No restaurants awaiting approval.',
+  'admin.liveRestaurants': 'published',
+  'admin.applicationRequired': 'A merchant application is required before publication.',
   'wilaya.select': 'Select wilaya',
   'wilaya.searchPlaceholder': 'Search wilayas…',
   'wilaya.detectLocation': 'Detect my location',
@@ -1734,6 +1738,8 @@ const fr: Dict = {
   'admin.reject': 'Rejeter',
   'admin.pendingApproval': 'En attente',
   'admin.noPending': 'Aucune demande en attente.',
+  'admin.liveRestaurants': 'publiés',
+  'admin.applicationRequired': 'Une demande marchand est requise avant la publication.',
   'wilaya.select': 'Sélectionner wilaya',
   'wilaya.searchPlaceholder': 'Rechercher une wilaya…',
   'wilaya.detectLocation': 'Détecter ma position',
@@ -2394,6 +2400,8 @@ const ar: Dict = {
   'admin.reject': 'رفض',
   'admin.pendingApproval': 'بانتظار الموافقة',
   'admin.noPending': 'لا توجد مطاعم بانتظار الموافقة.',
+  'admin.liveRestaurants': 'منشورة',
+  'admin.applicationRequired': 'يلزم تقديم طلب تاجر قبل نشر المطعم.',
   'wilaya.select': 'اختر الولاية',
   'wilaya.searchPlaceholder': 'ابحث عن ولاية…',
   'wilaya.detectLocation': 'تحديد موقعي',

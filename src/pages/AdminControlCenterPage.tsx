@@ -19,6 +19,7 @@ import { MarketplaceRuleOverridesEditor } from '../components/MarketplaceRuleOve
 import { callAdminAction } from '../lib/adminApi';
 import { callUserAction } from '../lib/userApi';
 import type { TranslationKey } from '../lib/i18n';
+import { orderStatusLabel, restaurantStatusLabel, settlementStatusLabel } from '../lib/domainStatus';
 
 type Analytics = {
   revenue: { today: number; this_week: number; this_month: number; this_year: number; all_time: number };
@@ -1199,7 +1200,7 @@ function UsersTab() {
 
 // ===================== RESTAURANTS =====================
 function RestaurantsTab() {
-  const { t } = useT();
+  const { t, locale } = useT();
   const { tx } = useAdminT();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1272,7 +1273,7 @@ function RestaurantsTab() {
                 r.status === 'published' ? 'bg-sage-500/10 text-sage-600' :
                 r.status === 'suspended' ? 'bg-error-500/10 text-error-600' :
                 'bg-ink-100 text-ink-500'
-              }`}>{r.status.replace(/_/g, ' ')}</span>
+              }`}>{restaurantStatusLabel(r.status, locale)}</span>
               {r.rating > 0 && (
                 <span className="inline-flex items-center gap-0.5">
                   <Star className="h-3 w-3 text-ember-500" />
@@ -1301,13 +1302,7 @@ function RestaurantsTab() {
               {r.is_featured ? tx('btn.unfeature', 'Unfeature') : tx('btn.feature', 'Feature')}
             </button>
             {r.status !== 'published' && !r.source_application_id && (
-              <button
-                onClick={() => updateRestaurant(r, { status: 'published' })}
-                disabled={actingId === r.id}
-                className="kiyo-btn-primary bg-sage-500 text-xs hover:bg-sage-600"
-              >
-                {tx('btn.publish', 'Publish')}
-              </button>
+              <span className="max-w-48 text-right text-xs font-medium text-warning-700">{t('admin.applicationRequired')}</span>
             )}
             {r.status !== 'suspended' && (
               <button
@@ -1925,7 +1920,7 @@ function SettlementsTab() {
                         s.status === 'overdue' ? 'bg-error-500/10 text-error-600' :
                         s.status === 'partially_paid' ? 'bg-ember-500/10 text-ember-600' :
                         'bg-ink-100 text-ink-500'
-                      }`}>{s.status.replace(/_/g, ' ')}</span>
+                      }`}>{settlementStatusLabel(s.status, locale)}</span>
                     </td>
                     <td className="px-4 py-3 text-right">
                       {!['paid', 'disputed'].includes(s.status) && (
@@ -2483,7 +2478,7 @@ function MarketingTab() {
 // ===================== ALERTS =====================
 function AlertsTab() {
   const { t } = useT();
-  const { tx } = useAdminT();
+  const { tx, locale } = useAdminT();
   const [alerts, setAlerts] = useState<{
     failed_orders: Array<{ id: string; restaurant_id: string; total: string; status: string; created_at: string }>;
     high_cancellation_restaurants: Array<{ restaurant_id: string; name: string; cancelled: number; total: number; rate: number }>;
@@ -2529,7 +2524,7 @@ function AlertsTab() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-ink-800">
-                    #{o.id.slice(0, 8)} / {o.status.replace(/_/g, ' ')}
+                    #{o.id.slice(0, 8)} / {orderStatusLabel(o.status, locale)}
                   </span>
                   <span className="text-xs text-ink-400">{new Date(o.created_at).toLocaleString()}</span>
                 </div>
