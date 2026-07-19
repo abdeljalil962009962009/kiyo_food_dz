@@ -9,6 +9,7 @@ import { Spinner, ErrorState, FullScreenLoader } from '../components/feedback';
 import { AppShell } from '../components/AppShell';
 import { MessageCircle, Plus, Send, ChevronLeft, Package, AlertCircle } from 'lucide-react';
 import { callUserAction } from '../lib/userApi';
+import { userFacingError } from '../lib/userFacingError';
 
 type Message = {
   id: string;
@@ -37,7 +38,7 @@ const PRIORITIES = [
 
 export function SupportPage() {
   const { profile } = useAuth();
-  const { t } = useT();
+  const { t, locale } = useT();
   const [search] = useSearchParams();
   const orderIdFromUrl = search.get('order') ?? '';
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
@@ -60,11 +61,11 @@ export function SupportPage() {
       setTickets((data as SupportTicket[]) ?? []);
     } catch (err: unknown) {
       console.error(err);
-      setError(err instanceof Error ? err.message : t('error.genericBody'));
+      setError(userFacingError(err, locale, t('error.genericBody')));
     } finally {
       setLoading(false);
     }
-  }, [profile, t]);
+  }, [locale, profile, t]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -141,7 +142,7 @@ export function SupportPage() {
                         ticket.status === 'in_progress' ? 'bg-blue-100 text-blue-600' :
                         ticket.status === 'resolved' ? 'bg-sage-500/10 text-sage-600' :
                         'bg-ink-100 text-ink-500'
-                      }`}>{ticket.status.replace(/_/g, ' ')}</span>
+                      }`}>{t(`support.status.${ticket.status}` as TranslationKey)}</span>
                     </div>
                     <p className="mt-0.5 truncate text-xs text-ink-500">{ticket.body}</p>
                     <div className="mt-1.5 flex items-center gap-2 text-[10px] text-ink-400">
@@ -149,7 +150,7 @@ export function SupportPage() {
                       <span>·</span>
                       <span>{t(`support.priority.${ticket.priority}` as TranslationKey)} {t('support.prioritySuffix')}</span>
                       <span>·</span>
-                      <span>{new Date(ticket.created_at).toLocaleDateString()}</span>
+                      <span>{new Date(ticket.created_at).toLocaleDateString(locale === 'ar' ? 'ar-DZ' : locale === 'fr' ? 'fr-DZ' : 'en-DZ')}</span>
                     </div>
                   </div>
                 </button>

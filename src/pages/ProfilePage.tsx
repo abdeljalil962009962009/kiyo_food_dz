@@ -15,6 +15,7 @@ import { Spinner } from '../components/feedback';
 import { AddressManager } from '../components/AddressManager';
 import { Link } from 'react-router-dom';
 import { callUserAction } from '../lib/userApi';
+import { userFacingError } from '../lib/userFacingError';
 
 export default function ProfilePage() {
   const { t } = useT();
@@ -62,7 +63,7 @@ export default function ProfilePage() {
       if (error) throw error;
     } catch (err) {
       setLocale(previousLocale);
-      setLanguageError(err instanceof Error ? err.message : t('error.genericBody'));
+      setLanguageError(userFacingError(err, locale, t('error.genericBody')));
     } finally {
       setSavingLang(false);
     }

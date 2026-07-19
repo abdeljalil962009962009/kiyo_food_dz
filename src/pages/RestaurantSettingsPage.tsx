@@ -17,6 +17,7 @@ import { PrivateRestaurantImage } from '../components/PrivateRestaurantImage';
 import { callUserAction } from '../lib/userApi';
 import { matchWilayaFromAddress } from '../lib/algeriaLocation';
 import { FALLBACK_WILAYAS } from '../context/WilayaContext';
+import { userFacingError } from '../lib/userFacingError';
 
 type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 const DAYS: { key: DayOfWeek; labelKey: 'day.0' | 'day.1' | 'day.2' | 'day.3' | 'day.4' | 'day.5' | 'day.6' }[] = [
@@ -159,11 +160,11 @@ export default function RestaurantSettingsPage() {
       }
     } catch (err: unknown) {
       console.error(err);
-      setError(err instanceof Error ? err.message : t('error.genericBody'));
+      setError(userFacingError(err, locale, t('error.genericBody')));
     } finally {
       setLoading(false);
     }
-  }, [profile, t]);
+  }, [locale, profile, t]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -252,7 +253,7 @@ export default function RestaurantSettingsPage() {
         ? profileTx.invalidImageType
         : message === 'restaurant_image_size'
           ? profileTx.invalidImageSize
-          : message || t('error.genericBody'));
+          : userFacingError(err, locale, t('error.genericBody')));
     } finally {
       setSaving(false);
     }

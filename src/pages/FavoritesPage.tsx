@@ -7,6 +7,7 @@ import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Skeleton, PremiumEmptyState } from '../components/feedback';
 import { RestaurantImage } from '../components/ui';
+import { userFacingError } from '../lib/userFacingError';
 import { useEffect, useState, useCallback } from 'react';
 
 type FavoriteRestaurant = {
@@ -56,11 +57,11 @@ export function FavoritesPage() {
       setFavorites((data as unknown as FavoriteRestaurant[]) ?? []);
     } catch (err: unknown) {
       console.error(err);
-      setError(err instanceof Error ? err.message : t('error.genericBody'));
+      setError(userFacingError(err, locale, t('error.genericBody')));
     } finally {
       setLoading(false);
     }
-  }, [user, t]);
+  }, [locale, user, t]);
 
   useEffect(() => { void loadFavorites(); }, [loadFavorites]);
 

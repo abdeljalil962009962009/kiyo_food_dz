@@ -109,7 +109,7 @@ export default function OrdersPage() {
     if (!window.confirm(`${tx.confirmCancel}\n\n${tx.cod}`)) return;
     setCancellingOrderId(order.id);
     setNotice(null);
-    const result = await requestCustomerCancellation(order);
+    const result = await requestCustomerCancellation(order, locale);
     setCancellingOrderId(null);
     if (result.status === 'failed') setNotice({ kind: 'error', text: result.message });
     else setNotice({ kind: 'success', text: result.status === 'cancelled' ? tx.cancelled : tx.supportCreated });

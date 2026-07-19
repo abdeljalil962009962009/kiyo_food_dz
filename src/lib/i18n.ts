@@ -430,6 +430,8 @@ export type TranslationKey =
   | 'role.driver'
   | 'sys.underMaintenance'
   | 'sys.maintenanceDesc'
+  | 'network.weak'
+  | 'network.offline'
   | 'admin.controlCenter'
   | 'admin.fullVisibility'
   | 'admin.financialsDesc'
@@ -466,6 +468,19 @@ export type TranslationKey =
   | 'support.priority.urgent'
   | 'support.you'
   | 'support.staff'
+  | 'support.status.all'
+  | 'support.status.open'
+  | 'support.status.in_progress'
+  | 'support.status.resolved'
+  | 'support.status.closed'
+  | 'support.admin.inbox'
+  | 'support.admin.backToInbox'
+  | 'support.admin.resolve'
+  | 'support.admin.close'
+  | 'support.admin.noMessages'
+  | 'support.admin.replyPlaceholder'
+  | 'support.admin.admin'
+  | 'support.admin.user'
   // profile & privacy
   | 'profile.loyalty.title'
   | 'profile.loyalty.subtitle'
@@ -653,7 +668,8 @@ export type TranslationKey =
   | 'driver.dash.title'
   | 'driver.dash.activeDelivery'
   | 'driver.dash.waiting'
-  | 'driver.dash.goOnlineHelp';
+  | 'driver.dash.goOnlineHelp'
+  | 'driver.dash.failureReasonPrompt';
 
 type Dict = Record<TranslationKey, string>;
 
@@ -1299,6 +1315,22 @@ const en: Dict = {
   'driver.dash.activeDelivery': 'Active Delivery',
   'driver.dash.waiting': 'Waiting for new delivery requests...',
   'driver.dash.goOnlineHelp': 'Go online to start receiving deliveries',
+  'driver.dash.failureReasonPrompt': 'Briefly explain why this delivery could not be completed:',
+  'network.weak': 'Weak connection: some information may take longer to load.',
+  'network.offline': 'You are offline. Reconnect to continue.',
+  'support.status.all': 'All',
+  'support.status.open': 'Open',
+  'support.status.in_progress': 'In progress',
+  'support.status.resolved': 'Resolved',
+  'support.status.closed': 'Closed',
+  'support.admin.inbox': 'Support inbox',
+  'support.admin.backToInbox': 'Back to inbox',
+  'support.admin.resolve': 'Resolve',
+  'support.admin.close': 'Close',
+  'support.admin.noMessages': 'No messages yet. Reply below.',
+  'support.admin.replyPlaceholder': 'Type your reply...',
+  'support.admin.admin': 'Admin',
+  'support.admin.user': 'User',
 };
 
 const fr: Dict = {
@@ -1943,6 +1975,22 @@ const fr: Dict = {
   'driver.dash.activeDelivery': 'Livraison active',
   'driver.dash.waiting': 'En attente de nouvelles demandes de livraison...',
   'driver.dash.goOnlineHelp': 'Passez en ligne pour commencer à recevoir des livraisons',
+  'driver.dash.failureReasonPrompt': 'Expliquez brièvement pourquoi cette livraison n’a pas pu être effectuée :',
+  'network.weak': 'Connexion faible : certaines informations peuvent prendre plus de temps.',
+  'network.offline': 'Vous êtes hors ligne. Reconnectez-vous pour continuer.',
+  'support.status.all': 'Tous',
+  'support.status.open': 'Ouvert',
+  'support.status.in_progress': 'En cours',
+  'support.status.resolved': 'Résolu',
+  'support.status.closed': 'Fermé',
+  'support.admin.inbox': 'Boîte de réception du support',
+  'support.admin.backToInbox': 'Retour à la boîte de réception',
+  'support.admin.resolve': 'Résoudre',
+  'support.admin.close': 'Fermer',
+  'support.admin.noMessages': 'Aucun message. Répondez ci-dessous.',
+  'support.admin.replyPlaceholder': 'Écrivez votre réponse...',
+  'support.admin.admin': 'Administration',
+  'support.admin.user': 'Utilisateur',
 };
 
 const ar: Dict = {
@@ -2587,6 +2635,22 @@ const ar: Dict = {
   'driver.dash.activeDelivery': 'التوصيل النشط',
   'driver.dash.waiting': 'بانتظار طلبات توصيل جديدة...',
   'driver.dash.goOnlineHelp': 'قم بتفعيل الاتصال لبدء استقبال طلبات التوصيل',
+  'driver.dash.failureReasonPrompt': 'اشرح باختصار سبب تعذر إتمام عملية التوصيل:',
+  'network.weak': 'الاتصال ضعيف: قد تستغرق بعض المعلومات وقتاً أطول للظهور.',
+  'network.offline': 'أنت غير متصل بالإنترنت. أعد الاتصال للمتابعة.',
+  'support.status.all': 'الكل',
+  'support.status.open': 'مفتوحة',
+  'support.status.in_progress': 'قيد المعالجة',
+  'support.status.resolved': 'تم حلها',
+  'support.status.closed': 'مغلقة',
+  'support.admin.inbox': 'صندوق رسائل الدعم',
+  'support.admin.backToInbox': 'العودة إلى صندوق الرسائل',
+  'support.admin.resolve': 'تسجيل الحل',
+  'support.admin.close': 'إغلاق',
+  'support.admin.noMessages': 'لا توجد رسائل بعد. اكتب الرد أدناه.',
+  'support.admin.replyPlaceholder': 'اكتب ردك هنا...',
+  'support.admin.admin': 'الإدارة',
+  'support.admin.user': 'المستخدم',
 };
 
 const dicts: Record<Locale, Dict> = { en, fr, ar };

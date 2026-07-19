@@ -94,7 +94,7 @@ export function LiveOrderTracker({ order, onRefresh, realtimeStatus }: Props) {
     setCancelMessage(null);
     setCancelError(null);
     try {
-      const result = await requestCustomerCancellation(order);
+      const result = await requestCustomerCancellation(order, locale);
       if (result.status === 'failed') {
         setCancelError(result.message || tx.failure);
         return;

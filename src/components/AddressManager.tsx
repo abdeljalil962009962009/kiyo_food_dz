@@ -7,6 +7,7 @@ import { type TranslationKey } from '../lib/i18n';
 
 import DeliveryMap, { type DeliveryMapLocation } from './DeliveryMap';
 import { EMPTY_DELIVERY_DETAILS, type DeliveryDetails } from '../lib/location';
+import { userFacingError } from '../lib/userFacingError';
 
 type SavedAddress = {
   id: string;
@@ -88,7 +89,7 @@ export function AddressManager() {
       setAddresses((data as SavedAddress[]) ?? []);
     } catch (err) {
       console.error('Failed to load saved addresses', err);
-      setActionError(formatAddressError(err, t('error.genericBody')));
+      setActionError(userFacingError(err, locale, t('error.genericBody')));
     } finally {
       setLoading(false);
     }
@@ -140,7 +141,7 @@ export function AddressManager() {
       await loadAddresses();
     } catch (err) {
       console.error('Failed to save address', err);
-      setActionError(formatAddressError(err, t('error.genericBody')));
+      setActionError(userFacingError(err, locale, t('error.genericBody')));
     }
   };
 
@@ -201,7 +202,7 @@ export function AddressManager() {
       await loadAddresses();
     } catch (err) {
       console.error('Failed to set default address', err);
-      setActionError(formatAddressError(err, t('error.genericBody')));
+      setActionError(userFacingError(err, locale, t('error.genericBody')));
     } finally {
       setBusyAddressId(null);
     }
@@ -220,7 +221,7 @@ export function AddressManager() {
       await loadAddresses();
     } catch (err) {
       console.error('Failed to update favorite address', err);
-      setActionError(formatAddressError(err, t('error.genericBody')));
+      setActionError(userFacingError(err, locale, t('error.genericBody')));
     } finally {
       setBusyAddressId(null);
     }
@@ -261,7 +262,7 @@ export function AddressManager() {
       await loadAddresses();
     } catch (err) {
       console.error('Failed to duplicate address', err);
-      setActionError(formatAddressError(err, t('error.genericBody')));
+      setActionError(userFacingError(err, locale, t('error.genericBody')));
     } finally {
       setBusyAddressId(null);
     }
@@ -280,7 +281,7 @@ export function AddressManager() {
       await loadAddresses();
     } catch (err) {
       console.error('Failed to archive address', err);
-      setActionError(formatAddressError(err, t('error.genericBody')));
+      setActionError(userFacingError(err, locale, t('error.genericBody')));
     } finally {
       setBusyAddressId(null);
     }
@@ -299,7 +300,7 @@ export function AddressManager() {
       await loadAddresses();
     } catch (err) {
       console.error('Failed to delete address', err);
-      setActionError(formatAddressError(err, t('error.genericBody')));
+      setActionError(userFacingError(err, locale, t('error.genericBody')));
     } finally {
       setBusyAddressId(null);
     }
@@ -526,13 +527,4 @@ function AddressDetail({ label, value, onChange, className = '' }: { label: stri
       <input className="kiyo-input h-11" value={value} onChange={(event) => onChange(event.target.value)} maxLength={240} />
     </label>
   );
-}
-
-function formatAddressError(err: unknown, fallback: string): string {
-  if (err instanceof Error && err.message) return err.message;
-  if (typeof err === 'object' && err && 'message' in err) {
-    const message = (err as { message?: unknown }).message;
-    if (typeof message === 'string' && message.trim()) return message;
-  }
-  return fallback;
 }

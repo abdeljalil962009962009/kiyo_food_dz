@@ -9,9 +9,10 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Skeleton, ErrorState, Spinner } from '../components/feedback';
 import { RestaurantImage } from '../components/ui';
 import { RestaurantApplicationsPanel } from '../components/RestaurantApplicationsPanel';
+import { userFacingError } from '../lib/userFacingError';
 
 export default function AdminRestaurantsPage() {
-  const { t } = useT();
+  const { t, locale } = useT();
   const [pending, setPending] = useState<Restaurant[]>([]);
   const [active, setActive] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,11 +33,11 @@ export default function AdminRestaurantsPage() {
       setPending(list.filter((r) => r.status !== 'published' && r.status !== 'suspended'));
     } catch (err: unknown) {
       console.error(err);
-      setError(err instanceof Error ? err.message : t('error.genericBody'));
+      setError(userFacingError(err, locale, t('error.genericBody')));
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [locale, t]);
 
   useEffect(() => { void load(); }, [load]);
 

@@ -7,6 +7,7 @@ import { Spinner } from '../components/feedback';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../lib/i18n-react';
+import { userFacingError } from '../lib/userFacingError';
 
 type VehicleType = 'bicycle' | 'motorcycle' | 'car' | 'scooter';
 
@@ -20,7 +21,7 @@ const VEHICLE_OPTIONS_KEYS: { value: VehicleType; labelKey: 'driver.vehicle.bicy
 export default function DriverOnboardingPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { t } = useT();
+  const { t, locale } = useT();
 
   const [step, setStep] = useState(1);
   const [vehicleType, setVehicleType] = useState<VehicleType>('bicycle');
@@ -94,11 +95,12 @@ export default function DriverOnboardingPage() {
         navigate('/driver', { replace: true });
       }, 3000);
     } catch (err) {
-      setError((err as Error)?.message ?? t('auth.error.unknown'));
+      console.error('[Kiyo] Driver application failed:', err);
+      setError(userFacingError(err, locale, t('auth.error.unknown')));
     } finally {
       setLoading(false);
     }
-  }, [user, vehicleType, vehiclePlate, phone, navigate, t]);
+  }, [locale, user, vehicleType, vehiclePlate, phone, navigate, t]);
 
   if (success) {
     return (
@@ -212,7 +214,7 @@ export default function DriverOnboardingPage() {
                     type="text"
                     value={licenseNumber}
                     onChange={(e) => setLicenseNumber(e.target.value)}
-                    placeholder="Your license number"
+                    placeholder={t('driver.onboard.licenseNumber')}
                     className="kiyo-input w-full"
                   />
                 </div>
@@ -225,7 +227,7 @@ export default function DriverOnboardingPage() {
                     type="text"
                     value={idNumber}
                     onChange={(e) => setIdNumber(e.target.value)}
-                    placeholder="Your national ID"
+                    placeholder={t('driver.onboard.idNumber')}
                     className="kiyo-input w-full"
                   />
                 </div>

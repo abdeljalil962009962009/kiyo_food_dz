@@ -11,6 +11,7 @@ import { useAuth } from '../context/AuthContext';
 import { useT } from '../lib/i18n-react';
 import { watchCurrentPosition, type LiveGeoPoint } from '../lib/geo';
 import { callUserAction } from '../lib/userApi';
+import { userFacingError } from '../lib/userFacingError';
 
 type Driver = {
   id: string;
@@ -64,7 +65,7 @@ type Delivery = {
 export default function DriverDashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { t } = useT();
+  const { t, locale } = useT();
 
   const [driver, setDriver] = useState<Driver | null>(null);
   const [loading, setLoading] = useState(true);
@@ -150,11 +151,12 @@ export default function DriverDashboardPage() {
         });
       }
     } catch (err) {
-      setError((err as Error)?.message ?? t('driver.dash.failedLoad'));
+      console.error('[Kiyo] Driver dashboard load failed:', err);
+      setError(userFacingError(err, locale, t('driver.dash.failedLoad')));
     } finally {
       setLoading(false);
     }
-  }, [user, navigate, t]);
+  }, [locale, user, navigate, t]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -235,7 +237,7 @@ export default function DriverDashboardPage() {
       .eq('id', driver.id);
     if (e) {
       setDriver(prev => prev ? { ...prev, is_online: !newStatus } : null);
-      setActionError(e.message);
+      setActionError(userFacingError(e, locale, t('error.genericBody')));
     }
     setPendingAction(null);
   };
@@ -251,7 +253,7 @@ export default function DriverDashboardPage() {
       p_expected_updated_at: delivery?.updated_at ?? null,
     });
     if (e) {
-      setActionError(e.message);
+      setActionError(userFacingError(e, locale, t('error.genericBody')));
       setPendingAction(null);
       return;
     }
@@ -270,7 +272,7 @@ export default function DriverDashboardPage() {
       p_expected_updated_at: delivery?.updated_at ?? null,
     });
     if (e) {
-      setActionError(e.message);
+      setActionError(userFacingError(e, locale, t('error.genericBody')));
       setPendingAction(null);
       return;
     }
@@ -284,7 +286,7 @@ export default function DriverDashboardPage() {
     const delivery = activeDelivery || pendingDeliveries.find((item) => item.id === deliveryId);
     let reason: string | null = null;
     if (newStatus === 'failed') {
-      reason = window.prompt('Please explain why delivery failed:')?.trim() ?? null;
+      reason = window.prompt(t('driver.dash.failureReasonPrompt'))?.trim() ?? null;
       if (!reason || reason.length < 3) {
         setPendingAction(null);
         return;
@@ -297,7 +299,7 @@ export default function DriverDashboardPage() {
       p_expected_updated_at: delivery?.updated_at ?? null,
     });
     if (e) {
-      setActionError(e.message);
+      setActionError(userFacingError(e, locale, t('error.genericBody')));
       setPendingAction(null);
       return;
     }

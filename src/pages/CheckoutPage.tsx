@@ -17,6 +17,7 @@ import { callUserAction, fetchLocationInsights } from '../lib/userApi';
 import { clearCachedDeliveryQuotes, getAuthoritativeDeliveryQuote, type AuthoritativeDeliveryQuote } from '../lib/deliveryQuote';
 import { useRealtime } from '../lib/useRealtime';
 import { checkoutEtaWindow } from '../lib/deliveryEta';
+import { userFacingError } from '../lib/userFacingError';
 
 type Step = 'details' | 'review' | 'success';
 type ContactPhoneMode = 'account' | 'alternate';
@@ -101,10 +102,10 @@ export default function CheckoutPage() {
         }
       } catch (err) {
         console.error('Failed to load restaurant delivery geography', err);
-        setCalcError(formatWorkflowError(err, t('checkout.errorCalc')));
+        setCalcError(userFacingError(err, locale, t('checkout.errorCalc')));
       }
     })();
-  }, [availability.closed, cart.restaurantId, t]);
+  }, [availability.closed, cart.restaurantId, locale, t]);
 
   useRealtime('restaurants', (payload) => {
     if (!payload.new?.id || payload.new.id !== cart.restaurantId) return;
@@ -142,11 +143,11 @@ export default function CheckoutPage() {
       setFinance(data);
     } catch (err) {
       console.error('Failed to calculate checkout financials', err);
-      setCalcError(formatWorkflowError(err, t('checkout.errorCalc')));
+      setCalcError(userFacingError(err, locale, t('checkout.errorCalc')));
     } finally {
       setCalcLoading(false);
     }
-  }, [cart.lines, cart.restaurantId, t, mapLocation, restaurantGeo?.operationalStatus]);
+  }, [cart.lines, cart.restaurantId, locale, t, mapLocation, restaurantGeo?.operationalStatus]);
 
   useEffect(() => {
     if (!mapLocation?.confirmed || !restaurantGeo) {
@@ -314,13 +315,13 @@ export default function CheckoutPage() {
       if (err instanceof DOMException && err.name === 'AbortError') {
         setSubmitError(t('checkout.error'));
       } else {
-        setSubmitError(formatWorkflowError(err, t('checkout.error')));
+        setSubmitError(userFacingError(err, locale, t('checkout.error')));
       }
     } finally {
       clearTimeout(t0);
       setSubmitting(false);
     }
-  }, [submitting, profile, cart, address, selectedPhone, notes, t, clear, mapLocation, finance?.route_quote_id]);
+  }, [submitting, profile, cart, address, selectedPhone, notes, t, clear, locale, mapLocation, finance?.route_quote_id]);
 
   // Cart empty states for /checkout accessed without items.
   if (cart.lines.length === 0 && step !== 'success') {
@@ -694,15 +695,6 @@ async function makeIdempotencyKey(parts: string[]): Promise<string> {
   }
   const bucket = Math.floor(Date.now() / (5 * 60 * 1000));
   return `fallback-${h.toString(16)}-${bucket.toString(16)}`;
-}
-
-function formatWorkflowError(err: unknown, fallback: string): string {
-  if (err instanceof Error && err.message) return err.message;
-  if (typeof err === 'object' && err && 'message' in err) {
-    const message = (err as { message?: unknown }).message;
-    if (typeof message === 'string' && message.trim()) return message;
-  }
-  return fallback;
 }
 
 function formatEtaRange(durationMinutes: number, preparationMinutes: number | undefined, unit: string): string {

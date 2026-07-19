@@ -12,9 +12,10 @@ import { Skeleton, ErrorState, Spinner } from '../components/feedback';
 import { StatusBadge, PriceTag, relativeTime } from '../components/ui';
 import { RestaurantAnalyticsPanel } from '../components/RestaurantAnalytics';
 import { callUserAction } from '../lib/userApi';
+import { userFacingError } from '../lib/userFacingError';
 
 export default function RestaurantDashboardPage() {
-  const { t } = useT();
+  const { t, locale } = useT();
   const { profile } = useAuth();
   const navigate = useNavigate();
 
@@ -47,7 +48,7 @@ export default function RestaurantDashboardPage() {
       if (re) throw re;
       
       if (!r) {
-        setError('No restaurant assigned to your account. Please contact the platform administrator to onboard your restaurant.');
+        setError(t('restaurant.notAssigned'));
         return;
       }
 
@@ -89,11 +90,11 @@ export default function RestaurantDashboardPage() {
       }
     } catch (err: unknown) {
       console.error(err);
-      setError(err instanceof Error ? err.message : t('error.genericBody'));
+      setError(userFacingError(err, locale, t('error.genericBody')));
     } finally {
       setLoading(false);
     }
-  }, [profile, t]);
+  }, [locale, profile, t]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -121,10 +122,10 @@ export default function RestaurantDashboardPage() {
         });
       } catch (err) {
         console.error('[Kiyo] Restaurant financials load failed:', err);
-        setFinancialsError(err instanceof Error ? err.message : t('error.genericBody'));
+        setFinancialsError(userFacingError(err, locale, t('error.genericBody')));
       }
     })();
-  }, [restaurant, t]);
+  }, [locale, restaurant, t]);
 
   // Play a notification sound when a new order arrives
   const playSound = useCallback(() => {
@@ -170,7 +171,7 @@ export default function RestaurantDashboardPage() {
           .then(({ data, error: e }) => {
             if (e) {
               console.error('[Kiyo] Realtime order items load failed:', e);
-              setActionError(e.message ?? t('error.genericBody'));
+              setActionError(userFacingError(e, locale, t('error.genericBody')));
               return;
             }
             setItemsMap((m) => ({ ...m, [payload.new.id as string]: (data as OrderItemRow[]) ?? [] }));
@@ -225,7 +226,7 @@ export default function RestaurantDashboardPage() {
       );
     } catch (err) {
       console.error('[Kiyo] Order status update failed:', err);
-      setActionError(err instanceof Error ? err.message : t('error.genericBody'));
+      setActionError(userFacingError(err, locale, t('error.genericBody')));
     } finally {
       setPendingAction(null);
     }

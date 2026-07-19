@@ -9,9 +9,10 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Skeleton, ErrorState, Spinner } from '../components/feedback';
 import { PriceTag } from '../components/ui';
 import { Field } from '../components/Field';
+import { userFacingError } from '../lib/userFacingError';
 
 export default function RestaurantMenuPage() {
-  const { t } = useT();
+  const { t, locale } = useT();
   const { profile } = useAuth();
   const navigate = useNavigate();
 
@@ -53,11 +54,11 @@ export default function RestaurantMenuPage() {
       setItems((m.data as MenuItem[]) ?? []);
     } catch (err: unknown) {
       console.error(err);
-      setError(err instanceof Error ? err.message : t('error.genericBody'));
+      setError(userFacingError(err, locale, t('error.genericBody')));
     } finally {
       setLoading(false);
     }
-  }, [profile, t]);
+  }, [locale, profile, t]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -300,7 +301,7 @@ function ItemFormModal({ restaurantId, categories, item, onClose, onSaved }: {
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const [name, setName] = useState(item?.name ?? '');
   const [description, setDescription] = useState(item?.description ?? '');
   const [price, setPrice] = useState(item?.price ?? '');
@@ -334,7 +335,8 @@ function ItemFormModal({ restaurantId, categories, item, onClose, onSaved }: {
       if (e) throw e;
       onSaved();
     } catch (err) {
-      setError((err as Error)?.message ?? t('error.genericBody'));
+      console.error('[Kiyo] Menu item save failed:', err);
+      setError(userFacingError(err, locale, t('error.genericBody')));
     } finally {
       setSaving(false);
     }
@@ -377,7 +379,7 @@ function ItemFormModal({ restaurantId, categories, item, onClose, onSaved }: {
 function CategoryFormModal({ restaurantId, onClose, onSaved }: {
   restaurantId: string; onClose: () => void; onSaved: () => void;
 }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -391,7 +393,8 @@ function CategoryFormModal({ restaurantId, onClose, onSaved }: {
       .from('menu_categories')
       .insert({ restaurant_id: restaurantId, name: name.trim() });
     if (e2) {
-      setError(e2.message);
+      console.error('[Kiyo] Menu category save failed:', e2);
+      setError(userFacingError(e2, locale, t('error.genericBody')));
       setSaving(false);
       return;
     }

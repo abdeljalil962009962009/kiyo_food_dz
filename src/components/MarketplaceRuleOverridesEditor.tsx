@@ -3,6 +3,7 @@ import { CheckCircle, Clock, RefreshCw, RotateCcw, Save, SlidersHorizontal } fro
 import { useT } from '../lib/i18n-react';
 import { supabase } from '../lib/supabase';
 import { callAdminAction } from '../lib/adminApi';
+import { userFacingError } from '../lib/userFacingError';
 import { Spinner } from './feedback';
 
 type ScopeType = 'wilaya' | 'restaurant';
@@ -53,7 +54,7 @@ const COPY = {
 const cloneValues = (value?: RuleValues | null): RuleValues => JSON.parse(JSON.stringify(value ?? {})) as RuleValues;
 
 export function MarketplaceRuleOverridesEditor({ globalSettings }: { globalSettings: Record<string, Record<string, unknown>> }) {
-  const { locale } = useT();
+  const { locale, t } = useT();
   const text = COPY[locale];
   const [scopeType, setScopeType] = useState<ScopeType>('wilaya');
   const [scopeId, setScopeId] = useState('');
@@ -78,14 +79,15 @@ export function MarketplaceRuleOverridesEditor({ globalSettings }: { globalSetti
     ]);
     const failure = wilayaResult.error ?? restaurantResult.error ?? overrideResult.error;
     if (failure) {
-      setError(failure.message);
+      console.error('[Kiyo] Marketplace rule overrides load failed:', failure);
+      setError(userFacingError(failure, locale, t('error.genericBody')));
     } else {
       setWilayas((wilayaResult.data ?? []) as WilayaOption[]);
       setRestaurants((restaurantResult.data ?? []) as RestaurantOption[]);
       setOverrides((overrideResult.data ?? []) as OverrideRow[]);
     }
     setLoading(false);
-  }, []);
+  }, [locale, t]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -177,7 +179,9 @@ export function MarketplaceRuleOverridesEditor({ globalSettings }: { globalSetti
       p_reason: reason.trim(),
       p_expected_version: current?.version ?? null,
     });
-    if (saveError) setError(['PT409', '40001'].includes(saveError.code ?? '') ? text.stale : saveError.message);
+    if (saveError) setError(['PT409', '40001'].includes(saveError.code ?? '')
+      ? text.stale
+      : userFacingError(saveError, locale, t('error.genericBody')));
     else {
       await load();
       setMessage(text.saved);
@@ -195,7 +199,9 @@ export function MarketplaceRuleOverridesEditor({ globalSettings }: { globalSetti
       p_expected_version: current.version,
       p_reason: reason.trim(),
     });
-    if (removeError) setError(['PT409', '40001'].includes(removeError.code ?? '') ? text.stale : removeError.message);
+    if (removeError) setError(['PT409', '40001'].includes(removeError.code ?? '')
+      ? text.stale
+      : userFacingError(removeError, locale, t('error.genericBody')));
     else {
       await load();
       setMessage(text.removed);

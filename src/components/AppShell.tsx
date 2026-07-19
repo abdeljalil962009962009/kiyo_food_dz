@@ -206,11 +206,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {(!network.online || network.slow) && (
         <div className={`border-b px-4 py-2 text-center text-xs font-semibold ${network.online ? 'border-warning-200 bg-warning-50 text-warning-800' : 'border-error-200 bg-error-50 text-error-700'}`} role="status">
           <WifiOff className="mr-1 inline h-3.5 w-3.5" />
-          {locale === 'fr'
-            ? (network.online ? 'Connexion faible : certaines informations peuvent prendre plus de temps.' : 'Vous \u00eates hors ligne. Reconnectez-vous pour continuer.')
-            : locale === 'ar'
-              ? (network.online ? '\u0627\u0644\u0627\u062a\u0635\u0627\u0644 \u0636\u0639\u064a\u0641: \u0642\u062f \u062a\u0633\u062a\u063a\u0631\u0642 \u0628\u0639\u0636 \u0627\u0644\u0645\u0639\u0644\u0648\u0645\u0627\u062a \u0648\u0642\u062a\u0627 \u0623\u0637\u0648\u0644.' : '\u0623\u0646\u062a \u063a\u064a\u0631 \u0645\u062a\u0635\u0644. \u0623\u0639\u062f \u0627\u0644\u0627\u062a\u0635\u0627\u0644 \u0644\u0644\u0645\u062a\u0627\u0628\u0639\u0629.')
-              : (network.online ? 'Weak connection: some information may take longer to load.' : 'You are offline. Reconnect to continue.')}
+          {t(network.online ? 'network.weak' : 'network.offline')}
         </div>
       )}
       <main className="mx-auto max-w-6xl px-4 pb-24 pt-6 sm:px-6 sm:pt-8">

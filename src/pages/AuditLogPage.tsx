@@ -6,11 +6,12 @@ import { supabase, type AuditLog } from '../lib/supabase';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Skeleton, ErrorState, InlineLoader } from '../components/feedback';
+import { userFacingError } from '../lib/userFacingError';
 
 const PAGE_SIZE = 20;
 
 export default function AuditLogPage() {
-  const { t } = useT();
+  const { t, locale } = useT();
   const [rows, setRows] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,11 +32,11 @@ export default function AuditLogPage() {
       setHasMore(fetched.length === PAGE_SIZE);
     } catch (err: unknown) {
       console.error(err);
-      setError(err instanceof Error ? err.message : t('error.genericBody'));
+      setError(userFacingError(err, locale, t('error.genericBody')));
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [locale, t]);
 
   useEffect(() => { void load(); }, [load]);
 

@@ -18,6 +18,7 @@ import { RestaurantApplicationsPanel } from '../components/RestaurantApplication
 import { MarketplaceRuleOverridesEditor } from '../components/MarketplaceRuleOverridesEditor';
 import { callAdminAction } from '../lib/adminApi';
 import { callUserAction } from '../lib/userApi';
+import type { TranslationKey } from '../lib/i18n';
 
 type Analytics = {
   revenue: { today: number; this_week: number; this_month: number; this_year: number; all_time: number };
@@ -733,7 +734,7 @@ function OverviewTab() {
       setAudit(fetchedAudit);
     } catch (err: unknown) {
       console.error(err);
-      setError(err instanceof Error ? err.message : t('error.genericBody'));
+      setError(adminErrorMessage(err, t('error.genericBody')));
       setAnalytics(ZERO_ANALYTICS);
       setAudit([]);
     } finally {
@@ -2593,7 +2594,7 @@ function AlertsTab() {
 
 // ===================== ADMIN SUPPORT =====================
 function AdminSupportTab() {
-  const { t } = useT();
+  const { t, locale } = useT();
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -2625,8 +2626,8 @@ function AdminSupportTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-display text-base font-bold text-ink-900">Support Inbox</h3>
-        <div className="flex gap-1">
+        <h3 className="font-display text-base font-bold text-ink-900">{t('support.admin.inbox')}</h3>
+        <div className="flex max-w-full gap-1 overflow-x-auto no-scrollbar" role="group" aria-label={t('support.admin.inbox')}>
           {(['all','open','in_progress','resolved','closed'] as const).map((f) => (
             <button
               key={f}
@@ -2635,7 +2636,7 @@ function AdminSupportTab() {
                 filter === f ? 'bg-ember-500 text-white' : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
               }`}
             >
-              {f === 'all' ? 'All' : f.replace(/_/g, ' ')}
+              {t(`support.status.${f}` as TranslationKey)}
             </button>
           ))}
         </div>
@@ -2644,7 +2645,7 @@ function AdminSupportTab() {
       {loading ? <Skeleton count={4} /> : error ? (
         <ErrorState title={t('error.genericTitle')} message={error} onRetry={load} retryLabel={t('error.retry')} />
       ) : tickets.length === 0 ? (
-        <div className="kiyo-card p-8 text-center text-sm text-ink-400">No support tickets</div>
+        <div className="kiyo-card p-8 text-center text-sm text-ink-400">{t('support.noTickets')}</div>
       ) : (
         <ul className="space-y-2">
           {tickets.map((ticket) => (
@@ -2668,15 +2669,15 @@ function AdminSupportTab() {
                       ticket.status === 'in_progress' ? 'bg-blue-100 text-blue-600' :
                       ticket.status === 'resolved' ? 'bg-sage-500/10 text-sage-600' :
                       'bg-ink-100 text-ink-500'
-                    }`}>{ticket.status.replace(/_/g, ' ')}</span>
+                    }`}>{t(`support.status.${ticket.status}` as TranslationKey)}</span>
                   </div>
                   <p className="mt-0.5 truncate text-xs text-ink-500">{ticket.body}</p>
                   <div className="mt-1 flex items-center gap-2 text-[10px] text-ink-400">
-                    <span className="capitalize">{ticket.category}</span>
+                    <span>{t(`support.category.${ticket.category}` as TranslationKey)}</span>
                     <span>·</span>
-                    <span className="capitalize">{ticket.priority}</span>
+                    <span>{t(`support.priority.${ticket.priority}` as TranslationKey)}</span>
                     <span>·</span>
-                    <span>{new Date(ticket.created_at).toLocaleDateString()}</span>
+                    <span>{new Date(ticket.created_at).toLocaleDateString(locale === 'ar' ? 'ar-DZ' : locale === 'fr' ? 'fr-DZ' : 'en-DZ')}</span>
                   </div>
                 </div>
               </button>
@@ -2689,7 +2690,7 @@ function AdminSupportTab() {
 }
 
 function AdminTicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () => void }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const [ticket, setTicket] = useState<SupportTicket | null>(null);
   const [messages, setMessages] = useState<Array<{ id: string; ticket_id: string; sender_id: string; body: string; is_admin: boolean; created_at: string }>>([]);
   const [loading, setLoading] = useState(true);
@@ -2758,7 +2759,7 @@ function AdminTicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () 
   return (
     <div className="space-y-4">
       <button onClick={onBack} className="inline-flex items-center gap-1 text-sm text-ink-500 hover:text-ink-900">
-        <ChevronLeft className="h-4 w-4" /> Back to inbox
+        <ChevronLeft className={`h-4 w-4 ${locale === 'ar' ? 'rotate-180' : ''}`} /> {t('support.admin.backToInbox')}
       </button>
 
       <div className="kiyo-card p-5">
@@ -2768,33 +2769,33 @@ function AdminTicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () 
             {ticket.status !== 'resolved' && (
               <button onClick={() => updateStatus('resolved')} disabled={updating}
                 className="rounded-lg bg-sage-500/10 px-2.5 py-1 text-xs font-medium text-sage-600 hover:bg-sage-500/20">
-                {updating ? <Spinner className="h-3 w-3" /> : <CheckCircle className="h-3 w-3" />} Resolve
+                {updating ? <Spinner className="h-3 w-3" /> : <CheckCircle className="h-3 w-3" />} {t('support.admin.resolve')}
               </button>
             )}
             {ticket.status !== 'closed' && (
               <button onClick={() => updateStatus('closed')} disabled={updating}
                 className="rounded-lg bg-ink-100 px-2.5 py-1 text-xs font-medium text-ink-600 hover:bg-ink-200">
-                Close
+                {t('support.admin.close')}
               </button>
             )}
           </div>
         </div>
         <p className="mt-2 text-sm text-ink-600">{ticket.body}</p>
         <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-ink-400">
-          <span className="capitalize rounded bg-ink-100 px-1.5 py-0.5">{ticket.category}</span>
-          <span className="capitalize rounded bg-ink-100 px-1.5 py-0.5">{ticket.priority} priority</span>
+          <span className="rounded bg-ink-100 px-1.5 py-0.5">{t(`support.category.${ticket.category}` as TranslationKey)}</span>
+          <span className="rounded bg-ink-100 px-1.5 py-0.5">{t(`support.priority.${ticket.priority}` as TranslationKey)} {t('support.prioritySuffix')}</span>
           {ticket.order_id && <span className="flex items-center gap-1 rounded bg-ink-100 px-1.5 py-0.5"><Package className="h-3 w-3" /> {ticket.order_id.slice(0, 8)}</span>}
-          <span>{new Date(ticket.created_at).toLocaleString()}</span>
+          <span>{new Date(ticket.created_at).toLocaleString(locale === 'ar' ? 'ar-DZ' : locale === 'fr' ? 'fr-DZ' : 'en-DZ')}</span>
         </div>
       </div>
 
       <div className="kiyo-card">
         <div className="border-b border-ink-100 px-4 py-3">
-          <h3 className="text-sm font-semibold text-ink-900">Conversation</h3>
+          <h3 className="text-sm font-semibold text-ink-900">{t('support.conversation')}</h3>
         </div>
         <div className="max-h-96 space-y-3 overflow-y-auto p-4">
           {messages.length === 0 ? (
-            <p className="py-8 text-center text-sm text-ink-400">No messages yet. Reply below.</p>
+            <p className="py-8 text-center text-sm text-ink-400">{t('support.admin.noMessages')}</p>
           ) : (
             messages.map((m) => (
               <div key={m.id} className={`flex ${m.is_admin ? 'justify-end' : 'justify-start'}`}>
@@ -2803,7 +2804,7 @@ function AdminTicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () 
                 }`}>
                   <p className="whitespace-pre-wrap">{m.body}</p>
                   <p className={`mt-1 text-[10px] ${m.is_admin ? 'text-ember-100' : 'text-ink-400'}`}>
-                    {m.is_admin ? 'Admin' : 'User'} · {new Date(m.created_at).toLocaleString()}
+                    {m.is_admin ? t('support.admin.admin') : t('support.admin.user')} · {new Date(m.created_at).toLocaleString(locale === 'ar' ? 'ar-DZ' : locale === 'fr' ? 'fr-DZ' : 'en-DZ')}
                   </p>
                 </div>
               </div>
@@ -2818,11 +2819,12 @@ function AdminTicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () 
             value={reply}
             onChange={(e) => setReply(e.target.value)}
             rows={2}
-            placeholder="Type your reply..."
+            placeholder={t('support.admin.replyPlaceholder')}
+            aria-label={t('support.admin.replyPlaceholder')}
             className="flex-1 resize-none rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none"
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void sendReply(); } }}
           />
-          <button onClick={sendReply} disabled={sending || reply.trim().length < 1} className="kiyo-btn-primary flex-shrink-0">
+          <button onClick={sendReply} disabled={sending || reply.trim().length < 1} className="kiyo-btn-primary min-h-11 min-w-11 flex-shrink-0" aria-label={t('support.form.submit')}>
             {sending ? <Spinner className="h-4 w-4" /> : <Send className="h-4 w-4" />}
           </button>
         </div>
