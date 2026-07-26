@@ -104,7 +104,6 @@ export function SupportPage() {
 
         {showForm && (
           <TicketForm
-            userId={profile.id}
             initialOrderId={orderIdFromUrl}
             onCreated={() => { setShowForm(false); void load(); }}
             onCancel={() => setShowForm(false)}
@@ -163,8 +162,8 @@ export function SupportPage() {
   );
 }
 
-function TicketForm({ userId, initialOrderId, onCreated, onCancel }: { userId: string; initialOrderId: string; onCreated: () => void; onCancel: () => void }) {
-  const { t } = useT();
+function TicketForm({ initialOrderId, onCreated, onCancel }: { initialOrderId: string; onCreated: () => void; onCancel: () => void }) {
+  const { t, locale } = useT();
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [category, setCategory] = useState(initialOrderId ? 'complaint' : 'general');
@@ -174,25 +173,32 @@ function TicketForm({ userId, initialOrderId, onCreated, onCancel }: { userId: s
   const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
-    if (subject.trim().length < 3 || body.trim().length < 5) {
+    if (subject.trim().length < 3 || body.trim().length < 10) {
       setError(t('support.form.validation'));
       return;
     }
     setSubmitting(true);
     setError(null);
     try {
-      const { error: e } = await supabase.from('support_tickets').insert({
-        requester_id: userId,
-        subject: subject.trim(),
-        body: body.trim(),
-        category,
-        priority,
-        order_id: orderId.trim() || null,
+      const { error: e } = await callUserAction('create_support_ticket', {
+        p_subject: subject.trim(),
+        p_body: body.trim(),
+        p_category: category,
+        p_priority: priority,
+        p_order_id: orderId.trim() || null,
       });
       if (e) throw e;
       onCreated();
-    } catch {
-      setError(t('error.genericBody'));
+    } catch (err: unknown) {
+      setError(userFacingError(
+        err,
+        locale,
+        locale === 'ar'
+          ? 'تعذّر إرسال طلب الدعم. تحقق من رقم الطلب أو أعد المحاولة.'
+          : locale === 'fr'
+            ? 'La demande d’assistance n’a pas pu être envoyée. Vérifiez le numéro de commande ou réessayez.'
+            : 'The support request could not be sent. Check the order number or try again.',
+      ));
     } finally {
       setSubmitting(false);
     }

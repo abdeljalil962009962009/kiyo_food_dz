@@ -234,6 +234,31 @@ describe('user action gateway', () => {
     });
   });
 
+  it('creates support tickets with the verified requester and gateway request id', async () => {
+    const { rpc } = queueClients({ id: ACTOR_ID, is_suspended: false });
+    const { response, state } = makeResponse();
+    const args = {
+      p_subject: 'Order arrived incomplete',
+      p_body: 'One item was missing from the delivered order.',
+      p_category: 'complaint',
+      p_priority: 'high',
+      p_order_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+    };
+
+    await userHandler({
+      method: 'POST',
+      headers: { authorization: 'Bearer customer-token' },
+      body: { action: 'create_support_ticket', requestId: REQUEST_ID, args },
+    }, response);
+
+    expect(state.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith('create_support_ticket', {
+      p_actor_id: ACTOR_ID,
+      p_request_id: REQUEST_ID,
+      ...args,
+    });
+  });
+
   it('routes restaurant review replies through the verified account', async () => {
     const { rpc } = queueClients({ id: ACTOR_ID, is_suspended: false });
     const { response, state } = makeResponse();

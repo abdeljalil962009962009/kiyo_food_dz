@@ -18,6 +18,7 @@ type ResponseLike = {
 };
 
 const ALLOWED_ACTIONS = new Set([
+  'create_support_ticket',
   'create_order_with_items',
   'get_restaurant_analytics_summary',
   'get_restaurant_financials',
@@ -89,7 +90,17 @@ export default async function handler(request: RequestLike, response: ResponseLi
     return;
   }
 
-  const { data, error } = action === 'submit_driver_application'
+  const { data, error } = action === 'create_support_ticket'
+    ? await serviceClient.rpc('create_support_ticket', {
+        p_actor_id: authData.user.id,
+        p_request_id: requestId,
+        p_subject: args.p_subject,
+        p_body: args.p_body,
+        p_category: args.p_category ?? 'general',
+        p_priority: args.p_priority ?? 'normal',
+        p_order_id: args.p_order_id ?? null,
+      })
+    : action === 'submit_driver_application'
     ? await serviceClient.rpc('submit_driver_application', {
         p_actor_id: authData.user.id,
         p_payload: args.p_payload,
