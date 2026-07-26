@@ -35,6 +35,8 @@ import {
 } from '../lib/menuCustomization';
 import { RestaurantReviews } from '../components/RestaurantReviews';
 import { applyReviewChange } from '../lib/reviews';
+import { withExponentialBackoff } from '../lib/locationNetwork';
+import { userFacingError } from '../lib/userFacingError';
 
 const OpenStreetMapDisplay = lazy(() => import('../components/OpenStreetMapDisplay'));
 
@@ -48,6 +50,8 @@ const detailCopy = {
     requiredMessage: 'Complete this required choice.', minimumMessage: 'Choose at least {count}.', maximumMessage: 'Choose no more than {count}.',
     instructions: 'Instructions for the kitchen', instructionsPlaceholder: 'Example: no onions, sauce on the side',
     addConfigured: 'Add to cart', each: 'each', close: 'Close', decrease: 'Decrease quantity', increase: 'Increase quantity',
+    reviewsDelayed: 'Customer reviews are taking longer to load. The restaurant and menu remain available.',
+    retryReviews: 'Retry reviews',
   },
   fr: {
     verified: 'Vérifié par Kiyo Food', reviews: '{count} avis', preparation: 'Préparation habituelle : environ {minutes} min',
@@ -58,6 +62,8 @@ const detailCopy = {
     requiredMessage: 'Complétez ce choix obligatoire.', minimumMessage: 'Choisissez au moins {count}.', maximumMessage: 'Choisissez au maximum {count}.',
     instructions: 'Instructions pour la cuisine', instructionsPlaceholder: 'Exemple : sans oignons, sauce à part',
     addConfigured: 'Ajouter au panier', each: "l'unité", close: 'Fermer', decrease: 'Réduire la quantité', increase: 'Augmenter la quantité',
+    reviewsDelayed: 'Les avis clients mettent plus de temps à charger. Le restaurant et son menu restent disponibles.',
+    retryReviews: 'Recharger les avis',
   },
   ar: {
     verified: 'موثّق من كيو فود', reviews: '{count} تقييم', preparation: 'مدة التحضير المعتادة: نحو {minutes} دقيقة',
@@ -68,6 +74,8 @@ const detailCopy = {
     requiredMessage: 'أكمل هذا الاختيار الإلزامي.', minimumMessage: 'اختر {count} على الأقل.', maximumMessage: 'اختر {count} كحد أقصى.',
     instructions: 'تعليمات للمطبخ', instructionsPlaceholder: 'مثال: بدون بصل، الصلصة جانبا',
     addConfigured: 'أضف إلى السلة', each: 'للوحدة', close: 'إغلاق', decrease: 'تقليل الكمية', increase: 'زيادة الكمية',
+    reviewsDelayed: 'يتأخر تحميل تقييمات العملاء. المطعم وقائمة الطعام ما زالا متاحين.',
+    retryReviews: 'إعادة تحميل التقييمات',
   },
 } as const;
 
@@ -94,6 +102,38 @@ export default function RestaurantDetailPage() {
   const [customizingItem, setCustomizingItem] = useState<MenuItem | null>(null);
   const [availabilityClock, setAvailabilityClock] = useState(() => new Date());
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsError, setReviewsError] = useState<string | null>(null);
+
+  const loadReviews = useCallback(async () => {
+    if (!features.reviews || !id) {
+      setReviews([]);
+      setReviewsLoading(false);
+      setReviewsError(null);
+      return;
+    }
+    setReviewsLoading(true);
+    setReviewsError(null);
+    try {
+      const data = await withExponentialBackoff(async () => {
+        const result = await supabase
+          .from('reviews')
+          .select('id,restaurant_id,customer_id,order_id,rating,comment,owner_reply,replied_at,is_hidden,created_at,updated_at')
+          .eq('restaurant_id', id)
+          .eq('is_hidden', false)
+          .order('created_at', { ascending: false })
+          .limit(20);
+        if (result.error) throw result.error;
+        return (result.data as ReviewRow[] | null) ?? [];
+      }, { attempts: 3, timeoutMs: 12_000 });
+      setReviews(data);
+    } catch (err: unknown) {
+      console.error('[Kiyo] Restaurant reviews load failed:', err);
+      setReviewsError(userFacingError(err, locale, tx.reviewsDelayed));
+    } finally {
+      setReviewsLoading(false);
+    }
+  }, [features.reviews, id, locale, tx.reviewsDelayed]);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -101,17 +141,18 @@ export default function RestaurantDetailPage() {
     setError(null);
     try {
       const range = algeriaAvailabilityDateRange();
-      const [r, c, m, special] = await Promise.all([
-        supabase.from('restaurants').select('*').eq('id', id).maybeSingle(),
-        supabase.from('menu_categories').select('*').eq('restaurant_id', id).order('position'),
-        supabase.from('menu_items').select('*').eq('restaurant_id', id).order('position'),
-        supabase.from('restaurant_special_hours').select('*').eq('restaurant_id', id)
-          .gte('date', range.from).lte('date', range.to),
-      ]);
-      if (r.error) throw r.error;
-      if (c.error) throw c.error;
-      if (m.error) throw m.error;
-      if (special.error) throw special.error;
+      const [r, c, m, special] = await withExponentialBackoff(async () => {
+        const results = await Promise.all([
+          supabase.from('restaurants').select('*').eq('id', id).maybeSingle(),
+          supabase.from('menu_categories').select('*').eq('restaurant_id', id).order('position'),
+          supabase.from('menu_items').select('*').eq('restaurant_id', id).order('position'),
+          supabase.from('restaurant_special_hours').select('*').eq('restaurant_id', id)
+            .gte('date', range.from).lte('date', range.to),
+        ]);
+        const failed = results.find((result) => result.error);
+        if (failed?.error) throw failed.error;
+        return results;
+      }, { attempts: 3, timeoutMs: 16_000 });
       const foundRes = r.data as Restaurant;
       if (!foundRes) {
         setError('404');
@@ -124,19 +165,24 @@ export default function RestaurantDetailPage() {
         const loadedItems = (m.data as MenuItem[]) ?? [];
         const itemIds = loadedItems.map((item) => item.id);
         if (itemIds.length > 0) {
-          const modifiersResult = await supabase
-            .from('menu_item_modifiers')
-            .select('*')
-            .in('menu_item_id', itemIds)
-            .order('position');
-          if (modifiersResult.error) throw modifiersResult.error;
-          const modifiers = (modifiersResult.data as MenuItemModifier[]) ?? [];
-          const modifierIds = modifiers.map((modifier) => modifier.id);
-          const optionsResult = modifierIds.length > 0
-            ? await supabase.from('modifier_options').select('*').in('modifier_id', modifierIds).order('position')
-            : { data: [], error: null };
-          if (optionsResult.error) throw optionsResult.error;
-          const options = (optionsResult.data as ModifierOption[]) ?? [];
+          const { modifiers, options } = await withExponentialBackoff(async () => {
+            const modifiersResult = await supabase
+              .from('menu_item_modifiers')
+              .select('*')
+              .in('menu_item_id', itemIds)
+              .order('position');
+            if (modifiersResult.error) throw modifiersResult.error;
+            const loadedModifiers = (modifiersResult.data as MenuItemModifier[]) ?? [];
+            const modifierIds = loadedModifiers.map((modifier) => modifier.id);
+            const optionsResult = modifierIds.length > 0
+              ? await supabase.from('modifier_options').select('*').in('modifier_id', modifierIds).order('position')
+              : { data: [], error: null };
+            if (optionsResult.error) throw optionsResult.error;
+            return {
+              modifiers: loadedModifiers,
+              options: (optionsResult.data as ModifierOption[]) ?? [],
+            };
+          }, { attempts: 3, timeoutMs: 12_000 });
           setModifierGroupsByItem(Object.fromEntries(itemIds.map((itemId) => [
             itemId,
             buildModifierGroups(
@@ -148,38 +194,32 @@ export default function RestaurantDetailPage() {
           setModifierGroupsByItem({});
         }
 
-        if (features.reviews) {
-          const reviewsResult = await supabase
-            .from('reviews')
-            .select('id,restaurant_id,customer_id,order_id,rating,comment,owner_reply,replied_at,is_hidden,created_at,updated_at')
-            .eq('restaurant_id', foundRes.id)
-            .eq('is_hidden', false)
-            .order('created_at', { ascending: false })
-            .limit(20);
-          if (reviewsResult.error) throw reviewsResult.error;
-          setReviews((reviewsResult.data as ReviewRow[]) ?? []);
-        } else {
-          setReviews([]);
-        }
+        void loadReviews();
       }
 
       // Check if favorite
       if (user && foundRes) {
-        const { data: fav } = await supabase
-          .from('customer_favorites')
-          .select('id')
-          .eq('customer_id', user.id)
-          .eq('restaurant_id', id)
-          .maybeSingle();
-        setIsFavorite(!!fav);
+        void withExponentialBackoff(async () => {
+          const result = await supabase
+            .from('customer_favorites')
+            .select('id')
+            .eq('customer_id', user.id)
+            .eq('restaurant_id', id)
+            .maybeSingle();
+          if (result.error) throw result.error;
+          return result.data;
+        }, { attempts: 2, timeoutMs: 10_000 }).then(
+          (favorite) => setIsFavorite(Boolean(favorite)),
+          (favoriteError) => console.warn('[Kiyo] Favorite state load delayed:', favoriteError),
+        );
       }
     } catch (err: unknown) {
-      console.error(err);
-      setError('500');
+      console.error('[Kiyo] Restaurant ordering data load failed:', err);
+      setError(userFacingError(err, locale, t('error.genericBody')));
     } finally {
       setLoading(false);
     }
-  }, [features.reviews, id, setRestaurantName, user]);
+  }, [id, loadReviews, locale, setRestaurantName, t, user]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -261,7 +301,7 @@ export default function RestaurantDetailPage() {
     return (
       <AppShell>
         <ErrorState
-          title={t('error.genericTitle')} message={t('error.genericBody')}
+          title={t('error.genericTitle')} message={error ?? t('error.genericBody')}
           onRetry={load} retryLabel={t('error.retry')}
         />
       </AppShell>
@@ -411,7 +451,24 @@ export default function RestaurantDetailPage() {
         </div>
       </ErrorBoundary>
 
-      {features.reviews && <RestaurantReviews reviews={reviews} locale={locale} />}
+      {features.reviews && (
+        <div>
+          {reviewsLoading ? (
+            <div className="kiyo-card mt-6 p-4" role="status">
+              <Skeleton count={3} />
+            </div>
+          ) : reviewsError ? (
+            <div className="mt-6 rounded-lg border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-800" role="status">
+              <p>{reviewsError}</p>
+              <button type="button" onClick={() => void loadReviews()} className="mt-2 min-h-11 font-bold text-warning-900 underline">
+                {tx.retryReviews}
+              </button>
+            </div>
+          ) : (
+            <RestaurantReviews reviews={reviews} locale={locale} />
+          )}
+        </div>
+      )}
 
       {cart.restaurantId === restaurant.id && cart.lines.length > 0 && (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-ink-100 bg-white/90 px-4 py-3 backdrop-blur-xl sm:px-6"
