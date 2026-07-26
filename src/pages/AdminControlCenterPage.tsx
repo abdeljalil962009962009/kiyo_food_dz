@@ -1384,8 +1384,8 @@ const DEFAULT_SETTINGS: Record<string, Record<string, unknown>> = {
     auto_assign_drivers: true,
   },
   loyalty_referral: {
-    loyalty_enabled: true,
-    points_per_hundred: 5,
+    loyalty_enabled: false,
+    points_per_hundred: 1,
     point_value_dzd: 1,
     referral_enabled: true,
     referrer_reward: 200,
