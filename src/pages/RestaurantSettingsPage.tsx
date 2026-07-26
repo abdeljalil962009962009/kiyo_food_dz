@@ -169,7 +169,7 @@ export default function RestaurantSettingsPage() {
       if (re) throw re;
       
       if (!r) {
-        setError('No restaurant assigned to your account. Please contact the platform administrator to onboard your restaurant.');
+        setError(t('restaurant.settings.notAssigned'));
         return;
       }
 
@@ -249,6 +249,8 @@ export default function RestaurantSettingsPage() {
     if (source === 'wilaya') return t('restaurant.settings.ruleSourceWilaya');
     return t('restaurant.settings.ruleSourceGlobal');
   };
+  const locationManagedByPlatform = restaurant != null
+    && ['published', 'hidden', 'suspended'].includes(restaurant.status);
 
   const saveSettings = async () => {
     if (!restaurant || saving) return;
@@ -256,7 +258,7 @@ export default function RestaurantSettingsPage() {
     setSaved(false);
     setSaveError(null);
 
-    if (!location?.confirmed) {
+    if (!locationManagedByPlatform && !location?.confirmed) {
       setSaveError(t('map.confirmRequired'));
       setSaving(false);
       return;
@@ -279,24 +281,25 @@ export default function RestaurantSettingsPage() {
         ? await uploadRestaurantImage(profile.id, imageFile)
         : imageUrl.trim() || null;
       const cuisineList = cuisines.split(',').map((item) => item.trim()).filter(Boolean).slice(0, 12);
-      const matchedWilaya = matchWilayaFromAddress(location.addressParts, FALLBACK_WILAYAS);
-      const { error: e } = await supabase
-        .from('restaurants')
-        .update({
-          name: restaurantName.trim(),
-          description: description.trim() || null,
-          phone: phone.trim(),
-          cuisine: cuisineList,
-          image_url: nextImageUrl,
-          opening_hours: hours,
-          estimated_delivery_min: Number(estimatedDeliveryMin),
+      const settingsPayload: Record<string, unknown> = {
+        name: restaurantName.trim(),
+        description: description.trim() || null,
+        phone: phone.trim(),
+        cuisine: cuisineList,
+        image_url: nextImageUrl,
+        opening_hours: hours,
+        estimated_delivery_min: Number(estimatedDeliveryMin),
+      };
+      if (!locationManagedByPlatform) {
+        if (!location) throw new Error('restaurant_location_invalid');
+        const matchedWilaya = matchWilayaFromAddress(location.addressParts, FALLBACK_WILAYAS);
+        if (!matchedWilaya) throw new Error('restaurant_location_wilaya_required');
+        Object.assign(settingsPayload, {
           address: location.address,
           latitude: location.lat,
           longitude: location.lng,
           location_accuracy_m: location.accuracy,
-          location_verified: true,
           location_source: location.source,
-          location_updated_at: new Date().toISOString(),
           place_id: location.placeId,
           street: location.addressParts?.street ?? null,
           neighborhood: location.addressParts?.neighborhood ?? null,
@@ -305,26 +308,26 @@ export default function RestaurantSettingsPage() {
           province: location.addressParts?.province ?? null,
           postal_code: location.addressParts?.postalCode ?? null,
           country: location.addressParts?.country ?? 'Algeria',
-          wilaya_id: matchedWilaya?.id ?? null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', restaurant.id);
-      if (e) throw e;
+          wilaya_id: matchedWilaya.id,
+        });
+      }
+      const { data: updatedRestaurant, error: updateError } = await callUserAction<Restaurant>(
+        'update_restaurant_profile_settings',
+        {
+          p_restaurant_id: restaurant.id,
+          p_payload: settingsPayload,
+          p_expected_updated_at: restaurant.updated_at,
+        },
+      );
+      if (updateError) throw updateError;
+      if (!updatedRestaurant) throw new Error('restaurant_settings_update_missing');
       const { data: readinessData } = await callUserAction<PublicationReadiness>('get_restaurant_publication_readiness', {
         p_restaurant_id: restaurant.id,
       });
       setReadiness((readinessData as PublicationReadiness | null) ?? null);
       setImageUrl(nextImageUrl ?? '');
       setImageFile(null);
-      setRestaurant({
-        ...restaurant,
-        name: restaurantName.trim(),
-        description: description.trim() || null,
-        phone: phone.trim(),
-        cuisine: cuisineList,
-        image_url: nextImageUrl,
-        opening_hours: hours as Restaurant['opening_hours'],
-      });
+      setRestaurant(updatedRestaurant as Restaurant);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err: unknown) {
@@ -332,9 +335,16 @@ export default function RestaurantSettingsPage() {
       const message = err instanceof Error ? err.message : '';
       setSaveError(message === 'restaurant_image_type'
         ? profileTx.invalidImageType
-        : message === 'restaurant_image_size'
+          : message === 'restaurant_image_size'
           ? profileTx.invalidImageSize
-          : userFacingError(err, locale, t('error.genericBody')));
+          : message === 'restaurant_location_wilaya_required'
+            ? t('restaurant.settings.locationWilayaRequired')
+            : message === 'restaurant_location_invalid'
+              || message.includes('Confirm a valid precise restaurant location')
+              ? t('restaurant.settings.locationInvalid')
+              : message.includes('location changes require platform review')
+                ? t('restaurant.settings.locationManaged')
+                : userFacingError(err, locale, t('error.genericBody')));
     } finally {
       setSaving(false);
     }
@@ -739,12 +749,30 @@ export default function RestaurantSettingsPage() {
                 <p className="mt-0.5 text-xs text-ink-500">{t('restaurant.onboard.locationHelp')}</p>
               </div>
             </div>
-            <DeliveryMap
-              purpose="restaurant"
-              initialAddress={restaurant.address ?? ''}
-              initialLocation={location}
-              onLocationChange={setLocation}
-            />
+            {locationManagedByPlatform ? (
+              <div className="rounded-lg border border-ink-100 bg-ink-50 p-4">
+                <p className="font-semibold text-ink-900">
+                  {restaurant.address ?? t('restaurant.settings.locationAddressUnavailable')}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-ink-600">
+                  {t('restaurant.settings.locationManaged')}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigate('/support')}
+                  className="kiyo-btn-secondary mt-4 min-h-11"
+                >
+                  {t('restaurant.settings.locationManagedAction')}
+                </button>
+              </div>
+            ) : (
+              <DeliveryMap
+                purpose="restaurant"
+                initialAddress={restaurant.address ?? ''}
+                initialLocation={location}
+                onLocationChange={setLocation}
+              />
+            )}
           </div>
 
           {/* Delivery Configuration */}

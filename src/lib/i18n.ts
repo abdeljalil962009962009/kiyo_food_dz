@@ -570,6 +570,12 @@ export type TranslationKey =
   | 'restaurant.settings.ruleSourceRestaurant'
   | 'restaurant.settings.ruleSourceWilaya'
   | 'restaurant.settings.ruleSourceGlobal'
+  | 'restaurant.settings.locationManaged'
+  | 'restaurant.settings.locationManagedAction'
+  | 'restaurant.settings.locationWilayaRequired'
+  | 'restaurant.settings.locationInvalid'
+  | 'restaurant.settings.locationAddressUnavailable'
+  | 'restaurant.settings.notAssigned'
   | 'restaurant.settings.estTime'
   | 'restaurant.settings.estTimeDesc'
   | 'restaurant.settings.opStatus'
@@ -1252,6 +1258,12 @@ const en: Dict = {
   'restaurant.settings.ruleSourceRestaurant': 'Restaurant exception',
   'restaurant.settings.ruleSourceWilaya': 'Wilaya rule',
   'restaurant.settings.ruleSourceGlobal': 'Global default',
+  'restaurant.settings.locationManaged': 'This published location is protected because it determines customer serviceability and delivery pricing. Contact Kiyo Food to review a relocation.',
+  'restaurant.settings.locationManagedAction': 'Request a location change',
+  'restaurant.settings.locationWilayaRequired': 'Choose an address whose Wilaya can be verified before saving.',
+  'restaurant.settings.locationInvalid': 'Confirm the restaurant entrance on the map with an accurate pin before saving.',
+  'restaurant.settings.locationAddressUnavailable': 'No verified address is available yet.',
+  'restaurant.settings.notAssigned': 'No restaurant is assigned to this account. Contact Kiyo Food to complete the assignment.',
   'restaurant.settings.estTime': 'Estimated Delivery Time (minutes)',
   'restaurant.settings.estTimeDesc': 'This is shown to customers before they order.',
   'restaurant.settings.opStatus': 'Operational Status',
@@ -1948,6 +1960,12 @@ const fr: Dict = {
   'restaurant.settings.ruleSourceRestaurant': 'Exception du restaurant',
   'restaurant.settings.ruleSourceWilaya': 'Règle de Wilaya',
   'restaurant.settings.ruleSourceGlobal': 'Valeur globale',
+  'restaurant.settings.locationManaged': 'Cette adresse publiée est protégée car elle détermine la zone desservie et le prix de livraison. Contactez Kiyo Food pour faire vérifier un déménagement.',
+  'restaurant.settings.locationManagedAction': 'Demander un changement d’adresse',
+  'restaurant.settings.locationWilayaRequired': 'Choisissez une adresse dont la Wilaya peut être vérifiée avant l’enregistrement.',
+  'restaurant.settings.locationInvalid': 'Confirmez l’entrée du restaurant sur la carte avec un repère précis avant d’enregistrer.',
+  'restaurant.settings.locationAddressUnavailable': 'Aucune adresse vérifiée n’est encore disponible.',
+  'restaurant.settings.notAssigned': 'Aucun restaurant n’est attribué à ce compte. Contactez Kiyo Food pour terminer l’attribution.',
   'restaurant.settings.estTime': 'Temps de livraison estimé (minutes)',
   'restaurant.settings.estTimeDesc': 'Ceci est affiché aux clients avant qu\'ils ne commandent.',
   'restaurant.settings.opStatus': 'Statut opérationnel',
@@ -2644,6 +2662,12 @@ const ar: Dict = {
   'restaurant.settings.ruleSourceRestaurant': 'استثناء المطعم',
   'restaurant.settings.ruleSourceWilaya': 'قاعدة الولاية',
   'restaurant.settings.ruleSourceGlobal': 'الإعداد العام',
+  'restaurant.settings.locationManaged': 'عنوان المطعم المنشور محمي لأنه يحدد نطاق الخدمة وتسعير التوصيل. تواصل مع Kiyo Food لمراجعة طلب تغيير الموقع.',
+  'restaurant.settings.locationManagedAction': 'طلب تغيير الموقع',
+  'restaurant.settings.locationWilayaRequired': 'اختر عنواناً يمكن التحقق من ولايته قبل الحفظ.',
+  'restaurant.settings.locationInvalid': 'أكد مدخل المطعم على الخريطة بعلامة دقيقة قبل الحفظ.',
+  'restaurant.settings.locationAddressUnavailable': 'لا يوجد عنوان موثّق بعد.',
+  'restaurant.settings.notAssigned': 'لا يوجد مطعم مرتبط بهذا الحساب. تواصل مع Kiyo Food لإكمال الربط.',
   'restaurant.settings.estTime': 'وقت التوصيل المقدر (بالدقائق)',
   'restaurant.settings.estTimeDesc': 'يتم عرض هذا للعملاء قبل تقديم الطلب.',
   'restaurant.settings.opStatus': 'الحالة التشغيلية',

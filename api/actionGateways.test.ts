@@ -232,6 +232,36 @@ describe('user action gateway', () => {
     });
   });
 
+  it('updates restaurant settings only through the verified server identity', async () => {
+    const { rpc } = queueClients({ id: ACTOR_ID, is_suspended: false });
+    const { response, state } = makeResponse();
+    const restaurantId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+    const expectedUpdatedAt = '2026-07-27T14:00:00.000Z';
+    const payload = { name: 'Kiyo Kitchen', estimated_delivery_min: 35 };
+
+    await userHandler({
+      method: 'POST',
+      headers: { authorization: 'Bearer restaurant-owner-token' },
+      body: {
+        action: 'update_restaurant_profile_settings',
+        requestId: REQUEST_ID,
+        args: {
+          p_restaurant_id: restaurantId,
+          p_payload: payload,
+          p_expected_updated_at: expectedUpdatedAt,
+        },
+      },
+    }, response);
+
+    expect(state.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith('update_restaurant_profile_settings', {
+      p_actor_id: ACTOR_ID,
+      p_restaurant_id: restaurantId,
+      p_payload: payload,
+      p_expected_updated_at: expectedUpdatedAt,
+    });
+  });
+
   it('submits reviews only through the verified customer identity', async () => {
     const { rpc } = queueClients({ id: ACTOR_ID, is_suspended: false });
     const { response, state } = makeResponse();
