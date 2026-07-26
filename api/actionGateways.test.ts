@@ -155,6 +155,31 @@ describe('owner action gateway', () => {
     });
   });
 
+  it('routes financial marketing controls through the idempotent service-only function', async () => {
+    const { rpc } = queueClients({ id: ACTOR_ID, role: 'super_admin', is_suspended: false });
+    const { response, state } = makeResponse();
+    const args = {
+      p_code: 'WELCOME10',
+      p_discount_type: 'percentage',
+      p_discount_value: 10,
+      p_min_order_amount: 500,
+    };
+
+    await adminHandler({
+      method: 'POST',
+      headers: { authorization: 'Bearer owner-token' },
+      body: { action: 'create_promo_code', requestId: REQUEST_ID, args },
+    }, response);
+
+    expect(state.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith('manage_marketing_control', {
+      p_actor_id: ACTOR_ID,
+      p_request_id: REQUEST_ID,
+      p_action: 'create_promo_code',
+      p_args: args,
+    });
+  });
+
   it('rejects oversized owner payloads before authentication or database access', async () => {
     const { response, state } = makeResponse();
     await adminHandler({

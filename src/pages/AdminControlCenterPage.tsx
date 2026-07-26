@@ -2388,6 +2388,7 @@ type MarketingCampaign = {
   scheduled_end: string | null;
   sent_count: number;
   created_at: string;
+  updated_at: string;
 };
 
 type FeatureFlag = {
@@ -2397,6 +2398,7 @@ type FeatureFlag = {
   description: string | null;
   is_enabled: boolean;
   rollout_percentage: number;
+  updated_at: string;
 };
 
 type SubscriptionPlan = {
@@ -2406,11 +2408,13 @@ type SubscriptionPlan = {
   price_monthly: string;
   features: Record<string, unknown>;
   is_active: boolean;
+  updated_at: string;
 };
 
 function MarketingTab() {
   const { t, locale } = useT();
   const copy = adminCopy(locale).marketing;
+  const { confirmAction } = useActionDialog();
   const discountTypeLabel = (value: string) => value === 'percentage' ? copy.percentage : copy.fixed;
   const campaignTypeLabel = (value: string) => ({
     push: copy.push, email: copy.email, in_app: copy.inApp, loyalty: copy.loyalty,
@@ -2433,6 +2437,7 @@ function MarketingTab() {
   const [newCampaign, setNewCampaign] = useState({ name: '', type: 'push', audience: 'all', content: '' });
   const [showPlanForm, setShowPlanForm] = useState(false);
   const [newPlan, setNewPlan] = useState({ name: '', type: 'customer', price: '0', features: '' });
+  const [saving, setSaving] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -2463,103 +2468,199 @@ function MarketingTab() {
   useEffect(() => { void load(); }, [load]);
 
   const createPromo = async () => {
+    const code = newPromo.code.trim().toUpperCase();
+    const value = Number(newPromo.discount_value);
+    const minimum = Number(newPromo.min_order);
+    const maximum = newPromo.max_discount ? Number(newPromo.max_discount) : null;
+    if (!/^[A-Z0-9][A-Z0-9_-]{2,31}$/.test(code)
+       || !Number.isFinite(value) || value <= 0
+       || (newPromo.discount_type === 'percentage' && value > 100)
+       || !Number.isFinite(minimum) || minimum < 0
+       || (maximum !== null && (!Number.isFinite(maximum) || maximum <= 0))) {
+      setError(copy.invalidFields);
+      return;
+    }
+    setSaving('promo-create');
+    setError(null);
     try {
-      const { error: e } = await supabase.from('promo_codes').insert({
-        code: newPromo.code.toUpperCase(),
-        description: newPromo.description || null,
-        discount_type: newPromo.discount_type,
-        discount_value: Number(newPromo.discount_value),
-        min_order_amount: Number(newPromo.min_order),
-        max_discount: newPromo.max_discount ? Number(newPromo.max_discount) : null,
-        valid_until: newPromo.valid_until || null,
+      const { data, error: e } = await callAdminAction<PromoCode>('create_promo_code', {
+        p_code: code,
+        p_description: newPromo.description || null,
+        p_discount_type: newPromo.discount_type,
+        p_discount_value: value,
+        p_min_order_amount: minimum,
+        p_max_discount: maximum,
+        p_valid_until: newPromo.valid_until ? new Date(`${newPromo.valid_until}T23:59:59`).toISOString() : null,
       });
       if (e) throw e;
+      if (!data) throw new Error('promo_create_returned_no_data');
       setShowForm(false);
       setNewPromo({ code: '', description: '', discount_type: 'percentage', discount_value: '10', min_order: '0', max_discount: '', valid_until: '' });
-      void load();
+      setPromos((previous) => [data, ...previous]);
     } catch (err) {
       console.error('[Kiyo] Create promo code error:', err);
       setError(adminErrorMessage(err, t('error.genericBody')));
+    } finally {
+      setSaving(null);
     }
   };
 
   const togglePromo = async (p: PromoCode) => {
+    if (!await confirmAction({
+      title: p.is_active ? copy.disable : copy.enable,
+      message: p.is_active ? copy.confirmDisablePromo : copy.confirmEnablePromo,
+      confirmLabel: p.is_active ? copy.disable : copy.enable,
+      tone: p.is_active ? 'danger' : 'default',
+    })) return;
+    setSaving(p.id);
+    setError(null);
     try {
-      const { error: e } = await supabase.from('promo_codes').update({ is_active: !p.is_active }).eq('id', p.id);
+      const { data, error: e } = await callAdminAction<PromoCode>('set_promo_code_active', {
+        p_promo_id: p.id,
+        p_active: !p.is_active,
+        p_expected_updated_at: p.updated_at,
+      });
       if (e) throw e;
-      setPromos((prev) => prev.map((x) => x.id === p.id ? { ...x, is_active: !x.is_active } : x));
+      if (!data) throw new Error('promo_update_returned_no_data');
+      setPromos((prev) => prev.map((x) => x.id === p.id ? data : x));
     } catch (err) {
       console.error('[Kiyo] Toggle promo code error:', err);
       setError(adminErrorMessage(err, t('error.genericBody')));
+    } finally {
+      setSaving(null);
     }
   };
 
   const createCampaign = async () => {
+    if (newCampaign.name.trim().length < 2 || newCampaign.content.trim().length < 2) {
+      setError(copy.invalidFields);
+      return;
+    }
+    setSaving('campaign-create');
+    setError(null);
     try {
-      const { error: e } = await supabase.from('marketing_campaigns').insert({
-        name: newCampaign.name,
-        campaign_type: newCampaign.type,
-        target_audience: newCampaign.audience,
-        content: { message: newCampaign.content },
+      const { data, error: e } = await callAdminAction<MarketingCampaign>('create_marketing_campaign', {
+        p_name: newCampaign.name,
+        p_campaign_type: newCampaign.type,
+        p_target_audience: newCampaign.audience,
+        p_message: newCampaign.content,
       });
       if (e) throw e;
+      if (!data) throw new Error('campaign_create_returned_no_data');
       setShowCampaignForm(false);
       setNewCampaign({ name: '', type: 'push', audience: 'all', content: '' });
-      void load();
+      setCampaigns((previous) => [data, ...previous]);
     } catch (err) {
       console.error('[Kiyo] Create campaign error:', err);
       setError(adminErrorMessage(err, t('error.genericBody')));
+    } finally {
+      setSaving(null);
     }
   };
 
   const toggleCampaign = async (c: MarketingCampaign) => {
+    if (!await confirmAction({
+      title: c.is_active ? copy.stop : copy.start,
+      message: c.is_active ? copy.confirmStopCampaign : copy.confirmStartCampaign,
+      confirmLabel: c.is_active ? copy.stop : copy.start,
+      tone: c.is_active ? 'danger' : 'default',
+    })) return;
+    setSaving(c.id);
+    setError(null);
     try {
-      const { error: e } = await supabase.from('marketing_campaigns').update({ is_active: !c.is_active }).eq('id', c.id);
+      const { data, error: e } = await callAdminAction<MarketingCampaign>('set_marketing_campaign_active', {
+        p_campaign_id: c.id,
+        p_active: !c.is_active,
+        p_expected_updated_at: c.updated_at,
+      });
       if (e) throw e;
-      setCampaigns((prev) => prev.map((x) => x.id === c.id ? { ...x, is_active: !x.is_active } : x));
+      if (!data) throw new Error('campaign_update_returned_no_data');
+      setCampaigns((prev) => prev.map((x) => x.id === c.id ? data : x));
     } catch (err) {
       console.error('[Kiyo] Toggle campaign error:', err);
       setError(adminErrorMessage(err, t('error.genericBody')));
+    } finally {
+      setSaving(null);
     }
   };
 
   const toggleFlag = async (f: FeatureFlag) => {
+    if (!await confirmAction({
+      title: f.is_enabled ? copy.disable : copy.enable,
+      message: f.is_enabled ? copy.confirmDisableFeature : copy.confirmEnableFeature,
+      confirmLabel: f.is_enabled ? copy.disable : copy.enable,
+      tone: f.is_enabled ? 'danger' : 'default',
+    })) return;
+    setSaving(f.id);
+    setError(null);
     try {
-      const { error: e } = await supabase.from('feature_flags').update({ is_enabled: !f.is_enabled }).eq('id', f.id);
+      const { data, error: e } = await callAdminAction<FeatureFlag>('set_feature_flag_enabled', {
+        p_flag_id: f.id,
+        p_enabled: !f.is_enabled,
+        p_expected_updated_at: f.updated_at,
+      });
       if (e) throw e;
-      setFlags((prev) => prev.map((x) => x.id === f.id ? { ...x, is_enabled: !x.is_enabled } : x));
+      if (!data) throw new Error('feature_update_returned_no_data');
+      setFlags((prev) => prev.map((x) => x.id === f.id ? data : x));
     } catch (err) {
       console.error('[Kiyo] Toggle feature flag error:', err);
       setError(adminErrorMessage(err, t('error.genericBody')));
+    } finally {
+      setSaving(null);
     }
   };
 
   const createPlan = async () => {
+    const price = Number(newPlan.price);
+    if (newPlan.name.trim().length < 2 || !Number.isFinite(price) || price < 0) {
+      setError(copy.invalidFields);
+      return;
+    }
+    setSaving('plan-create');
+    setError(null);
     try {
-      const { error: e } = await supabase.from('subscription_plans').insert({
-        name: newPlan.name,
-        plan_type: newPlan.type,
-        price_monthly: Number(newPlan.price),
-        features: { description: newPlan.features },
+      const { data, error: e } = await callAdminAction<SubscriptionPlan>('create_subscription_plan', {
+        p_name: newPlan.name,
+        p_plan_type: newPlan.type,
+        p_price_monthly: price,
+        p_features_description: newPlan.features,
       });
       if (e) throw e;
+      if (!data) throw new Error('plan_create_returned_no_data');
       setShowPlanForm(false);
       setNewPlan({ name: '', type: 'customer', price: '0', features: '' });
-      void load();
+      setPlans((previous) => [...previous, data].sort((a, b) => a.name.localeCompare(b.name)));
     } catch (err) {
       console.error('[Kiyo] Create subscription plan error:', err);
       setError(adminErrorMessage(err, t('error.genericBody')));
+    } finally {
+      setSaving(null);
     }
   };
 
   const togglePlan = async (p: SubscriptionPlan) => {
+    if (!await confirmAction({
+      title: p.is_active ? copy.disable : copy.enable,
+      message: p.is_active ? copy.confirmDisablePlan : copy.confirmEnablePlan,
+      confirmLabel: p.is_active ? copy.disable : copy.enable,
+      tone: p.is_active ? 'danger' : 'default',
+    })) return;
+    setSaving(p.id);
+    setError(null);
     try {
-      const { error: e } = await supabase.from('subscription_plans').update({ is_active: !p.is_active }).eq('id', p.id);
+      const { data, error: e } = await callAdminAction<SubscriptionPlan>('set_subscription_plan_active', {
+        p_plan_id: p.id,
+        p_active: !p.is_active,
+        p_expected_updated_at: p.updated_at,
+      });
       if (e) throw e;
-      setPlans((prev) => prev.map((x) => x.id === p.id ? { ...x, is_active: !x.is_active } : x));
+      if (!data) throw new Error('plan_update_returned_no_data');
+      setPlans((prev) => prev.map((x) => x.id === p.id ? data : x));
     } catch (err) {
       console.error('[Kiyo] Toggle subscription plan error:', err);
       setError(adminErrorMessage(err, t('error.genericBody')));
+    } finally {
+      setSaving(null);
     }
   };
 
@@ -2619,7 +2720,9 @@ function MarketingTab() {
             </div>
           </div>
           <div className="flex gap-2">
-            <button onClick={createPromo} className="kiyo-btn-primary">{copy.create}</button>
+            <button onClick={createPromo} disabled={saving === 'promo-create'} className="kiyo-btn-primary">
+              {saving === 'promo-create' ? <Spinner className="h-4 w-4" /> : copy.create}
+            </button>
             <button onClick={() => setShowForm(false)} className="kiyo-btn-secondary">{copy.cancel}</button>
           </div>
         </div>
@@ -2660,7 +2763,7 @@ function MarketingTab() {
                     }`}>{p.is_active ? copy.active : copy.inactive}</span>
                   </td>
                   <td className="px-4 py-3 text-end">
-                    <button onClick={() => togglePromo(p)} className="kiyo-btn-secondary text-xs">
+                    <button onClick={() => togglePromo(p)} disabled={saving === p.id} className="kiyo-btn-secondary min-h-11 text-xs">
                       {p.is_active ? copy.disable : copy.enable}
                     </button>
                   </td>
@@ -2716,7 +2819,9 @@ function MarketingTab() {
               </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={createCampaign} className="kiyo-btn-primary">{copy.create}</button>
+              <button onClick={createCampaign} disabled={saving === 'campaign-create'} className="kiyo-btn-primary">
+                {saving === 'campaign-create' ? <Spinner className="h-4 w-4" /> : copy.create}
+              </button>
               <button onClick={() => setShowCampaignForm(false)} className="kiyo-btn-secondary">{copy.cancel}</button>
             </div>
           </div>
@@ -2750,7 +2855,7 @@ function MarketingTab() {
                       }`}>{c.is_active ? copy.active : copy.inactive}</span>
                     </td>
                     <td className="px-4 py-3 text-end">
-                      <button onClick={() => toggleCampaign(c)} className="kiyo-btn-secondary text-xs">
+                      <button onClick={() => toggleCampaign(c)} disabled={saving === c.id} className="kiyo-btn-secondary min-h-11 text-xs">
                         {c.is_active ? copy.stop : copy.start}
                       </button>
                     </td>
@@ -2795,7 +2900,7 @@ function MarketingTab() {
                       }`}>{f.is_enabled ? copy.enabled : copy.disabled}</span>
                     </td>
                     <td className="px-4 py-3 text-end">
-                      <button onClick={() => toggleFlag(f)} className="kiyo-btn-secondary text-xs">
+                      <button onClick={() => toggleFlag(f)} disabled={saving === f.id} className="kiyo-btn-secondary min-h-11 text-xs">
                         {f.is_enabled ? copy.disable : copy.enable}
                       </button>
                     </td>
@@ -2846,7 +2951,9 @@ function MarketingTab() {
               </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={createPlan} className="kiyo-btn-primary">{copy.create}</button>
+              <button onClick={createPlan} disabled={saving === 'plan-create'} className="kiyo-btn-primary">
+                {saving === 'plan-create' ? <Spinner className="h-4 w-4" /> : copy.create}
+              </button>
               <button onClick={() => setShowPlanForm(false)} className="kiyo-btn-secondary">{copy.cancel}</button>
             </div>
           </div>
@@ -2882,7 +2989,7 @@ function MarketingTab() {
                       }`}>{p.is_active ? copy.active : copy.inactive}</span>
                     </td>
                     <td className="px-4 py-3 text-end">
-                      <button onClick={() => togglePlan(p)} className="kiyo-btn-secondary text-xs">
+                      <button onClick={() => togglePlan(p)} disabled={saving === p.id} className="kiyo-btn-secondary min-h-11 text-xs">
                         {p.is_active ? copy.disable : copy.enable}
                       </button>
                     </td>
