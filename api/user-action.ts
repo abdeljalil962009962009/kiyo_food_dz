@@ -30,6 +30,7 @@ const ALLOWED_ACTIONS = new Set([
   'request_personal_data_export',
   'send_restaurant_application_message',
   'submit_driver_application',
+  'submit_order_review',
   'submit_restaurant_application',
   'transition_delivery_status',
   'transition_order_status',
@@ -93,6 +94,13 @@ export default async function handler(request: RequestLike, response: ResponseLi
         p_payload: args.p_payload,
         p_submission_key: args.p_submission_key,
       })
+    : action === 'submit_order_review'
+      ? await serviceClient.rpc('submit_order_review', {
+          p_actor_id: authData.user.id,
+          p_order_id: args.p_order_id,
+          p_rating: args.p_rating,
+          p_comment: args.p_comment ?? null,
+        })
     : await serviceClient.rpc('execute_user_action', {
         p_actor_id: authData.user.id,
         p_request_id: requestId,

@@ -210,6 +210,30 @@ describe('user action gateway', () => {
     });
   });
 
+  it('submits reviews only through the verified customer identity', async () => {
+    const { rpc } = queueClients({ id: ACTOR_ID, is_suspended: false });
+    const { response, state } = makeResponse();
+    const args = {
+      p_order_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      p_rating: 5,
+      p_comment: 'Careful packaging.',
+    };
+
+    await userHandler({
+      method: 'POST',
+      headers: { authorization: 'Bearer customer-token' },
+      body: { action: 'submit_order_review', requestId: REQUEST_ID, args },
+    }, response);
+
+    expect(state.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith('submit_order_review', {
+      p_actor_id: ACTOR_ID,
+      p_order_id: args.p_order_id,
+      p_rating: 5,
+      p_comment: 'Careful packaging.',
+    });
+  });
+
   it('does not allow a customer to route an owner action through the user endpoint', async () => {
     const { response, state } = makeResponse();
     await userHandler({

@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { X, Star } from 'lucide-react';
-import { supabase } from '../lib/supabase';
 import { useT } from '../lib/i18n-react';
 import { Spinner } from './feedback';
+import { callUserAction } from '../lib/userApi';
 
 type ReviewModalProps = {
   orderId: string;
-  restaurantId: string;
   restaurantName: string;
   onClose: () => void;
   onSubmit: () => void;
@@ -18,7 +17,7 @@ const copy = {
   ar: { title: '\u0643\u064a\u0641 \u0643\u0627\u0646 \u0637\u0644\u0628\u0643\u061f', comment: '\u062a\u0639\u0644\u064a\u0642 (\u0627\u062e\u062a\u064a\u0627\u0631\u064a)', placeholder: '\u0623\u062e\u0628\u0631\u0646\u0627 \u0645\u0627 \u0627\u0644\u0630\u064a \u0623\u0639\u062c\u0628\u0643 \u0623\u0648 \u0645\u0627 \u0627\u0644\u0630\u064a \u064a\u062c\u0628 \u062a\u062d\u0633\u064a\u0646\u0647...', cancel: '\u0644\u064a\u0633 \u0627\u0644\u0622\u0646', submit: '\u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u062a\u0642\u064a\u064a\u0645', close: '\u0625\u063a\u0644\u0627\u0642', error: '\u0644\u0645 \u064a\u062a\u0645 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u062a\u0642\u064a\u064a\u0645. \u062a\u062d\u0642\u0642 \u0645\u0646 \u0627\u0644\u0627\u062a\u0635\u0627\u0644 \u062b\u0645 \u062d\u0627\u0648\u0644 \u0645\u062c\u062f\u062f\u0627.' },
 } as const;
 
-export function ReviewModal({ orderId, restaurantId, restaurantName, onClose, onSubmit }: ReviewModalProps) {
+export function ReviewModal({ orderId, restaurantName, onClose, onSubmit }: ReviewModalProps) {
   const { locale } = useT();
   const tx = copy[locale];
   const [rating, setRating] = useState(5);
@@ -31,8 +30,10 @@ export function ReviewModal({ orderId, restaurantId, restaurantName, onClose, on
     setLoading(true);
     setError(null);
     try {
-      const { error: submitError } = await supabase.from('reviews').insert({
-        order_id: orderId, restaurant_id: restaurantId, rating, comment: comment.trim() || null,
+      const { error: submitError } = await callUserAction('submit_order_review', {
+        p_order_id: orderId,
+        p_rating: rating,
+        p_comment: comment.trim() || null,
       });
       if (submitError) throw submitError;
       onSubmit();

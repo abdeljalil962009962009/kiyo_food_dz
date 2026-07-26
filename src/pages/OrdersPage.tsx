@@ -22,6 +22,7 @@ import { ReviewModal } from '../components/ReviewModal';
 import { LiveOrderTracker } from '../components/LiveOrderTracker';
 import { requestCustomerCancellation } from '../lib/orderActions';
 import { useActionDialog } from '../context/ActionDialogContext';
+import { useSettings } from '../context/SettingsContext';
 
 type OrderWithRestaurant = OrderRow & {
   restaurants: {
@@ -63,11 +64,12 @@ export default function OrdersPage() {
   const navigate = useNavigate();
   const { replaceCart } = useCart();
   const { confirmAction } = useActionDialog();
+  const { features } = useSettings();
   const [orders, setOrders] = useState<OrderWithRestaurant[]>([]);
   const [itemsByOrder, setItemsByOrder] = useState<Record<string, OrderItemRow[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [reviewingOrder, setReviewingOrder] = useState<{ id: string; restaurantId: string; restaurantName: string } | null>(null);
+  const [reviewingOrder, setReviewingOrder] = useState<{ id: string; restaurantName: string } | null>(null);
   const [reviewedOrders, setReviewedOrders] = useState<Set<string>>(new Set());
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
   const [reorderingOrderId, setReorderingOrderId] = useState<string | null>(null);
@@ -92,7 +94,9 @@ export default function OrdersPage() {
       list.forEach((order, index) => { itemMap[order.id] = (results[index].data as OrderItemRow[]) ?? []; });
       setItemsByOrder(itemMap);
 
-      const delivered = list.filter((order) => order.status === 'delivered');
+      const delivered = features.reviews
+        ? list.filter((order) => order.status === 'delivered')
+        : [];
       const reviewChecks = await Promise.all(delivered.map((order) => supabase.from('reviews').select('id').eq('order_id', order.id).maybeSingle()));
       const reviewed = new Set<string>();
       delivered.forEach((order, index) => { if (reviewChecks[index].data) reviewed.add(order.id); });
@@ -102,7 +106,7 @@ export default function OrdersPage() {
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [features.reviews, t]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -114,7 +118,12 @@ export default function OrdersPage() {
   }, { enabled: !loading });
 
   const activeOrder = orders.find((order) => ['pending', 'accepted', 'preparing', 'out_for_delivery'].includes(order.status));
-  const reviewCandidate = useMemo(() => orders.find((order) => order.status === 'delivered' && order.restaurants && !reviewedOrders.has(order.id)), [orders, reviewedOrders]);
+  const reviewCandidate = useMemo(
+    () => features.reviews
+      ? orders.find((order) => order.status === 'delivered' && order.restaurants && !reviewedOrders.has(order.id))
+      : undefined,
+    [features.reviews, orders, reviewedOrders],
+  );
 
   const handleCancelOrder = async (order: OrderWithRestaurant) => {
     if (!await confirmAction({
@@ -232,7 +241,7 @@ export default function OrdersPage() {
           <div className="space-y-6">
             {activeOrder && <LiveOrderTracker order={activeOrder} onRefresh={load} realtimeStatus={realtimeStatus} />}
             {reviewCandidate && (
-              <button type="button" onClick={() => setReviewingOrder({ id: reviewCandidate.id, restaurantId: reviewCandidate.restaurants!.id, restaurantName: reviewCandidate.restaurants!.name })} className="kiyo-card flex w-full items-center gap-3 border border-amber-200 p-4 text-left hover:bg-amber-50">
+              <button type="button" onClick={() => setReviewingOrder({ id: reviewCandidate.id, restaurantName: reviewCandidate.restaurants!.name })} className="kiyo-card flex w-full items-center gap-3 border border-amber-200 p-4 text-left hover:bg-amber-50">
                 <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-amber-100 text-amber-600"><Star className="h-5 w-5" /></span>
                 <span><span className="block text-sm font-bold text-ink-900">{tx.reviewPrompt}</span><span className="block text-xs text-ink-500">{tx.reviewBody}</span></span>
               </button>
@@ -242,7 +251,7 @@ export default function OrdersPage() {
             <div className="space-y-3">
               {orders.map((order) => {
                 const items = itemsByOrder[order.id] ?? [];
-                const canReview = order.status === 'delivered' && order.restaurants;
+                const canReview = features.reviews && order.status === 'delivered' && order.restaurants;
                 const past = ['delivered', 'cancelled', 'failed_delivery', 'refunded'].includes(order.status);
                 return (
                   <article key={order.id} className="kiyo-card p-4">
@@ -259,7 +268,7 @@ export default function OrdersPage() {
                       )}
                       <Link to={`/support?order=${order.id}`} className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-bold text-ink-700 hover:bg-ink-50"><LifeBuoy className="h-4 w-4 text-ember-600" /> {tx.help}</Link>
                       {canReview && (
-                        <button type="button" onClick={() => setReviewingOrder({ id: order.id, restaurantId: order.restaurants!.id, restaurantName: order.restaurants!.name })} disabled={reviewedOrders.has(order.id)} className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-bold text-amber-600 hover:bg-amber-50 disabled:text-ink-400">
+                        <button type="button" onClick={() => setReviewingOrder({ id: order.id, restaurantName: order.restaurants!.name })} disabled={reviewedOrders.has(order.id)} className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-bold text-amber-600 hover:bg-amber-50 disabled:text-ink-400">
                           <Star className={`h-4 w-4 ${reviewedOrders.has(order.id) ? 'fill-amber-400' : ''}`} /> {reviewedOrders.has(order.id) ? t('orders.reviewed') : t('orders.leaveReview')}
                         </button>
                       )}
@@ -276,7 +285,7 @@ export default function OrdersPage() {
         )}
       </ErrorBoundary>
 
-      {reviewingOrder && <ReviewModal orderId={reviewingOrder.id} restaurantId={reviewingOrder.restaurantId} restaurantName={reviewingOrder.restaurantName} onClose={() => setReviewingOrder(null)} onSubmit={() => { setReviewedOrders((current) => new Set(current).add(reviewingOrder.id)); setReviewingOrder(null); }} />}
+      {reviewingOrder && <ReviewModal orderId={reviewingOrder.id} restaurantName={reviewingOrder.restaurantName} onClose={() => setReviewingOrder(null)} onSubmit={() => { setReviewedOrders((current) => new Set(current).add(reviewingOrder.id)); setReviewingOrder(null); }} />}
     </AppShell>
   );
 }
