@@ -1,0 +1,82 @@
+name: PR7 Auto Resolve
+
+on:
+  push:
+    branches:
+      - agent/premium-platform-continuation
+
+permissions:
+  contents: write
+
+jobs:
+  resolve-and-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Merge current main and resolve known conflicts
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git merge origin/main --no-commit --no-ff || true
+
+          if git diff --name-only --diff-filter=U | grep -Fxq 'src/pages/RestaurantDetailPage.tsx'; then
+            git checkout --ours -- src/pages/RestaurantDetailPage.tsx
+            git add src/pages/RestaurantDetailPage.tsx
+          fi
+
+          if git diff --name-only --diff-filter=U | grep -Fxq 'package-lock.json'; then
+            git checkout --ours -- package-lock.json
+            git add package-lock.json
+          fi
+
+          unresolved="$(git diff --name-only --diff-filter=U)"
+          if [ -n "$unresolved" ]; then
+            echo "Unexpected unresolved conflicts:"
+            echo "$unresolved"
+            exit 1
+          fi
+
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          git add package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Commit resolved merge
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/pr7-auto-resolve.yml
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Nothing to commit."
+            exit 0
+          fi
+          git commit -m "chore: sync main and resolve PR7 CI merge conflicts"
+          git push origin HEAD:agent/premium-platform-continuation
