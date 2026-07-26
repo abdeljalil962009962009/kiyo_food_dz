@@ -254,6 +254,38 @@ export type MenuItem = {
   updated_at: string;
 };
 
+export type MenuItemModifier = {
+  id: string;
+  menu_item_id: string;
+  name: string;
+  is_required: boolean;
+  is_multiple: boolean;
+  min_select: number;
+  max_select: number | null;
+  position: number;
+  is_active: boolean;
+  created_at: string;
+};
+
+export type ModifierOption = {
+  id: string;
+  modifier_id: string;
+  name: string;
+  price_adjustion: string;
+  is_default: boolean;
+  is_available: boolean;
+  position: number;
+  created_at: string;
+};
+
+export type SelectedModifierOption = {
+  groupId: string;
+  groupName: string;
+  optionId: string;
+  optionName: string;
+  priceAdjustment: number;
+};
+
 export type RestaurantSpecialHours = {
   id: string;
   restaurant_id: string;
@@ -310,6 +342,7 @@ export type OrderItemRow = {
   unit_price: string;
   notes: string | null;
   item_snapshot: Record<string, unknown> | null;
+  modifier_snapshot: Array<Record<string, unknown>>;
 };
 
 export type AuditLog = {

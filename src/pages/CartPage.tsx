@@ -205,12 +205,12 @@ export default function CartPage() {
       <div className="grid gap-4 lg:grid-cols-[1fr,360px]">
         <div className="space-y-2">
           {state.lines.map((line) => (
-            <div key={line.item.id} className="kiyo-card flex items-center gap-3 p-3">
+            <div key={line.lineId} className="kiyo-card flex items-center gap-3 p-3">
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-2">
                   <h3 className="font-display text-sm font-bold text-ink-900">{line.item.name}</h3>
                   <button
-                    onClick={() => removeItem(line.item.id)}
+                    onClick={() => removeItem(line.lineId)}
                     className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg text-ink-400 transition-colors hover:bg-error-50 hover:text-error-600"
                     aria-label={t('cart.removeItem')}
                   >
@@ -218,13 +218,18 @@ export default function CartPage() {
                   </button>
                 </div>
                 <PriceTag value={line.unitPriceSnapshot} />
+                {line.selectedOptions.length > 0 && (
+                  <p className="mt-1 text-xs leading-5 text-ink-500">
+                    {line.selectedOptions.map((option) => option.optionName).join(' · ')}
+                  </p>
+                )}
                 {line.notes && (
                   <p className="mt-1 text-xs italic text-ink-400">"{line.notes}"</p>
                 )}
               </div>
               <div className="flex min-h-11 items-center gap-1 rounded-lg border border-ink-200 bg-white p-0.5">
                 <button
-                  onClick={() => setQuantity(line.item.id, line.quantity - 1)}
+                  onClick={() => setQuantity(line.lineId, line.quantity - 1)}
                   className="flex h-10 w-10 items-center justify-center rounded-md text-ink-700 hover:bg-ink-100"
                   aria-label={`${tx.decrease} ${line.item.name}`}
                 ><Minus className="h-4 w-4" /></button>
@@ -232,7 +237,7 @@ export default function CartPage() {
                   {line.quantity}
                 </span>
                 <button
-                  onClick={() => setQuantity(line.item.id, line.quantity + 1)}
+                  onClick={() => setQuantity(line.lineId, line.quantity + 1)}
                   className="flex h-10 w-10 items-center justify-center rounded-md text-ink-700 hover:bg-ink-100"
                   aria-label={`${tx.increase} ${line.item.name}`}
                 ><Plus className="h-4 w-4" /></button>

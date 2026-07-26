@@ -2,9 +2,18 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { LifeBuoy, RotateCcw, ShoppingBag, Star, Trash } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
-import { supabase, type MenuItem, type OrderRow, type OrderItemRow } from '../lib/supabase';
+import {
+  supabase,
+  type MenuItem,
+  type MenuItemModifier,
+  type ModifierOption,
+  type OrderRow,
+  type OrderItemRow,
+  type SelectedModifierOption,
+} from '../lib/supabase';
 import { useRealtime } from '../lib/useRealtime';
 import { useCart, type CartLine } from '../context/CartContext';
+import { cartLineId, modifierPriceTotal } from '../lib/menuCustomization';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Skeleton, ErrorState, Spinner } from '../components/feedback';
@@ -133,19 +142,66 @@ export default function OrdersPage() {
     setReorderingOrderId(order.id);
     setNotice(null);
     try {
-      const { data, error: menuError } = await supabase.from('menu_items').select('*').eq('restaurant_id', order.restaurant_id).in('id', ids);
+      const historicalOptionIds = [...new Set(historical.flatMap((orderItem) =>
+        (orderItem.modifier_snapshot ?? [])
+          .map((snapshot) => typeof snapshot.option_id === 'string' ? snapshot.option_id : null)
+          .filter((id): id is string => Boolean(id)),
+      ))];
+      const [menuResult, optionResult] = await Promise.all([
+        supabase.from('menu_items').select('*').eq('restaurant_id', order.restaurant_id).in('id', ids),
+        historicalOptionIds.length > 0
+          ? supabase.from('modifier_options').select('*').in('id', historicalOptionIds)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+      const { data, error: menuError } = menuResult;
       if (menuError) throw menuError;
+      if (optionResult.error) throw optionResult.error;
       const current = new Map(((data as MenuItem[]) ?? []).map((item) => [item.id, item]));
+      const currentOptions = new Map(((optionResult.data as ModifierOption[]) ?? []).map((option) => [option.id, option]));
+      const modifierIds = [...new Set([...currentOptions.values()].map((option) => option.modifier_id))];
+      const modifierResult = modifierIds.length > 0
+        ? await supabase.from('menu_item_modifiers').select('*').in('id', modifierIds)
+        : { data: [], error: null };
+      if (modifierResult.error) throw modifierResult.error;
+      const currentModifiers = new Map(((modifierResult.data as MenuItemModifier[]) ?? []).map((modifier) => [modifier.id, modifier]));
       const lines = new Map<string, CartLine>();
       let unavailable = 0;
       let priceChanged = false;
       for (const oldItem of historical) {
         const menuItem = oldItem.menu_item_id ? current.get(oldItem.menu_item_id) : undefined;
         if (!menuItem?.is_available) { unavailable += 1; continue; }
-        priceChanged ||= Number(menuItem.price) !== Number(oldItem.unit_price);
-        const existing = lines.get(menuItem.id);
+        const selectedOptions: SelectedModifierOption[] = [];
+        let customizationAvailable = true;
+        for (const snapshot of oldItem.modifier_snapshot ?? []) {
+          const optionId = typeof snapshot.option_id === 'string' ? snapshot.option_id : '';
+          const option = currentOptions.get(optionId);
+          const modifier = option ? currentModifiers.get(option.modifier_id) : undefined;
+          if (!option?.is_available || !modifier?.is_active || modifier.menu_item_id !== menuItem.id) {
+            customizationAvailable = false;
+            break;
+          }
+          selectedOptions.push({
+            groupId: modifier.id,
+            groupName: modifier.name,
+            optionId: option.id,
+            optionName: option.name,
+            priceAdjustment: Number(option.price_adjustion),
+          });
+        }
+        if (!customizationAvailable) { unavailable += 1; continue; }
+        const unitPrice = Number(menuItem.price) + modifierPriceTotal(selectedOptions);
+        priceChanged ||= unitPrice !== Number(oldItem.unit_price);
+        const lineId = cartLineId(menuItem.id, selectedOptions, oldItem.notes ?? '');
+        const existing = lines.get(lineId);
         if (existing) existing.quantity += oldItem.quantity;
-        else lines.set(menuItem.id, { item: menuItem, quantity: oldItem.quantity, notes: oldItem.notes ?? undefined, unitPriceSnapshot: Number(menuItem.price) });
+        else lines.set(lineId, {
+          lineId,
+          item: menuItem,
+          quantity: oldItem.quantity,
+          notes: oldItem.notes ?? undefined,
+          selectedOptions,
+          unitPriceSnapshot: unitPrice,
+        });
       }
       if (lines.size === 0) {
         setNotice({ kind: 'error', text: tx.reorderEmpty });

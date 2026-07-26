@@ -311,7 +311,12 @@ export default function CheckoutPage() {
       const idempotencyKey = await makeIdempotencyKey([
         profile.id,
         cart.restaurantId,
-        cart.lines.map((l) => `${l.item.id}:${l.quantity}`).join(','),
+        cart.lines.map((line) => [
+          line.item.id,
+          line.quantity,
+          line.selectedOptions.map((option) => option.optionId).sort().join('.'),
+          line.notes?.trim() ?? '',
+        ].join(':')).join(','),
         Math.floor(Date.now() / (5 * 60 * 1000)).toString(),
       ]);
 
@@ -321,6 +326,7 @@ export default function CheckoutPage() {
           menu_item_id: l.item.id,
           quantity: l.quantity,
           notes: l.notes ?? null,
+          selected_option_ids: l.selectedOptions.map((option) => option.optionId),
         })),
         delivery_address: address.trim(),
         delivery_phone: contactPhone,
@@ -611,6 +617,11 @@ export default function CheckoutPage() {
                     <div key={i} className="flex items-center justify-between px-4 py-3 text-sm">
                       <span className="text-ink-700">
                         <span className="font-semibold">{it.quantity}×</span> {it.name}
+                        {it.modifiers && it.modifiers.length > 0 && (
+                          <span className="mt-0.5 block text-xs text-ink-400">
+                            {it.modifiers.map((modifier) => modifier.option_name).join(' · ')}
+                          </span>
+                        )}
                       </span>
                       <PriceTag value={Number(it.unit_price) * it.quantity} />
                     </div>
