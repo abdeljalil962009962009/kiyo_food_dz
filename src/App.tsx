@@ -98,7 +98,7 @@ const router = createBrowserRouter([
   { path: '/admin/restaurants', element: withSuspense(<ProtectedRoute><RoleRoute role="super_admin"><AdminRestaurantsPage /></RoleRoute></ProtectedRoute>) },
   { path: '/admin/audit', element: withSuspense(<ProtectedRoute><RoleRoute role="super_admin"><AuditLogPage /></RoleRoute></ProtectedRoute>) },
   { path: '/driver', element: withSuspense(<ProtectedRoute><RoleRoute role="driver"><DriverDashboardPage /></RoleRoute></ProtectedRoute>) },
-  { path: '/driver/onboarding', element: withSuspense(<ProtectedRoute><RoleRoute role="driver"><DriverOnboardingPage /></RoleRoute></ProtectedRoute>) },
+  { path: '/driver/onboarding', element: withSuspense(<ProtectedRoute><RoleRoute role={['customer','driver']}><DriverOnboardingPage /></RoleRoute></ProtectedRoute>) },
   { path: '*', element: withSuspense(<NotFoundPage />) },
 ]);
 

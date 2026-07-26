@@ -32,6 +32,30 @@ type Analytics = {
   settlements: { pending: number; overdue: number; paid_this_year: number };
 };
 
+type DriverReviewStatus = 'pending' | 'under_review' | 'approved' | 'rejected' | 'suspended';
+
+type DriverReviewDocument = {
+  id: string;
+  document_type: string;
+  document_url: string;
+  status: string;
+  signed_url: string | null;
+};
+
+type DriverApplicationReview = {
+  id: string;
+  user_id: string;
+  vehicle_type: string;
+  vehicle_plate: string | null;
+  application_status: DriverReviewStatus;
+  application_version: number;
+  application_submitted_at: string | null;
+  review_reason: string | null;
+  applicant_name: string;
+  applicant_email: string;
+  documents: DriverReviewDocument[];
+};
+
 type Tab = 'overview' | 'orders' | 'financials' | 'settlements' | 'users' | 'restaurants' | 'rules' | 'analytics' | 'alerts' | 'marketing' | 'support' | 'monitoring' | 'geography';
 
 const DZD = (n: number) => new Intl.NumberFormat('fr-DZ', { style: 'currency', currency: 'DZD', maximumFractionDigits: 0 }).format(n);
@@ -119,11 +143,28 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'confirm.restoreUser': 'Restore this user’s platform access?',
     'reason.suspendedByAdmin': 'Suspended by platform owner',
     'btn.verify': 'Verify',
+    'btn.review': 'Start review',
+    'btn.approveDriver': 'Approve driver',
+    'btn.rejectDriver': 'Reject application',
+    'btn.suspendDriver': 'Suspend driver',
     'btn.unverify': 'Unverify',
     'btn.feature': 'Feature',
     'btn.unfeature': 'Unfeature',
     'btn.publish': 'Publish',
     'search.users.placeholder': 'Search users by name or email...',
+    'drivers.reviewTitle': 'Driver applications',
+    'drivers.reviewSubtitle': 'Private identity documents and activation decisions are reviewed here.',
+    'drivers.empty': 'No driver applications are waiting.',
+    'drivers.documents': 'Private documents',
+    'drivers.documentUnavailable': 'Document temporarily unavailable',
+    'drivers.reasonPrompt': 'Enter a clear reason the driver can understand.',
+    'drivers.confirmApprove': 'Approve this driver? They will be able to activate delivery availability.',
+    'drivers.confirmReview': 'Move this application into review?',
+    'drivers.pending': 'Pending',
+    'drivers.under_review': 'Under review',
+    'drivers.approved': 'Approved',
+    'drivers.rejected': 'Rejected',
+    'drivers.suspended': 'Suspended',
     'tbl.user': 'User',
     'tbl.role': 'Role',
     'tbl.status': 'Status',
@@ -300,11 +341,28 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'confirm.restoreUser': 'Rétablir l’accès de cet utilisateur à la plateforme ?',
     'reason.suspendedByAdmin': 'Suspendu par le propriétaire de la plateforme',
     'btn.verify': 'Vérifier',
+    'btn.review': 'Commencer l’examen',
+    'btn.approveDriver': 'Approuver le livreur',
+    'btn.rejectDriver': 'Rejeter la candidature',
+    'btn.suspendDriver': 'Suspendre le livreur',
     'btn.unverify': 'Dé-vérifier',
     'btn.feature': 'Mettre en vedette',
     'btn.unfeature': 'Retirer de la vedette',
     'btn.publish': 'Publier',
     'search.users.placeholder': 'Rechercher des utilisateurs par nom ou email...',
+    'drivers.reviewTitle': 'Candidatures des livreurs',
+    'drivers.reviewSubtitle': 'Examinez ici les documents privés et les décisions d’activation.',
+    'drivers.empty': 'Aucune candidature de livreur en attente.',
+    'drivers.documents': 'Documents privés',
+    'drivers.documentUnavailable': 'Document temporairement indisponible',
+    'drivers.reasonPrompt': 'Saisissez un motif clair que le livreur pourra comprendre.',
+    'drivers.confirmApprove': 'Approuver ce livreur ? Il pourra activer sa disponibilité pour les livraisons.',
+    'drivers.confirmReview': 'Passer cette candidature en cours d’examen ?',
+    'drivers.pending': 'En attente',
+    'drivers.under_review': 'En cours d’examen',
+    'drivers.approved': 'Approuvé',
+    'drivers.rejected': 'Rejeté',
+    'drivers.suspended': 'Suspendu',
     'tbl.user': 'Utilisateur',
     'tbl.role': 'Rôle',
     'tbl.status': 'Statut',
@@ -481,11 +539,28 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'confirm.restoreUser': 'هل تريد استعادة وصول هذا المستخدم إلى المنصة؟',
     'reason.suspendedByAdmin': 'تم التعليق بواسطة مالك المنصة',
     'btn.verify': 'التحقق',
+    'btn.review': 'بدء المراجعة',
+    'btn.approveDriver': 'الموافقة على السائق',
+    'btn.rejectDriver': 'رفض الطلب',
+    'btn.suspendDriver': 'تعليق السائق',
     'btn.unverify': 'إلغاء التحقق',
     'btn.feature': 'تمييز',
     'btn.unfeature': 'إلغاء التمييز',
     'btn.publish': 'نشر',
     'search.users.placeholder': 'ابحث عن مستخدم بالاسم أو البريد الإلكتروني...',
+    'drivers.reviewTitle': 'طلبات السائقين',
+    'drivers.reviewSubtitle': 'تتم هنا مراجعة الوثائق الخاصة وقرارات التفعيل.',
+    'drivers.empty': 'لا توجد طلبات سائقين بانتظار المراجعة.',
+    'drivers.documents': 'الوثائق الخاصة',
+    'drivers.documentUnavailable': 'الوثيقة غير متاحة مؤقتا',
+    'drivers.reasonPrompt': 'أدخل سببا واضحا يمكن للسائق فهمه.',
+    'drivers.confirmApprove': 'هل توافق على هذا السائق؟ سيتمكن من تفعيل استعداده للتوصيل.',
+    'drivers.confirmReview': 'هل تريد نقل هذا الطلب إلى مرحلة المراجعة؟',
+    'drivers.pending': 'قيد الانتظار',
+    'drivers.under_review': 'قيد المراجعة',
+    'drivers.approved': 'تمت الموافقة',
+    'drivers.rejected': 'مرفوض',
+    'drivers.suspended': 'معلق',
     'tbl.user': 'مستخدم',
     'tbl.role': 'الدور',
     'tbl.status': 'الحالة',
@@ -1059,10 +1134,11 @@ function FinancialsTab() {
 
 // ===================== USERS =====================
 function UsersTab() {
-  const { t } = useT();
+  const { t, locale } = useT();
   const { tx } = useAdminT();
-  const { confirmAction } = useActionDialog();
+  const { confirmAction, requestText } = useActionDialog();
   const [users, setUsers] = useState<Profile[]>([]);
+  const [driverApplications, setDriverApplications] = useState<DriverApplicationReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -1072,18 +1148,74 @@ function UsersTab() {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: e } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (e) throw e;
-      setUsers((data as Profile[]) ?? []);
+      const [profilesResult, driversResult, documentsResult] = await Promise.all([
+        supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+        supabase
+          .from('drivers')
+          .select('id,user_id,vehicle_type,vehicle_plate,application_status,application_version,application_submitted_at,review_reason')
+          .order('application_submitted_at', { ascending: false }),
+        supabase
+          .from('driver_documents')
+          .select('id,driver_id,document_type,document_url,status')
+          .order('created_at', { ascending: true }),
+      ]);
+      if (profilesResult.error) throw profilesResult.error;
+      if (driversResult.error) throw driversResult.error;
+      if (documentsResult.error) throw documentsResult.error;
+
+      const profiles = (profilesResult.data as Profile[]) ?? [];
+      const profileById = new Map(profiles.map((profile) => [profile.id, profile]));
+      const signedDocuments = await Promise.all(
+        ((documentsResult.data ?? []) as Array<{
+          id: string;
+          driver_id: string;
+          document_type: string;
+          document_url: string;
+          status: string;
+        }>).map(async (document) => {
+          const signed = await supabase.storage
+            .from('driver-documents')
+            .createSignedUrl(document.document_url, 300);
+          return {
+            ...document,
+            signed_url: signed.data?.signedUrl ?? null,
+          };
+        }),
+      );
+
+      setUsers(profiles);
+      setDriverApplications(((driversResult.data ?? []) as Array<{
+        id: string;
+        user_id: string;
+        vehicle_type: string;
+        vehicle_plate: string | null;
+        application_status: DriverReviewStatus;
+        application_version: number;
+        application_submitted_at: string | null;
+        review_reason: string | null;
+      }>).map((driver) => {
+        const applicant = profileById.get(driver.user_id);
+        return {
+          ...driver,
+          applicant_name: applicant?.full_name ?? tx('tbl.user', 'User'),
+          applicant_email: applicant?.email ?? '',
+          documents: signedDocuments
+            .filter((document) => document.driver_id === driver.id)
+            .map((document) => ({
+              id: document.id,
+              document_type: document.document_type,
+              document_url: document.document_url,
+              status: document.status,
+              signed_url: document.signed_url,
+            })),
+        };
+      }));
     } catch (err) {
       setError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [t, tx]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -1117,6 +1249,73 @@ function UsersTab() {
     }
   };
 
+  const reviewDriver = async (
+    application: DriverApplicationReview,
+    targetStatus: DriverReviewStatus,
+  ) => {
+    let reason: string | null = null;
+    if (targetStatus === 'rejected' || targetStatus === 'suspended') {
+      reason = await requestText({
+        title: targetStatus === 'rejected'
+          ? tx('btn.rejectDriver', 'Reject application')
+          : tx('btn.suspendDriver', 'Suspend driver'),
+        message: tx('drivers.reasonPrompt', 'Enter a clear reason the driver can understand.'),
+        inputLabel: tx('drivers.reasonPrompt', 'Reason'),
+        confirmLabel: targetStatus === 'rejected'
+          ? tx('btn.rejectDriver', 'Reject application')
+          : tx('btn.suspendDriver', 'Suspend driver'),
+        tone: 'danger',
+        required: true,
+      });
+      if (!reason) return;
+    } else {
+      const confirmed = await confirmAction({
+        title: targetStatus === 'approved'
+          ? tx('btn.approveDriver', 'Approve driver')
+          : tx('btn.review', 'Start review'),
+        message: targetStatus === 'approved'
+          ? tx('drivers.confirmApprove', 'Approve this driver?')
+          : tx('drivers.confirmReview', 'Move this application into review?'),
+        confirmLabel: targetStatus === 'approved'
+          ? tx('btn.approveDriver', 'Approve driver')
+          : tx('btn.review', 'Start review'),
+        tone: targetStatus === 'approved' ? 'success' : 'default',
+      });
+      if (!confirmed) return;
+    }
+
+    setActingId(application.id);
+    setError(null);
+    try {
+      const { data, error: actionError } = await callAdminAction<{
+        application_status: DriverReviewStatus;
+        application_version: number;
+        review_reason: string | null;
+      }>('review_driver_application', {
+        p_driver_id: application.id,
+        p_target_status: targetStatus,
+        p_reason: reason,
+        p_expected_version: application.application_version,
+      });
+      if (actionError) throw actionError;
+      if (!data) throw new Error(t('error.genericBody'));
+      setDriverApplications((current) => current.map((driver) => (
+        driver.id === application.id
+          ? {
+              ...driver,
+              application_status: data.application_status,
+              application_version: data.application_version,
+              review_reason: data.review_reason,
+            }
+          : driver
+      )));
+    } catch (err) {
+      setError(adminErrorMessage(err, t('error.genericBody')));
+    } finally {
+      setActingId(null);
+    }
+  };
+
   const filtered = users.filter((u) => {
     const q = search.toLowerCase();
     return !q || (u.email ?? '').toLowerCase().includes(q) || (u.full_name ?? '').toLowerCase().includes(q);
@@ -1127,6 +1326,131 @@ function UsersTab() {
 
   return (
     <div className="space-y-4">
+      <section className="kiyo-card p-4 sm:p-5">
+        <div className="mb-4 flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-ember-50 text-ember-600">
+            <Truck className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="font-display text-lg font-bold text-ink-900">
+              {tx('drivers.reviewTitle', 'Driver applications')}
+            </h2>
+            <p className="text-sm text-ink-500">
+              {tx('drivers.reviewSubtitle', 'Review private documents and activation decisions.')}
+            </p>
+          </div>
+        </div>
+
+        {driverApplications.length === 0 ? (
+          <p className="rounded-lg bg-ink-50 p-4 text-sm text-ink-500">
+            {tx('drivers.empty', 'No driver applications are waiting.')}
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {driverApplications.map((application) => (
+              <article key={application.id} className="rounded-lg border border-ink-100 p-4">
+                <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-semibold text-ink-900">{application.applicant_name}</h3>
+                      <span className="rounded-full bg-ink-100 px-2 py-0.5 text-xs font-medium text-ink-700">
+                        {tx(`drivers.${application.application_status}`, application.application_status)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-ink-500">{application.applicant_email}</p>
+                    <p className="mt-1 text-sm text-ink-600">
+                      {t(`driver.vehicle.${application.vehicle_type}` as 'driver.vehicle.car')}
+                      {application.vehicle_plate ? ` · ${application.vehicle_plate}` : ''}
+                    </p>
+                    {application.application_submitted_at && (
+                      <p className="mt-1 text-xs text-ink-400">
+                        {new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' })
+                          .format(new Date(application.application_submitted_at))}
+                      </p>
+                    )}
+                    {application.review_reason && (
+                      <p className="mt-2 rounded-lg bg-error-55 px-3 py-2 text-sm text-error-700">
+                        {application.review_reason}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="min-w-48">
+                    <p className="mb-2 text-xs font-semibold uppercase text-ink-400">
+                      {tx('drivers.documents', 'Private documents')}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {application.documents.map((document) => (
+                        document.signed_url ? (
+                          <a
+                            key={document.id}
+                            href={document.signed_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-ink-200 px-3 py-2 text-xs font-medium text-ink-700 hover:border-ember-300"
+                          >
+                            <FileText className="h-4 w-4" />
+                            {document.document_type.replace(/_/g, ' ')}
+                          </a>
+                        ) : (
+                          <span key={document.id} className="text-xs text-error-600">
+                            {tx('drivers.documentUnavailable', 'Document temporarily unavailable')}
+                          </span>
+                        )
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {application.application_status === 'pending' && (
+                    <button
+                      type="button"
+                      className="kiyo-btn-secondary min-h-11 text-xs"
+                      disabled={actingId === application.id}
+                      onClick={() => void reviewDriver(application, 'under_review')}
+                    >
+                      <Clock className="h-4 w-4" /> {tx('btn.review', 'Start review')}
+                    </button>
+                  )}
+                  {['pending', 'under_review', 'suspended'].includes(application.application_status) && (
+                    <button
+                      type="button"
+                      className="kiyo-btn-primary min-h-11 text-xs"
+                      disabled={actingId === application.id}
+                      onClick={() => void reviewDriver(application, 'approved')}
+                    >
+                      <ShieldCheck className="h-4 w-4" /> {tx('btn.approveDriver', 'Approve driver')}
+                    </button>
+                  )}
+                  {['pending', 'under_review', 'suspended'].includes(application.application_status) && (
+                    <button
+                      type="button"
+                      className="kiyo-btn-secondary min-h-11 border-error-200 text-xs text-error-700"
+                      disabled={actingId === application.id}
+                      onClick={() => void reviewDriver(application, 'rejected')}
+                    >
+                      <Ban className="h-4 w-4" /> {tx('btn.rejectDriver', 'Reject application')}
+                    </button>
+                  )}
+                  {application.application_status === 'approved' && (
+                    <button
+                      type="button"
+                      className="kiyo-btn-secondary min-h-11 border-error-200 text-xs text-error-700"
+                      disabled={actingId === application.id}
+                      onClick={() => void reviewDriver(application, 'suspended')}
+                    >
+                      <Ban className="h-4 w-4" /> {tx('btn.suspendDriver', 'Suspend driver')}
+                    </button>
+                  )}
+                  {actingId === application.id && <Spinner className="h-4 w-4" />}
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
           <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-300" />

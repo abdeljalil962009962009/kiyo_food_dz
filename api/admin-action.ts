@@ -34,6 +34,7 @@ const ALLOWED_ACTIONS = new Set([
   'set_restaurant_status',
   'set_marketplace_rule_override',
   'remove_marketplace_rule_override',
+  'review_driver_application',
 ]);
 
 export default async function handler(request: RequestLike, response: ResponseLike) {
@@ -87,12 +88,20 @@ export default async function handler(request: RequestLike, response: ResponseLi
     return;
   }
 
-  const { data, error } = await serviceClient.rpc('execute_owner_action', {
-    p_actor_id: authData.user.id,
-    p_request_id: requestId,
-    p_action: action,
-    p_args: args,
-  });
+  const { data, error } = action === 'review_driver_application'
+    ? await serviceClient.rpc('review_driver_application', {
+        p_actor_id: authData.user.id,
+        p_driver_id: args.p_driver_id,
+        p_target_status: args.p_target_status,
+        p_reason: args.p_reason ?? null,
+        p_expected_version: args.p_expected_version ?? null,
+      })
+    : await serviceClient.rpc('execute_owner_action', {
+        p_actor_id: authData.user.id,
+        p_request_id: requestId,
+        p_action: action,
+        p_args: args,
+      });
   if (error) {
     response.status(statusForDatabaseError(error.code)).json({
       code: error.code ?? 'admin_action_failed',

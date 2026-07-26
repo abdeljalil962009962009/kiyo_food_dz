@@ -43,7 +43,7 @@ const detailCopy = {
     customize: 'Customize', chooseRequired: 'Required choice', chooseOptional: 'Optional', chooseUpTo: 'Choose up to {count}',
     requiredMessage: 'Complete this required choice.', minimumMessage: 'Choose at least {count}.', maximumMessage: 'Choose no more than {count}.',
     instructions: 'Instructions for the kitchen', instructionsPlaceholder: 'Example: no onions, sauce on the side',
-    addConfigured: 'Add to cart', each: 'each',
+    addConfigured: 'Add to cart', each: 'each', close: 'Close', decrease: 'Decrease quantity', increase: 'Increase quantity',
   },
   fr: {
     verified: 'Vérifié par Kiyo Food', reviews: '{count} avis', preparation: 'Préparation habituelle : environ {minutes} min',
@@ -53,7 +53,7 @@ const detailCopy = {
     customize: 'Personnaliser', chooseRequired: 'Choix obligatoire', chooseOptional: 'Facultatif', chooseUpTo: "Jusqu'à {count} choix",
     requiredMessage: 'Complétez ce choix obligatoire.', minimumMessage: 'Choisissez au moins {count}.', maximumMessage: 'Choisissez au maximum {count}.',
     instructions: 'Instructions pour la cuisine', instructionsPlaceholder: 'Exemple : sans oignons, sauce à part',
-    addConfigured: 'Ajouter au panier', each: "l'unité",
+    addConfigured: 'Ajouter au panier', each: "l'unité", close: 'Fermer', decrease: 'Réduire la quantité', increase: 'Augmenter la quantité',
   },
   ar: {
     verified: 'موثّق من كيو فود', reviews: '{count} تقييم', preparation: 'مدة التحضير المعتادة: نحو {minutes} دقيقة',
@@ -63,7 +63,7 @@ const detailCopy = {
     customize: 'تخصيص', chooseRequired: 'اختيار إلزامي', chooseOptional: 'اختياري', chooseUpTo: 'اختر حتى {count}',
     requiredMessage: 'أكمل هذا الاختيار الإلزامي.', minimumMessage: 'اختر {count} على الأقل.', maximumMessage: 'اختر {count} كحد أقصى.',
     instructions: 'تعليمات للمطبخ', instructionsPlaceholder: 'مثال: بدون بصل، الصلصة جانبا',
-    addConfigured: 'أضف إلى السلة', each: 'للوحدة',
+    addConfigured: 'أضف إلى السلة', each: 'للوحدة', close: 'إغلاق', decrease: 'تقليل الكمية', increase: 'زيادة الكمية',
   },
 } as const;
 
@@ -599,7 +599,7 @@ function MenuCustomizationSheet({
             <PriceTag value={unitPrice} />
             <span className="ms-1 text-xs text-ink-400">{copy.each}</span>
           </div>
-          <button type="button" onClick={onClose} className="flex h-11 w-11 items-center justify-center rounded-lg hover:bg-ink-100" aria-label="Close">
+          <button type="button" onClick={onClose} className="flex h-11 w-11 items-center justify-center rounded-lg hover:bg-ink-100" aria-label={copy.close}>
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -655,11 +655,11 @@ function MenuCustomizationSheet({
 
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-h-11 items-center rounded-lg border border-ink-200">
-              <button type="button" onClick={() => setQuantity((value) => Math.max(1, value - 1))} className="flex h-11 w-11 items-center justify-center" aria-label="Decrease">
+              <button type="button" onClick={() => setQuantity((value) => Math.max(1, value - 1))} className="flex h-11 w-11 items-center justify-center" aria-label={copy.decrease}>
                 <Minus className="h-4 w-4" />
               </button>
               <span className="min-w-8 text-center font-bold">{quantity}</span>
-              <button type="button" onClick={() => setQuantity((value) => Math.min(99, value + 1))} className="flex h-11 w-11 items-center justify-center" aria-label="Increase">
+              <button type="button" onClick={() => setQuantity((value) => Math.min(99, value + 1))} className="flex h-11 w-11 items-center justify-center" aria-label={copy.increase}>
                 <Plus className="h-4 w-4" />
               </button>
             </div>

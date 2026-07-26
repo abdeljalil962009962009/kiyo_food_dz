@@ -107,6 +107,31 @@ describe('owner action gateway', () => {
     });
   });
 
+  it('routes driver review through the locked service-only review function', async () => {
+    const { rpc } = queueClients({ id: ACTOR_ID, role: 'super_admin', is_suspended: false });
+    const { response, state } = makeResponse();
+    const args = {
+      p_driver_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      p_target_status: 'approved',
+      p_expected_version: 0,
+    };
+
+    await adminHandler({
+      method: 'POST',
+      headers: { authorization: 'Bearer owner-token' },
+      body: { action: 'review_driver_application', requestId: REQUEST_ID, args },
+    }, response);
+
+    expect(state.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith('review_driver_application', {
+      p_actor_id: ACTOR_ID,
+      p_driver_id: args.p_driver_id,
+      p_target_status: 'approved',
+      p_reason: null,
+      p_expected_version: 0,
+    });
+  });
+
   it('rejects oversized owner payloads before authentication or database access', async () => {
     const { response, state } = makeResponse();
     await adminHandler({
@@ -158,6 +183,30 @@ describe('user action gateway', () => {
       p_request_id: REQUEST_ID,
       p_action: 'submit_restaurant_application',
       p_args: { p_payload: { restaurant_name: 'Kiyo Test' } },
+    });
+  });
+
+  it('submits driver applications only through the verified server identity', async () => {
+    const { rpc } = queueClients({ id: ACTOR_ID, is_suspended: false });
+    const { response, state } = makeResponse();
+    const submissionKey = '22222222-2222-4222-8222-222222222222';
+    const payload = { vehicle_type: 'bicycle', documents: [] };
+
+    await userHandler({
+      method: 'POST',
+      headers: { authorization: 'Bearer driver-token' },
+      body: {
+        action: 'submit_driver_application',
+        requestId: REQUEST_ID,
+        args: { p_payload: payload, p_submission_key: submissionKey },
+      },
+    }, response);
+
+    expect(state.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith('submit_driver_application', {
+      p_actor_id: ACTOR_ID,
+      p_payload: payload,
+      p_submission_key: submissionKey,
     });
   });
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ChevronRight, Heart, ShieldCheck, ShoppingBag, Store, Utensils } from 'lucide-react';
+import { Link, Navigate } from 'react-router-dom';
+import { Bike, ChevronRight, Heart, ShieldCheck, ShoppingBag, Store, Utensils } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../lib/i18n-react';
 import { AppShell } from '../components/AppShell';
@@ -11,14 +11,20 @@ const customerCopy = {
   en: {
     usual: 'Your usual',
     usualBody: 'Ready when you want to reorder from a place you already trust.',
+    driver: 'Deliver with Kiyo Food',
+    driverBody: 'Apply securely and follow the review of your driver account.',
   },
   fr: {
     usual: 'Votre habituel',
     usualBody: 'Pret pour recommander chez un restaurant que vous connaissez deja.',
+    driver: 'Livrer avec Kiyo Food',
+    driverBody: 'Postulez en toute securite et suivez l’examen de votre compte livreur.',
   },
   ar: {
     usual: 'اختيارك المعتاد',
     usualBody: 'جاهز لإعادة الطلب من مطعم تثق به بالفعل.',
+    driver: 'وصّل مع كيو فود',
+    driverBody: 'قدّم طلبك بأمان وتابع مراجعة حساب السائق.',
   },
 } as const;
 
@@ -27,6 +33,7 @@ export default function DashboardPage() {
   const role = profile?.role ?? 'customer';
   if (role === 'super_admin') return <AdminDashboard />;
   if (role === 'restaurant_owner') return <RestaurantDashboard />;
+  if (role === 'driver') return <Navigate to="/driver" replace />;
   return <CustomerDashboard />;
 }
 
@@ -79,6 +86,7 @@ function CustomerDashboard() {
         <DashboardAction to="/orders" icon={Utensils} title={t('orders.title')} subtitle={t('dash.customer.ordersSubtitle')} />
         <DashboardAction to="/favorites" icon={Heart} title={t('nav.favorites')} subtitle={t('favorites.subtitle')} />
         <DashboardAction to="/restaurant/apply" icon={Store} title={t('restaurant.apply.nav')} subtitle={t('restaurant.apply.subtitle')} />
+        <DashboardAction to="/driver/onboarding" icon={Bike} title={tx.driver} subtitle={tx.driverBody} />
       </div>
     </AppShell>
   );

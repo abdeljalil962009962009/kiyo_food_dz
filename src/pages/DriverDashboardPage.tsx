@@ -32,6 +32,8 @@ type Driver = {
   last_location_update: string | null;
   rating: number;
   delivery_count: number;
+  application_status: 'pending' | 'under_review' | 'approved' | 'rejected' | 'suspended';
+  review_reason: string | null;
 };
 
 type LocationRpcResult = {
@@ -107,7 +109,17 @@ export default function DriverDashboardPage() {
       setDriver(d as Driver);
 
       if (!(d as Driver).is_verified) {
-        setError(t('driver.dash.pendingVerification'));
+        const application = d as Driver;
+        const statusMessage = application.application_status === 'rejected'
+          ? t('driver.dash.applicationRejected')
+          : application.application_status === 'suspended'
+            ? t('driver.dash.applicationSuspended')
+            : application.application_status === 'under_review'
+              ? t('driver.dash.applicationUnderReview')
+              : t('driver.dash.pendingVerification');
+        setError(application.review_reason
+          ? `${statusMessage} ${t('driver.dash.reviewReason')}: ${application.review_reason}`
+          : statusMessage);
         setLoading(false);
         return;
       }

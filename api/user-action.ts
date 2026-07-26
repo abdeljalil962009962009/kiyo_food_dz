@@ -29,6 +29,7 @@ const ALLOWED_ACTIONS = new Set([
   'request_account_deletion',
   'request_personal_data_export',
   'send_restaurant_application_message',
+  'submit_driver_application',
   'submit_restaurant_application',
   'transition_delivery_status',
   'transition_order_status',
@@ -86,12 +87,18 @@ export default async function handler(request: RequestLike, response: ResponseLi
     return;
   }
 
-  const { data, error } = await serviceClient.rpc('execute_user_action', {
-    p_actor_id: authData.user.id,
-    p_request_id: requestId,
-    p_action: action,
-    p_args: args,
-  });
+  const { data, error } = action === 'submit_driver_application'
+    ? await serviceClient.rpc('submit_driver_application', {
+        p_actor_id: authData.user.id,
+        p_payload: args.p_payload,
+        p_submission_key: args.p_submission_key,
+      })
+    : await serviceClient.rpc('execute_user_action', {
+        p_actor_id: authData.user.id,
+        p_request_id: requestId,
+        p_action: action,
+        p_args: args,
+      });
   if (error) {
     response.status(statusForDatabaseError(error.code)).json({
       code: error.code ?? 'user_action_failed',

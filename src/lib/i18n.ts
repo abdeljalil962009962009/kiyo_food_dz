@@ -612,6 +612,8 @@ export type TranslationKey =
   | 'driver.onboard.success.title'
   | 'driver.onboard.success.body'
   | 'driver.onboard.success.redirect'
+  | 'driver.onboard.success.dashboard'
+  | 'driver.onboard.progress'
   | 'driver.onboard.step.vehicle'
   | 'driver.onboard.step.details'
   | 'driver.onboard.licensePlate'
@@ -620,6 +622,24 @@ export type TranslationKey =
   | 'driver.onboard.uploadDocuments'
   | 'driver.onboard.uploadPrompt'
   | 'driver.onboard.uploadFormat'
+  | 'driver.onboard.document.license'
+  | 'driver.onboard.document.idCard'
+  | 'driver.onboard.document.registration'
+  | 'driver.onboard.document.insurance'
+  | 'driver.onboard.required'
+  | 'driver.onboard.optional'
+  | 'driver.onboard.chooseFile'
+  | 'driver.onboard.removeDocument'
+  | 'driver.onboard.platePlaceholder'
+  | 'driver.onboard.reviewNotice'
+  | 'driver.onboard.uploading'
+  | 'driver.onboard.error.fileType'
+  | 'driver.onboard.error.fileSize'
+  | 'driver.onboard.error.fileEmpty'
+  | 'driver.onboard.error.identity'
+  | 'driver.onboard.error.vehicleDetails'
+  | 'driver.onboard.error.documents'
+  | 'driver.onboard.error.submit'
   | 'driver.onboard.contactTitle'
   | 'driver.onboard.phone'
   | 'driver.onboard.phoneHelp'
@@ -649,6 +669,10 @@ export type TranslationKey =
   | 'day.5'
   | 'day.6'
   | 'driver.dash.pendingVerification'
+  | 'driver.dash.applicationUnderReview'
+  | 'driver.dash.applicationRejected'
+  | 'driver.dash.applicationSuspended'
+  | 'driver.dash.reviewReason'
   | 'driver.dash.failedLoad'
   | 'driver.dash.onlineAccepting'
   | 'driver.dash.offline'
@@ -1261,6 +1285,8 @@ const en: Dict = {
   'driver.onboard.success.title': 'Application Submitted!',
   'driver.onboard.success.body': 'Your driver application is being reviewed. You will be notified once approved.',
   'driver.onboard.success.redirect': 'Redirecting to dashboard...',
+  'driver.onboard.success.dashboard': 'View application status',
+  'driver.onboard.progress': 'Driver application progress',
   'driver.onboard.step.vehicle': 'Select Your Vehicle',
   'driver.onboard.step.details': 'Vehicle Details',
   'driver.onboard.licensePlate': 'License Plate Number',
@@ -1268,7 +1294,25 @@ const en: Dict = {
   'driver.onboard.idNumber': 'National ID Number',
   'driver.onboard.uploadDocuments': 'Upload Documents',
   'driver.onboard.uploadPrompt': 'Upload license, ID, and vehicle registration',
-  'driver.onboard.uploadFormat': 'PNG, JPG, or PDF',
+  'driver.onboard.uploadFormat': 'PDF, JPG, PNG, or WebP. Maximum 8 MB per file.',
+  'driver.onboard.document.license': "Driver's license",
+  'driver.onboard.document.idCard': 'National identity card',
+  'driver.onboard.document.registration': 'Vehicle registration',
+  'driver.onboard.document.insurance': 'Vehicle insurance',
+  'driver.onboard.required': 'Required',
+  'driver.onboard.optional': 'Optional',
+  'driver.onboard.chooseFile': 'Choose a private file',
+  'driver.onboard.removeDocument': 'Remove document',
+  'driver.onboard.platePlaceholder': 'Example: 12345-678-90',
+  'driver.onboard.reviewNotice': 'Your documents remain private. Kiyo Food must review and approve your application before you can accept deliveries.',
+  'driver.onboard.uploading': 'Uploading securely...',
+  'driver.onboard.error.fileType': 'Use a PDF, JPG, PNG, or WebP file.',
+  'driver.onboard.error.fileSize': 'Each document must be 8 MB or smaller.',
+  'driver.onboard.error.fileEmpty': 'This file is empty. Choose another document.',
+  'driver.onboard.error.identity': 'Enter a valid national identity number.',
+  'driver.onboard.error.vehicleDetails': 'Enter a valid registration and driving-license number.',
+  'driver.onboard.error.documents': 'Add every required document before continuing.',
+  'driver.onboard.error.submit': 'The application could not be submitted. Your account was not activated. Check your connection and try again.',
   'driver.onboard.contactTitle': 'Contact Information',
   'driver.onboard.phone': 'Phone Number',
   'driver.onboard.phoneHelp': "We'll use this number to contact you about deliveries",
@@ -1298,6 +1342,10 @@ const en: Dict = {
   'day.5': 'Friday',
   'day.6': 'Saturday',
   'driver.dash.pendingVerification': 'Your account is pending verification. You will be notified once approved.',
+  'driver.dash.applicationUnderReview': 'Kiyo Food is reviewing your driver application.',
+  'driver.dash.applicationRejected': 'Your driver application was not approved.',
+  'driver.dash.applicationSuspended': 'Your driver access is suspended.',
+  'driver.dash.reviewReason': 'Reason',
   'driver.dash.failedLoad': 'Failed to load driver profile',
   'driver.dash.onlineAccepting': 'Online - Accepting deliveries',
   'driver.dash.offline': 'Offline',
@@ -1924,6 +1972,8 @@ const fr: Dict = {
   'driver.onboard.success.title': 'Candidature soumise !',
   'driver.onboard.success.body': 'Votre candidature de chauffeur est en cours d\'examen. Vous serez averti une fois approuvé.',
   'driver.onboard.success.redirect': 'Redirection vers le tableau de bord...',
+  'driver.onboard.success.dashboard': 'Voir le statut de la candidature',
+  'driver.onboard.progress': 'Progression de la candidature de livreur',
   'driver.onboard.step.vehicle': 'Sélectionnez votre véhicule',
   'driver.onboard.step.details': 'Détails du véhicule',
   'driver.onboard.licensePlate': 'Numéro de plaque d\'immatriculation',
@@ -1931,7 +1981,25 @@ const fr: Dict = {
   'driver.onboard.idNumber': 'Numéro de carte d\'identité nationale',
   'driver.onboard.uploadDocuments': 'Télécharger des documents',
   'driver.onboard.uploadPrompt': 'Téléchargez le permis, la pièce d\'identité et l\'immatriculation du véhicule',
-  'driver.onboard.uploadFormat': 'PNG, JPG ou PDF',
+  'driver.onboard.uploadFormat': 'PDF, JPG, PNG ou WebP. 8 Mo maximum par fichier.',
+  'driver.onboard.document.license': 'Permis de conduire',
+  'driver.onboard.document.idCard': 'Carte d’identité nationale',
+  'driver.onboard.document.registration': 'Carte d’immatriculation du véhicule',
+  'driver.onboard.document.insurance': 'Assurance du véhicule',
+  'driver.onboard.required': 'Obligatoire',
+  'driver.onboard.optional': 'Facultatif',
+  'driver.onboard.chooseFile': 'Choisir un fichier privé',
+  'driver.onboard.removeDocument': 'Retirer le document',
+  'driver.onboard.platePlaceholder': 'Exemple : 12345-678-90',
+  'driver.onboard.reviewNotice': 'Vos documents restent privés. Kiyo Food doit examiner et approuver votre candidature avant que vous puissiez accepter des livraisons.',
+  'driver.onboard.uploading': 'Téléversement sécurisé...',
+  'driver.onboard.error.fileType': 'Utilisez un fichier PDF, JPG, PNG ou WebP.',
+  'driver.onboard.error.fileSize': 'Chaque document doit faire 8 Mo maximum.',
+  'driver.onboard.error.fileEmpty': 'Ce fichier est vide. Choisissez un autre document.',
+  'driver.onboard.error.identity': 'Saisissez un numéro d’identité nationale valide.',
+  'driver.onboard.error.vehicleDetails': 'Saisissez une immatriculation et un numéro de permis valides.',
+  'driver.onboard.error.documents': 'Ajoutez tous les documents obligatoires avant de continuer.',
+  'driver.onboard.error.submit': 'La candidature n’a pas pu être envoyée. Votre compte n’a pas été activé. Vérifiez votre connexion puis réessayez.',
   'driver.onboard.contactTitle': 'Informations de contact',
   'driver.onboard.phone': 'Numéro de téléphone',
   'driver.onboard.phoneHelp': 'Nous utiliserons ce numéro pour vous contacter concernant les livraisons',
@@ -1961,6 +2029,10 @@ const fr: Dict = {
   'day.5': 'Vendredi',
   'day.6': 'Samedi',
   'driver.dash.pendingVerification': 'Votre compte est en attente de vérification. Vous serez informé dès son approbation.',
+  'driver.dash.applicationUnderReview': 'Kiyo Food examine votre candidature de livreur.',
+  'driver.dash.applicationRejected': 'Votre candidature de livreur n’a pas été approuvée.',
+  'driver.dash.applicationSuspended': 'Votre accès livreur est suspendu.',
+  'driver.dash.reviewReason': 'Motif',
   'driver.dash.failedLoad': 'Échec du chargement du profil de livreur',
   'driver.dash.onlineAccepting': 'En ligne - Accepte les livraisons',
   'driver.dash.offline': 'Hors ligne',
@@ -2587,6 +2659,8 @@ const ar: Dict = {
   'driver.onboard.success.title': 'تم تقديم الطلب!',
   'driver.onboard.success.body': 'جاري مراجعة طلب السائق الخاص بك. سيتم إعلامك بمجرد الموافقة.',
   'driver.onboard.success.redirect': 'جاري إعادة التوجيه إلى لوحة التحكم...',
+  'driver.onboard.success.dashboard': 'عرض حالة الطلب',
+  'driver.onboard.progress': 'مراحل طلب الانضمام كسائق',
   'driver.onboard.step.vehicle': 'اختر مركبتك',
   'driver.onboard.step.details': 'تفاصيل المركبة',
   'driver.onboard.licensePlate': 'رقم لوحة المركبة',
@@ -2594,7 +2668,25 @@ const ar: Dict = {
   'driver.onboard.idNumber': 'رقم الهوية الوطنية',
   'driver.onboard.uploadDocuments': 'تحميل الوثائق',
   'driver.onboard.uploadPrompt': 'تحميل الرخصة والهوية ووثائق المركبة',
-  'driver.onboard.uploadFormat': 'PNG، JPG أو PDF',
+  'driver.onboard.uploadFormat': 'PDF أو JPG أو PNG أو WebP. الحد الأقصى 8 ميغابايت لكل ملف.',
+  'driver.onboard.document.license': 'رخصة القيادة',
+  'driver.onboard.document.idCard': 'بطاقة التعريف الوطنية',
+  'driver.onboard.document.registration': 'بطاقة تسجيل المركبة',
+  'driver.onboard.document.insurance': 'تأمين المركبة',
+  'driver.onboard.required': 'إجباري',
+  'driver.onboard.optional': 'اختياري',
+  'driver.onboard.chooseFile': 'اختر ملفا خاصا',
+  'driver.onboard.removeDocument': 'حذف الوثيقة',
+  'driver.onboard.platePlaceholder': 'مثال: 12345-678-90',
+  'driver.onboard.reviewNotice': 'تبقى وثائقك خاصة. يجب أن تراجع كيو فود طلبك وتوافق عليه قبل أن تتمكن من قبول عمليات التوصيل.',
+  'driver.onboard.uploading': 'جار الرفع بشكل آمن...',
+  'driver.onboard.error.fileType': 'استخدم ملف PDF أو JPG أو PNG أو WebP.',
+  'driver.onboard.error.fileSize': 'يجب ألا يتجاوز حجم كل وثيقة 8 ميغابايت.',
+  'driver.onboard.error.fileEmpty': 'هذا الملف فارغ. اختر وثيقة أخرى.',
+  'driver.onboard.error.identity': 'أدخل رقم تعريف وطني صالحا.',
+  'driver.onboard.error.vehicleDetails': 'أدخل رقم تسجيل ورقم رخصة قيادة صالحين.',
+  'driver.onboard.error.documents': 'أضف كل الوثائق الإجبارية قبل المتابعة.',
+  'driver.onboard.error.submit': 'تعذر إرسال الطلب ولم يتم تفعيل حسابك. تحقق من الاتصال ثم حاول مرة أخرى.',
   'driver.onboard.contactTitle': 'معلومات الاتصال',
   'driver.onboard.phone': 'رقم الهاتف',
   'driver.onboard.phoneHelp': 'سنستخدم هذا الرقم للاتصال بك بشأن عمليات التوصيل',
@@ -2624,6 +2716,10 @@ const ar: Dict = {
   'day.5': 'الجمعة',
   'day.6': 'السبت',
   'driver.dash.pendingVerification': 'حسابك قيد المراجعة والتحقق. سيتم إشعارك فور الموافقة عليه.',
+  'driver.dash.applicationUnderReview': 'تراجع كيو فود طلب انضمامك كسائق.',
+  'driver.dash.applicationRejected': 'لم تتم الموافقة على طلب انضمامك كسائق.',
+  'driver.dash.applicationSuspended': 'تم تعليق وصولك كسائق.',
+  'driver.dash.reviewReason': 'السبب',
   'driver.dash.failedLoad': 'فشل تحميل ملف السائق',
   'driver.dash.onlineAccepting': 'نشط - استقبال طلبات التوصيل',
   'driver.dash.offline': 'غير نشط',
