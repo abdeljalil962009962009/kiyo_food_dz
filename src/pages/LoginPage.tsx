@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState, type FormEvent } from 'react';
 import { Mail, Lock, AlertCircle, Database, Check, ExternalLink, X, AlertTriangle } from 'lucide-react';
 import { useAuth, type AuthErrorCode } from '../context/AuthContext';
@@ -63,6 +63,7 @@ export default function LoginPage() {
   const { t } = useT();
   const { signInWithPassword, signInWithGoogle, signInWithApple, error } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -181,7 +182,7 @@ export default function LoginPage() {
 
       <p className="mt-6 text-center text-sm text-ink-500">
         {t('auth.noAccount')}{' '}
-        <Link to="/signup" className="font-semibold text-ember-600 hover:text-ember-700">
+        <Link to="/signup" state={location.state} className="font-semibold text-ember-600 hover:text-ember-700">
           {t('auth.signup')}
         </Link>
       </p>

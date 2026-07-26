@@ -47,8 +47,8 @@ export function HomePage() {
             {t('brand.heroSubtitle')}
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
-            <Link to="/signup" className="kiyo-btn-primary min-h-11 bg-ember-500 hover:bg-ember-600">
-              {t('auth.signup')}
+            <Link to="/restaurants" className="kiyo-btn-primary min-h-11 bg-ember-500 hover:bg-ember-600">
+              {t('market.browse')}
             </Link>
             <Link
               to="/login"
