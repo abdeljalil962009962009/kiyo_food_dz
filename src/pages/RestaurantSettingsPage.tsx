@@ -457,25 +457,30 @@ export default function RestaurantSettingsPage() {
     setScheduleSaving(true);
     setScheduleError(null);
     try {
-      const { data, error: upsertError } = await supabase
-        .from('restaurant_special_hours')
-        .upsert({
-          restaurant_id: restaurant.id,
-          date: specialDraft.date,
-          is_closed: specialDraft.is_closed,
-          open_time: specialDraft.is_closed ? null : specialDraft.open_time,
-          close_time: specialDraft.is_closed ? null : specialDraft.close_time,
-          reason: specialDraft.reason.trim() || null,
-        }, { onConflict: 'restaurant_id,date' })
-        .select('*')
-        .single();
+      const existingEntry = specialHours.find((entry) => entry.date === specialDraft.date);
+      const { data, error: upsertError } = await callUserAction<RestaurantSpecialHours>(
+        'upsert_restaurant_special_hours',
+        {
+          p_restaurant_id: restaurant.id,
+          p_date: specialDraft.date,
+          p_is_closed: specialDraft.is_closed,
+          p_open_time: specialDraft.is_closed ? null : specialDraft.open_time,
+          p_close_time: specialDraft.is_closed ? null : specialDraft.close_time,
+          p_reason: specialDraft.reason.trim() || null,
+          p_expected_updated_at: existingEntry?.updated_at ?? null,
+        },
+      );
       if (upsertError) throw upsertError;
+      if (!data) throw new Error('restaurant_special_hours_update_missing');
       const savedEntry = data as RestaurantSpecialHours;
       setSpecialHours((current) => [...current.filter((entry) => entry.date !== savedEntry.date), savedEntry]
         .sort((a, b) => a.date.localeCompare(b.date)));
       setSpecialDraft((current) => ({ ...current, reason: '' }));
     } catch (upsertError) {
       setScheduleError(userFacingError(upsertError, locale, scheduleTx.saveFailed));
+      if ((upsertError as { code?: string } | null)?.code === '40001') {
+        await load();
+      }
     } finally {
       setScheduleSaving(false);
     }
@@ -486,16 +491,22 @@ export default function RestaurantSettingsPage() {
     setScheduleSaving(true);
     setScheduleError(null);
     try {
-      const { error: deleteError } = await supabase
-        .from('restaurant_special_hours')
-        .delete()
-        .eq('id', entry.id)
-        .eq('restaurant_id', restaurant.id);
+      const { error: deleteError } = await callUserAction(
+        'delete_restaurant_special_hours',
+        {
+          p_restaurant_id: restaurant.id,
+          p_special_hours_id: entry.id,
+          p_expected_updated_at: entry.updated_at,
+        },
+      );
       if (deleteError) throw deleteError;
       setSpecialHours((current) => current.filter((item) => item.id !== entry.id));
       setPendingSpecialDelete(null);
     } catch (deleteError) {
       setScheduleError(userFacingError(deleteError, locale, scheduleTx.deleteFailed));
+      if ((deleteError as { code?: string } | null)?.code === '40001') {
+        await load();
+      }
     } finally {
       setScheduleSaving(false);
     }

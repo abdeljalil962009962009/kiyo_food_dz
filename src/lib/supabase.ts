@@ -295,6 +295,8 @@ export type RestaurantSpecialHours = {
   close_time: string | null;
   reason: string | null;
   created_at: string;
+  updated_at: string;
+  updated_by: string | null;
 };
 
 export type OrderStatus =

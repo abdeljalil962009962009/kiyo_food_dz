@@ -32,6 +32,7 @@ describe('restaurant availability', () => {
     const closed: RestaurantSpecialHours[] = [{
       id: '1', restaurant_id: 'r', date: '2026-07-27', is_closed: true,
       open_time: null, close_time: null, reason: 'Holiday', created_at: '',
+      updated_at: '', updated_by: null,
     }];
     expect(restaurantAcceptsOrders(restaurant, closed, new Date('2026-07-27T11:00:00Z'))).toBe(false);
 

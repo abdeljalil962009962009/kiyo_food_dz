@@ -262,6 +262,72 @@ describe('user action gateway', () => {
     });
   });
 
+  it('saves exceptional hours only through the verified server identity', async () => {
+    const { rpc } = queueClients({ id: ACTOR_ID, is_suspended: false });
+    const { response, state } = makeResponse();
+    const restaurantId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+
+    await userHandler({
+      method: 'POST',
+      headers: { authorization: 'Bearer restaurant-owner-token' },
+      body: {
+        action: 'upsert_restaurant_special_hours',
+        requestId: REQUEST_ID,
+        args: {
+          p_restaurant_id: restaurantId,
+          p_date: '2026-08-01',
+          p_is_closed: false,
+          p_open_time: '10:00',
+          p_close_time: '23:00',
+          p_reason: 'Summer hours',
+          p_expected_updated_at: null,
+        },
+      },
+    }, response);
+
+    expect(state.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith('upsert_restaurant_special_hours', {
+      p_actor_id: ACTOR_ID,
+      p_restaurant_id: restaurantId,
+      p_date: '2026-08-01',
+      p_is_closed: false,
+      p_open_time: '10:00',
+      p_close_time: '23:00',
+      p_reason: 'Summer hours',
+      p_expected_updated_at: null,
+    });
+  });
+
+  it('removes exceptional hours only through the verified server identity', async () => {
+    const { rpc } = queueClients({ id: ACTOR_ID, is_suspended: false });
+    const { response, state } = makeResponse();
+    const restaurantId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+    const specialHoursId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+    const expectedUpdatedAt = '2026-07-27T16:00:00.000Z';
+
+    await userHandler({
+      method: 'POST',
+      headers: { authorization: 'Bearer restaurant-owner-token' },
+      body: {
+        action: 'delete_restaurant_special_hours',
+        requestId: REQUEST_ID,
+        args: {
+          p_restaurant_id: restaurantId,
+          p_special_hours_id: specialHoursId,
+          p_expected_updated_at: expectedUpdatedAt,
+        },
+      },
+    }, response);
+
+    expect(state.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith('delete_restaurant_special_hours', {
+      p_actor_id: ACTOR_ID,
+      p_restaurant_id: restaurantId,
+      p_special_hours_id: specialHoursId,
+      p_expected_updated_at: expectedUpdatedAt,
+    });
+  });
+
   it('submits reviews only through the verified customer identity', async () => {
     const { rpc } = queueClients({ id: ACTOR_ID, is_suspended: false });
     const { response, state } = makeResponse();

@@ -20,6 +20,7 @@ type ResponseLike = {
 const ALLOWED_ACTIONS = new Set([
   'create_support_ticket',
   'create_order_with_items',
+  'delete_restaurant_special_hours',
   'get_restaurant_effective_delivery_rules',
   'get_restaurant_analytics_summary',
   'get_restaurant_financials',
@@ -40,6 +41,7 @@ const ALLOWED_ACTIONS = new Set([
   'update_driver_live_location',
   'update_restaurant_operational_state',
   'update_restaurant_profile_settings',
+  'upsert_restaurant_special_hours',
 ]);
 
 export default async function handler(request: RequestLike, response: ResponseLike) {
@@ -121,6 +123,24 @@ export default async function handler(request: RequestLike, response: ResponseLi
         p_actor_id: authData.user.id,
         p_restaurant_id: args.p_restaurant_id,
         p_payload: args.p_payload,
+        p_expected_updated_at: args.p_expected_updated_at,
+      })
+    : action === 'upsert_restaurant_special_hours'
+    ? await serviceClient.rpc('upsert_restaurant_special_hours', {
+        p_actor_id: authData.user.id,
+        p_restaurant_id: args.p_restaurant_id,
+        p_date: args.p_date,
+        p_is_closed: args.p_is_closed,
+        p_open_time: args.p_open_time ?? null,
+        p_close_time: args.p_close_time ?? null,
+        p_reason: args.p_reason ?? null,
+        p_expected_updated_at: args.p_expected_updated_at ?? null,
+      })
+    : action === 'delete_restaurant_special_hours'
+    ? await serviceClient.rpc('delete_restaurant_special_hours', {
+        p_actor_id: authData.user.id,
+        p_restaurant_id: args.p_restaurant_id,
+        p_special_hours_id: args.p_special_hours_id,
         p_expected_updated_at: args.p_expected_updated_at,
       })
     : action === 'submit_driver_application'
