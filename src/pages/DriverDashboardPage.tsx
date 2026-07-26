@@ -13,6 +13,7 @@ import { watchCurrentPosition, type LiveGeoPoint } from '../lib/geo';
 import { callUserAction } from '../lib/userApi';
 import { userFacingError } from '../lib/userFacingError';
 import { deliveryStatusLabel } from '../lib/domainStatus';
+import { useActionDialog } from '../context/ActionDialogContext';
 
 type Driver = {
   id: string;
@@ -67,6 +68,7 @@ export default function DriverDashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { t, locale } = useT();
+  const { requestText } = useActionDialog();
 
   const [driver, setDriver] = useState<Driver | null>(null);
   const [loading, setLoading] = useState(true);
@@ -287,7 +289,13 @@ export default function DriverDashboardPage() {
     const delivery = activeDelivery || pendingDeliveries.find((item) => item.id === deliveryId);
     let reason: string | null = null;
     if (newStatus === 'failed') {
-      reason = window.prompt(t('driver.dash.failureReasonPrompt'))?.trim() ?? null;
+      reason = await requestText({
+        title: t('driver.dash.failureReasonPrompt'),
+        inputLabel: t('driver.dash.failureReasonPrompt'),
+        confirmLabel: t('common.continue'),
+        required: true,
+        tone: 'danger',
+      });
       if (!reason || reason.length < 3) {
         setPendingAction(null);
         return;

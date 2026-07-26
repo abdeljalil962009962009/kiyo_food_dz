@@ -13,11 +13,13 @@ import { StatusBadge, PriceTag, relativeTime } from '../components/ui';
 import { RestaurantAnalyticsPanel } from '../components/RestaurantAnalytics';
 import { callUserAction } from '../lib/userApi';
 import { userFacingError } from '../lib/userFacingError';
+import { useActionDialog } from '../context/ActionDialogContext';
 
 export default function RestaurantDashboardPage() {
   const { t, locale } = useT();
   const { profile } = useAuth();
   const navigate = useNavigate();
+  const { requestText } = useActionDialog();
 
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [orders, setOrders] = useState<OrderRow[]>([]);
@@ -208,7 +210,13 @@ export default function RestaurantDashboardPage() {
     if (!order || !current || !canTransition(current, to)) return;
     let reason: string | null = null;
     if (['cancelled', 'failed_delivery', 'refunded'].includes(to)) {
-      reason = window.prompt(t('restaurant.dash.statusReasonPrompt'))?.trim() ?? null;
+      reason = await requestText({
+        title: t('restaurant.dash.statusReasonPrompt'),
+        inputLabel: t('restaurant.dash.statusReasonPrompt'),
+        confirmLabel: t('common.continue'),
+        required: true,
+        tone: 'danger',
+      });
       if (!reason || reason.length < 3) return;
     }
     setPendingAction(orderId);

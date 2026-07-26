@@ -7,6 +7,7 @@ import { requestCustomerCancellation } from '../lib/orderActions';
 import { liveEtaWindow } from '../lib/deliveryEta';
 import { isValidMapCoordinate } from '../lib/googleMaps';
 import TrackingMap from './TrackingMap';
+import { useActionDialog } from '../context/ActionDialogContext';
 
 type OrderWithRestaurant = OrderRow & {
   restaurants: {
@@ -68,6 +69,7 @@ const TRACKED_STATUSES = ['pending', 'accepted', 'preparing', 'out_for_delivery'
 export function LiveOrderTracker({ order, onRefresh, realtimeStatus }: Props) {
   const { locale } = useT();
   const tx = copy[locale];
+  const { confirmAction } = useActionDialog();
   const [cancelling, setCancelling] = useState(false);
   const [cancelMessage, setCancelMessage] = useState<string | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
@@ -89,7 +91,12 @@ export function LiveOrderTracker({ order, onRefresh, realtimeStatus }: Props) {
     && isValidMapCoordinate(order.delivery_latitude, order.delivery_longitude);
 
   const handleCancel = async () => {
-    if (!window.confirm(`${tx.cancel}?\n\n${tx.cod}`)) return;
+    if (!await confirmAction({
+      title: tx.cancel,
+      message: tx.cod,
+      confirmLabel: tx.cancel,
+      tone: 'danger',
+    })) return;
     setCancelling(true);
     setCancelMessage(null);
     setCancelError(null);

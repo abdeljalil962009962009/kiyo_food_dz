@@ -14,6 +14,7 @@ import { CookieConsentBanner } from './components/CookieConsentBanner';
 import { ProtectedRoute, PublicOnlyRoute, RoleRoute } from './components/ProtectedRoute';
 import { isSupabaseConfigured } from './lib/supabase';
 import { SupabaseConfigMissing } from './components/SupabaseConfigMissing';
+import { ActionDialogProvider } from './context/ActionDialogContext';
 
 const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })));
 const NotFoundPage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.NotFoundPage })));
@@ -112,8 +113,10 @@ export default function App() {
         <SettingsProvider>
           <WilayaProviderBridge>
             <CartProvider>
-              <RouterProvider router={router} />
-              <CookieConsentBanner />
+              <ActionDialogProvider>
+                <RouterProvider router={router} />
+                <CookieConsentBanner />
+              </ActionDialogProvider>
             </CartProvider>
           </WilayaProviderBridge>
         </SettingsProvider>

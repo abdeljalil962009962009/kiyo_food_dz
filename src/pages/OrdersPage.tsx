@@ -12,6 +12,7 @@ import { StatusBadge, PriceTag, relativeTime } from '../components/ui';
 import { ReviewModal } from '../components/ReviewModal';
 import { LiveOrderTracker } from '../components/LiveOrderTracker';
 import { requestCustomerCancellation } from '../lib/orderActions';
+import { useActionDialog } from '../context/ActionDialogContext';
 
 type OrderWithRestaurant = OrderRow & {
   restaurants: {
@@ -52,6 +53,7 @@ export default function OrdersPage() {
   const tx = copy[locale];
   const navigate = useNavigate();
   const { replaceCart } = useCart();
+  const { confirmAction } = useActionDialog();
   const [orders, setOrders] = useState<OrderWithRestaurant[]>([]);
   const [itemsByOrder, setItemsByOrder] = useState<Record<string, OrderItemRow[]>>({});
   const [loading, setLoading] = useState(true);
@@ -106,7 +108,12 @@ export default function OrdersPage() {
   const reviewCandidate = useMemo(() => orders.find((order) => order.status === 'delivered' && order.restaurants && !reviewedOrders.has(order.id)), [orders, reviewedOrders]);
 
   const handleCancelOrder = async (order: OrderWithRestaurant) => {
-    if (!window.confirm(`${tx.confirmCancel}\n\n${tx.cod}`)) return;
+    if (!await confirmAction({
+      title: tx.cancel,
+      message: `${tx.confirmCancel}\n\n${tx.cod}`,
+      confirmLabel: tx.cancel,
+      tone: 'danger',
+    })) return;
     setCancellingOrderId(order.id);
     setNotice(null);
     const result = await requestCustomerCancellation(order, locale);

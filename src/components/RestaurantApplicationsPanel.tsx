@@ -13,6 +13,7 @@ import { callAdminAction } from '../lib/adminApi';
 import { callUserAction } from '../lib/userApi';
 import { PrivateRestaurantImage } from './PrivateRestaurantImage';
 import { applicationStatusLabel } from '../lib/domainStatus';
+import { useActionDialog } from '../context/ActionDialogContext';
 
 type Applicant = Pick<Profile, 'id' | 'email' | 'full_name' | 'phone'>;
 
@@ -165,6 +166,7 @@ const labels = {
 
 export function RestaurantApplicationsPanel() {
   const { locale, t } = useT();
+  const { confirmAction } = useActionDialog();
   const tx = labels[locale];
   const [applications, setApplications] = useState<RestaurantApplication[]>([]);
   const [applicants, setApplicants] = useState<Record<string, Applicant>>({});
@@ -299,7 +301,12 @@ export function RestaurantApplicationsPanel() {
       setError(tx.reason);
       return;
     }
-    if (['rejected', 'suspended'].includes(target) && !window.confirm(tx.transitionConfirm(applicationStatusLabel(target, locale), selected.restaurant_name))) return;
+    if (['rejected', 'suspended'].includes(target) && !await confirmAction({
+      title: applicationStatusLabel(target, locale),
+      message: tx.transitionConfirm(applicationStatusLabel(target, locale), selected.restaurant_name),
+      confirmLabel: applicationStatusLabel(target, locale),
+      tone: 'danger',
+    })) return;
     await run(() => callAdminAction('review_restaurant_application', {
       p_application_id: selected.id,
       p_target_status: target,
@@ -316,7 +323,12 @@ export function RestaurantApplicationsPanel() {
       setError(tx.ratesInvalid);
       return;
     }
-    if (!window.confirm(tx.approveConfirm(selected.restaurant_name, foodRate))) return;
+    if (!await confirmAction({
+      title: tx.approve,
+      message: tx.approveConfirm(selected.restaurant_name, foodRate),
+      confirmLabel: tx.approve,
+      tone: 'success',
+    })) return;
     await run(() => callAdminAction('preliminarily_approve_restaurant_application', {
       p_application_id: selected.id,
       p_food_commission_rate: food,
@@ -329,7 +341,12 @@ export function RestaurantApplicationsPanel() {
 
   const publish = async () => {
     if (!selected?.restaurant_id) return;
-    if (!window.confirm(tx.publishConfirm(selected.restaurant_name))) return;
+    if (!await confirmAction({
+      title: tx.publish,
+      message: tx.publishConfirm(selected.restaurant_name),
+      confirmLabel: tx.publish,
+      tone: 'success',
+    })) return;
     await run(() => callAdminAction('publish_restaurant', {
       p_restaurant_id: selected.restaurant_id,
       p_expected_application_version: selected.application_version,

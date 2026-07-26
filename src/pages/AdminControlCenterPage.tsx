@@ -21,6 +21,7 @@ import { callUserAction } from '../lib/userApi';
 import type { TranslationKey } from '../lib/i18n';
 import { auditActionLabel, orderStatusLabel, restaurantStatusLabel, settlementStatusLabel } from '../lib/domainStatus';
 import { adminCopy } from '../lib/adminCopy';
+import { useActionDialog } from '../context/ActionDialogContext';
 
 type Analytics = {
   revenue: { today: number; this_week: number; this_month: number; this_year: number; all_time: number };
@@ -1060,6 +1061,7 @@ function FinancialsTab() {
 function UsersTab() {
   const { t } = useT();
   const { tx } = useAdminT();
+  const { confirmAction } = useActionDialog();
   const [users, setUsers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1090,7 +1092,13 @@ function UsersTab() {
     const confirmation = nextSuspended
       ? tx('confirm.suspendUser', 'Suspend this user? They will lose platform access until restored.')
       : tx('confirm.restoreUser', 'Restore this user’s platform access?');
-    if (!window.confirm(confirmation)) return;
+    const confirmed = await confirmAction({
+      title: nextSuspended ? tx('btn.suspend', 'Suspend') : tx('btn.restore', 'Restore'),
+      message: confirmation,
+      confirmLabel: nextSuspended ? tx('btn.suspend', 'Suspend') : tx('btn.restore', 'Restore'),
+      tone: nextSuspended ? 'danger' : 'success',
+    });
+    if (!confirmed) return;
 
     setActingId(user.id);
     setError(null);
@@ -1742,6 +1750,7 @@ function AnalyticsTab() {
 function SettlementsTab() {
   const { t } = useT();
   const { locale } = useAdminT();
+  const { confirmAction } = useActionDialog();
   const copy = SETTLEMENT_COPY[locale as keyof typeof SETTLEMENT_COPY] ?? SETTLEMENT_COPY.en;
   const [overview, setOverview] = useState<{
     total_owed: number; total_paid: number; overdue_count: number; pending_count: number; paid_count: number; disputed_count: number;
@@ -1780,7 +1789,7 @@ function SettlementsTab() {
   useEffect(() => { void load(); }, [load]);
 
   const markPaid = async (id: string) => {
-    if (!window.confirm(copy.confirmPaid)) return;
+    if (!await confirmAction({ title: copy.markPaid, message: copy.confirmPaid, confirmLabel: copy.markPaid, tone: 'success' })) return;
     setActingId(id);
     setActionError(null);
     setNotice(null);
@@ -1799,7 +1808,7 @@ function SettlementsTab() {
   };
 
   const generateSettlement = async (restaurantId: string, periodStart: string) => {
-    if (!window.confirm(copy.confirmGenerate)) return;
+    if (!await confirmAction({ title: copy.generate, message: copy.confirmGenerate, confirmLabel: copy.generate })) return;
     const key = `${restaurantId}:${periodStart}`;
     setActingId(key);
     setActionError(null);

@@ -10,11 +10,13 @@ import { Skeleton, ErrorState, Spinner } from '../components/feedback';
 import { PriceTag } from '../components/ui';
 import { Field } from '../components/Field';
 import { userFacingError } from '../lib/userFacingError';
+import { useActionDialog } from '../context/ActionDialogContext';
 
 export default function RestaurantMenuPage() {
   const { t, locale } = useT();
   const { profile } = useAuth();
   const navigate = useNavigate();
+  const { confirmAction } = useActionDialog();
 
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [categories, setCategories] = useState<MenuCategory[]>([]);
@@ -165,7 +167,12 @@ export default function RestaurantMenuPage() {
                   <h2 className="font-display text-base font-bold text-ink-900">{cat.name}</h2>
                   <button
                     onClick={async () => {
-                      if (!confirm(t('restaurant.deleteCategoryConfirm').replace('{name}', cat.name))) return;
+                      if (!await confirmAction({
+                        title: t('restaurant.delete'),
+                        message: t('restaurant.deleteCategoryConfirm').replace('{name}', cat.name),
+                        confirmLabel: t('restaurant.delete'),
+                        tone: 'danger',
+                      })) return;
                       const { error: e } = await supabase.from('menu_categories').delete().eq('id', cat.id);
                       if (e) {
                         console.error(e);
