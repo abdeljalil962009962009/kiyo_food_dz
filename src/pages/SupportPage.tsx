@@ -5,11 +5,12 @@ import { useAuth } from '../context/AuthContext';
 import { useT } from '../lib/i18n-react';
 import { type TranslationKey } from '../lib/i18n';
 import { ErrorBoundary } from '../components/ErrorBoundary';
-import { Spinner, ErrorState, FullScreenLoader } from '../components/feedback';
+import { Spinner, ErrorState, FullScreenLoader, Skeleton } from '../components/feedback';
 import { AppShell } from '../components/AppShell';
 import { MessageCircle, Plus, Send, ChevronLeft, Package, AlertCircle } from 'lucide-react';
 import { callUserAction } from '../lib/userApi';
 import { userFacingError } from '../lib/userFacingError';
+import { withExponentialBackoff } from '../lib/locationNetwork';
 
 type Message = {
   id: string;
@@ -47,32 +48,53 @@ export function SupportPage() {
   const [showForm, setShowForm] = useState(Boolean(orderIdFromUrl));
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (foreground = true) => {
     if (!profile) return;
-    setLoading(true);
-    setError(null);
+    if (foreground) {
+      setLoading(true);
+      setError(null);
+    }
     try {
-      const { data, error: e } = await supabase
-        .from('support_tickets')
-        .select('*')
-        .eq('requester_id', profile.id)
-        .order('created_at', { ascending: false });
-      if (e) throw e;
-      setTickets((data as SupportTicket[]) ?? []);
+      const data = await withExponentialBackoff(async () => {
+        const { data: ticketData, error: ticketError } = await supabase
+          .from('support_tickets')
+          .select('*')
+          .eq('requester_id', profile.id)
+          .order('created_at', { ascending: false });
+        if (ticketError) throw ticketError;
+        return (ticketData as SupportTicket[]) ?? [];
+      }, { attempts: 3, baseDelayMs: 700, timeoutMs: 15000 });
+      setTickets(data);
+      setError(null);
     } catch (err: unknown) {
       console.error(err);
-      setError(userFacingError(err, locale, t('error.genericBody')));
+      if (foreground) setError(userFacingError(err, locale, t('error.genericBody')));
     } finally {
-      setLoading(false);
+      if (foreground) setLoading(false);
     }
   }, [locale, profile, t]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void load(false);
+    };
+    const interval = window.setInterval(refresh, 30000);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [load]);
 
   if (!profile) return <FullScreenLoader />;
   if (loading) return (
     <AppShell>
-      <div className="flex items-center justify-center py-20"><Spinner className="h-6 w-6 text-ember-500" /></div>
+      <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
+        <div className="kiyo-card p-5"><Skeleton count={4} /></div>
+      </div>
     </AppShell>
   );
   if (error) return (
@@ -123,7 +145,7 @@ export function SupportPage() {
               <li key={ticket.id}>
                 <button
                   onClick={() => setSelectedId(ticket.id)}
-                  className="kiyo-card flex w-full items-start gap-3 p-4 text-left transition-colors hover:bg-ink-50/50"
+                  className="kiyo-card flex min-h-11 w-full items-start gap-3 p-4 text-start transition-colors hover:bg-ink-50/50"
                 >
                   <span className={`mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${
                     ticket.status === 'open' ? 'bg-warning-500/10 text-warning-600' :
@@ -285,31 +307,56 @@ function TicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () => vo
   const [error, setError] = useState<string | null>(null);
   const [reply, setReply] = useState('');
   const [sending, setSending] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const load = useCallback(async (foreground = true) => {
+    if (foreground) {
+      setLoading(true);
+      setError(null);
+    }
     try {
-      const [ticketRes, msgRes] = await Promise.all([
-        supabase.from('support_tickets').select('*').eq('id', ticketId).single(),
-        supabase.from('support_messages').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: true }),
-      ]);
-      if (ticketRes.error) throw ticketRes.error;
-      setTicket(ticketRes.data as SupportTicket);
-      setMessages((msgRes.data as Message[]) ?? []);
+      const result = await withExponentialBackoff(async () => {
+        const [ticketRes, msgRes] = await Promise.all([
+          supabase.from('support_tickets').select('*').eq('id', ticketId).single(),
+          supabase.from('support_messages').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: true }),
+        ]);
+        if (ticketRes.error) throw ticketRes.error;
+        if (msgRes.error) throw msgRes.error;
+        return {
+          ticket: ticketRes.data as SupportTicket,
+          messages: (msgRes.data as Message[]) ?? [],
+        };
+      }, { attempts: 3, baseDelayMs: 700, timeoutMs: 15000 });
+      setTicket(result.ticket);
+      setMessages(result.messages);
+      setError(null);
     } catch (err: unknown) {
       console.error(err);
-      setError(t('error.genericBody'));
+      if (foreground) setError(userFacingError(err, locale, t('error.genericBody')));
     } finally {
-      setLoading(false);
+      if (foreground) setLoading(false);
     }
-  }, [ticketId, t]);
+  }, [locale, ticketId, t]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void load(false);
+    };
+    const interval = window.setInterval(refresh, 20000);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [load]);
 
   const sendReply = async () => {
     if (reply.trim().length < 1 || !profile) return;
     setSending(true);
+    setActionError(null);
     try {
       const { error: e } = await callUserAction('reply_to_ticket', {
         p_ticket_id: ticketId,
@@ -318,9 +365,9 @@ function TicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () => vo
       });
       if (e) throw e;
       setReply('');
-      void load();
-    } catch {
-      setError(t('error.genericBody'));
+      await load(false);
+    } catch (err: unknown) {
+      setActionError(userFacingError(err, locale, t('error.genericBody')));
     } finally {
       setSending(false);
     }
@@ -328,7 +375,10 @@ function TicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () => vo
 
   if (loading) return (
     <AppShell>
-      <div className="flex items-center justify-center py-20"><Spinner className="h-6 w-6 text-ember-500" /></div>
+      <div className="mx-auto max-w-2xl space-y-4 px-4 py-6 sm:px-6">
+        <div className="kiyo-card p-5"><Skeleton count={2} /></div>
+        <div className="kiyo-card p-5"><Skeleton count={4} /></div>
+      </div>
     </AppShell>
   );
   if (error) return (
@@ -341,8 +391,8 @@ function TicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () => vo
   return (
     <AppShell>
       <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
-        <button onClick={onBack} className="mb-4 inline-flex items-center gap-1 text-sm text-ink-500 hover:text-ink-900">
-          <ChevronLeft className="h-4 w-4" /> {t('support.backToTickets')}
+        <button onClick={onBack} className="mb-4 inline-flex min-h-11 items-center gap-1 text-sm text-ink-500 hover:text-ink-900">
+          <ChevronLeft className={`h-4 w-4 ${locale === 'ar' ? 'rotate-180' : ''}`} /> {t('support.backToTickets')}
         </button>
 
         <div className="kiyo-card mb-4 p-5">
@@ -395,18 +445,35 @@ function TicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () => vo
         </div>
 
         {ticket.status !== 'closed' && (
-          <div className="kiyo-card flex items-end gap-2 p-3">
-            <textarea
-              value={reply}
-              onChange={(e) => setReply(e.target.value)}
-              rows={2}
-              placeholder={t('support.typeReply')}
-              className="flex-1 resize-none rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none"
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void sendReply(); } }}
-            />
-            <button onClick={sendReply} disabled={sending || reply.trim().length < 1} className="kiyo-btn-primary flex-shrink-0">
-              {sending ? <Spinner className="h-4 w-4" /> : <Send className="h-4 w-4" />}
-            </button>
+          <div className="kiyo-card p-3">
+            {actionError && (
+              <div className="mb-3 flex items-start gap-2 rounded-lg bg-error-500/10 px-3 py-2 text-sm text-error-700" role="alert">
+                <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                <span className="flex-1">{actionError}</span>
+                <button type="button" onClick={() => void sendReply()} className="min-h-11 font-semibold underline">
+                  {t('error.retry')}
+                </button>
+              </div>
+            )}
+            <div className="flex items-end gap-2">
+              <textarea
+                value={reply}
+                onChange={(e) => setReply(e.target.value)}
+                rows={2}
+                placeholder={t('support.typeReply')}
+                aria-label={t('support.typeReply')}
+                className="flex-1 resize-none rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none"
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void sendReply(); } }}
+              />
+              <button
+                onClick={sendReply}
+                disabled={sending || reply.trim().length < 1}
+                className="kiyo-btn-primary min-h-11 min-w-11 flex-shrink-0"
+                aria-label={t('support.form.submit')}
+              >
+                {sending ? <Spinner className="h-4 w-4" /> : <Send className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
         )}
       </div>

@@ -22,6 +22,7 @@ import type { TranslationKey } from '../lib/i18n';
 import { auditActionLabel, orderStatusLabel, restaurantStatusLabel, settlementStatusLabel } from '../lib/domainStatus';
 import { adminCopy } from '../lib/adminCopy';
 import { useActionDialog } from '../context/ActionDialogContext';
+import { withExponentialBackoff } from '../lib/locationNetwork';
 
 type Analytics = {
   revenue: { today: number; this_week: number; this_month: number; this_year: number; all_time: number };
@@ -2942,23 +2943,42 @@ function AdminSupportTab() {
   const [filter, setFilter] = useState<'all' | 'open' | 'in_progress' | 'resolved' | 'closed'>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const load = useCallback(async (foreground = true) => {
+    if (foreground) {
+      setLoading(true);
+      setError(null);
+    }
     try {
-      let q = supabase.from('support_tickets').select('*').order('created_at', { ascending: false });
-      if (filter !== 'all') q = q.eq('status', filter);
-      const { data, error: e } = await q;
-      if (e) throw e;
-      setTickets((data as SupportTicket[]) ?? []);
+      const data = await withExponentialBackoff(async () => {
+        let query = supabase.from('support_tickets').select('*').order('created_at', { ascending: false });
+        if (filter !== 'all') query = query.eq('status', filter);
+        const { data: ticketData, error: ticketError } = await query;
+        if (ticketError) throw ticketError;
+        return (ticketData as SupportTicket[]) ?? [];
+      }, { attempts: 3, baseDelayMs: 700, timeoutMs: 15000 });
+      setTickets(data);
+      setError(null);
     } catch (err) {
-      setError(adminErrorMessage(err, t('error.genericBody')));
+      if (foreground) setError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
-      setLoading(false);
+      if (foreground) setLoading(false);
     }
   }, [filter, t]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void load(false);
+    };
+    const interval = window.setInterval(refresh, 30000);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [load]);
 
   if (selectedId) {
     return <AdminTicketDetail ticketId={selectedId} onBack={() => setSelectedId(null)} />;
@@ -3039,40 +3059,64 @@ function AdminTicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () 
   const [reply, setReply] = useState('');
   const [sending, setSending] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const load = useCallback(async (foreground = true) => {
+    if (foreground) {
+      setLoading(true);
+      setError(null);
+    }
     try {
-      const [ticketRes, msgRes] = await Promise.all([
-        supabase.from('support_tickets').select('*').eq('id', ticketId).single(),
-        supabase.from('support_messages').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: true }),
-      ]);
-      if (ticketRes.error) throw ticketRes.error;
-      if (msgRes.error) throw msgRes.error;
-      setTicket(ticketRes.data as SupportTicket);
-      setMessages(msgRes.data as typeof messages ?? []);
+      const result = await withExponentialBackoff(async () => {
+        const [ticketRes, msgRes] = await Promise.all([
+          supabase.from('support_tickets').select('*').eq('id', ticketId).single(),
+          supabase.from('support_messages').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: true }),
+        ]);
+        if (ticketRes.error) throw ticketRes.error;
+        if (msgRes.error) throw msgRes.error;
+        return {
+          ticket: ticketRes.data as SupportTicket,
+          messages: (msgRes.data as typeof messages) ?? [],
+        };
+      }, { attempts: 3, baseDelayMs: 700, timeoutMs: 15000 });
+      setTicket(result.ticket);
+      setMessages(result.messages);
+      setError(null);
     } catch (err) {
-      setError(adminErrorMessage(err, t('error.genericBody')));
+      if (foreground) setError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
-      setLoading(false);
+      if (foreground) setLoading(false);
     }
   }, [ticketId, t]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void load(false);
+    };
+    const interval = window.setInterval(refresh, 20000);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [load]);
 
   const sendReply = async () => {
     if (reply.trim().length < 1) return;
     setSending(true);
+    setActionError(null);
     try {
       const { error: e } = await callUserAction('reply_to_ticket', {
         p_ticket_id: ticketId, p_body: reply.trim(), p_is_admin: true,
       });
       if (e) throw e;
       setReply('');
-      void load();
+      await load(false);
     } catch (err) {
-      setError(adminErrorMessage(err, t('error.genericBody')));
+      setActionError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
       setSending(false);
     }
@@ -3080,14 +3124,15 @@ function AdminTicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () 
 
   const updateStatus = async (status: string) => {
     setUpdating(true);
+    setActionError(null);
     try {
       const { error: e } = await callAdminAction('update_ticket_status', {
         p_ticket_id: ticketId, p_status: status,
       });
       if (e) throw e;
-      void load();
+      await load(false);
     } catch (err) {
-      setError(adminErrorMessage(err, t('error.genericBody')));
+      setActionError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
       setUpdating(false);
     }
@@ -3102,6 +3147,13 @@ function AdminTicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () 
       <button onClick={onBack} className="inline-flex items-center gap-1 text-sm text-ink-500 hover:text-ink-900">
         <ChevronLeft className={`h-4 w-4 ${locale === 'ar' ? 'rotate-180' : ''}`} /> {t('support.admin.backToInbox')}
       </button>
+
+      {actionError && (
+        <div className="flex items-center gap-2 rounded-lg bg-error-500/10 px-3 py-2 text-sm text-error-700" role="alert">
+          <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+          <span>{actionError}</span>
+        </div>
+      )}
 
       <div className="kiyo-card p-5">
         <div className="flex items-start justify-between gap-2">
