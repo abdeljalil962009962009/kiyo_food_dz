@@ -19,7 +19,8 @@ import { MarketplaceRuleOverridesEditor } from '../components/MarketplaceRuleOve
 import { callAdminAction } from '../lib/adminApi';
 import { callUserAction } from '../lib/userApi';
 import type { TranslationKey } from '../lib/i18n';
-import { orderStatusLabel, restaurantStatusLabel, settlementStatusLabel } from '../lib/domainStatus';
+import { auditActionLabel, orderStatusLabel, restaurantStatusLabel, settlementStatusLabel } from '../lib/domainStatus';
+import { adminCopy } from '../lib/adminCopy';
 
 type Analytics = {
   revenue: { today: number; this_week: number; this_month: number; this_year: number; all_time: number };
@@ -714,7 +715,7 @@ const ZERO_ANALYTICS: Analytics = {
 
 // ===================== OVERVIEW =====================
 function OverviewTab() {
-  const { t } = useT();
+  const { t, locale } = useT();
   const { tx } = useAdminT();
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
@@ -794,9 +795,9 @@ function OverviewTab() {
                   <Activity className="h-4 w-4" />
                 </span>
                 <span className="flex-1 truncate text-sm font-medium text-ink-800">
-                  {log.action.replace(/_/g, ' ')}
+                  {auditActionLabel(log.action, locale)}
                 </span>
-                <span className="text-xs text-ink-400">{new Date(log.created_at).toLocaleString()}</span>
+                <span className="text-xs text-ink-400">{new Date(log.created_at).toLocaleString(locale === 'ar' ? 'ar-DZ' : locale === 'fr' ? 'fr-DZ' : 'en-DZ')}</span>
               </li>
             ))}
           </ul>
@@ -1672,7 +1673,8 @@ function RuleToggle({ label, value, onChange }: { label: string; value: boolean;
 
 // ===================== ANALYTICS =====================
 function AnalyticsTab() {
-  const { t } = useT();
+  const { t, locale } = useT();
+  const copy = adminCopy(locale).analytics;
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1704,32 +1706,32 @@ function AnalyticsTab() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="mb-3 font-display text-base font-bold text-ink-900">Customer Analytics</h3>
+        <h3 className="mb-3 font-display text-base font-bold text-ink-900">{copy.customers}</h3>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatCard icon={Users} label="Total Customers" value={String(analytics.users.customers)} />
-          <StatCard icon={Users} label="Restaurant Owners" value={String(analytics.users.owners)} />
-          <StatCard icon={Users} label="Suspended" value={String(analytics.users.suspended)} accent="error" />
-          <StatCard icon={Users} label="Total Users" value={String(analytics.users.total)} />
+          <StatCard icon={Users} label={copy.totalCustomers} value={String(analytics.users.customers)} />
+          <StatCard icon={Users} label={copy.owners} value={String(analytics.users.owners)} />
+          <StatCard icon={Users} label={copy.suspended} value={String(analytics.users.suspended)} accent="error" />
+          <StatCard icon={Users} label={copy.totalUsers} value={String(analytics.users.total)} />
         </div>
       </div>
 
       <div>
-        <h3 className="mb-3 font-display text-base font-bold text-ink-900">Restaurant Analytics</h3>
+        <h3 className="mb-3 font-display text-base font-bold text-ink-900">{copy.restaurants}</h3>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatCard icon={Store} label="Total" value={String(analytics.restaurants.total)} />
-          <StatCard icon={Store} label="Published" value={String(analytics.restaurants.published)} accent="sage" />
-          <StatCard icon={Store} label="Pending" value={String(analytics.restaurants.pending)} accent="warning" />
-          <StatCard icon={BadgeCheck} label="Verified" value={String(analytics.restaurants.verified)} />
+          <StatCard icon={Store} label={copy.total} value={String(analytics.restaurants.total)} />
+          <StatCard icon={Store} label={copy.published} value={String(analytics.restaurants.published)} accent="sage" />
+          <StatCard icon={Store} label={copy.pending} value={String(analytics.restaurants.pending)} accent="warning" />
+          <StatCard icon={BadgeCheck} label={copy.verified} value={String(analytics.restaurants.verified)} />
         </div>
       </div>
 
       <div>
-        <h3 className="mb-3 font-display text-base font-bold text-ink-900">Order Analytics</h3>
+        <h3 className="mb-3 font-display text-base font-bold text-ink-900">{copy.orders}</h3>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatCard icon={ShoppingBag} label="Total Orders" value={String(analytics.orders.total)} />
-          <StatCard icon={ShoppingBag} label="Today" value={String(analytics.orders.today)} />
-          <StatCard icon={AlertTriangle} label={`Cancelled (${cancelRate}%)`} value={String(analytics.orders.cancelled)} accent="error" />
-          <StatCard icon={CheckCircle} label={`Delivered (${deliveryRate}%)`} value={String(analytics.orders.delivered)} accent="sage" />
+          <StatCard icon={ShoppingBag} label={copy.totalOrders} value={String(analytics.orders.total)} />
+          <StatCard icon={ShoppingBag} label={copy.today} value={String(analytics.orders.today)} />
+          <StatCard icon={AlertTriangle} label={`${copy.cancelled} (${cancelRate}%)`} value={String(analytics.orders.cancelled)} accent="error" />
+          <StatCard icon={CheckCircle} label={`${copy.delivered} (${deliveryRate}%)`} value={String(analytics.orders.delivered)} accent="sage" />
         </div>
       </div>
     </div>
@@ -1998,7 +2000,18 @@ type SubscriptionPlan = {
 };
 
 function MarketingTab() {
-  const { t } = useT();
+  const { t, locale } = useT();
+  const copy = adminCopy(locale).marketing;
+  const discountTypeLabel = (value: string) => value === 'percentage' ? copy.percentage : copy.fixed;
+  const campaignTypeLabel = (value: string) => ({
+    push: copy.push, email: copy.email, in_app: copy.inApp, loyalty: copy.loyalty,
+  }[value] ?? value);
+  const audienceLabel = (value: string) => ({
+    all: copy.allUsers, customers: copy.customersOnly, owners: copy.ownersOnly, inactive: copy.inactiveUsers,
+  }[value] ?? value);
+  const planTypeLabel = (value: string) => ({
+    customer: copy.customer, restaurant: copy.restaurant, driver: copy.driver,
+  }[value] ?? value);
   const [promos, setPromos] = useState<PromoCode[]>([]);
   const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([]);
   const [flags, setFlags] = useState<FeatureFlag[]>([]);
@@ -2147,75 +2160,75 @@ function MarketingTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-display text-base font-bold text-ink-900">Promo Codes</h3>
+        <h3 className="font-display text-base font-bold text-ink-900">{copy.promoTitle}</h3>
         <button onClick={() => setShowForm((v) => !v)} className="kiyo-btn-primary">
           <Tag className="h-4 w-4" />
-          <span className="hidden sm:inline">New Code</span>
+          <span className="hidden sm:inline">{copy.newCode}</span>
         </button>
       </div>
 
       {showForm && (
         <div className="kiyo-card space-y-3 p-5">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-xs font-medium text-ink-500">Code</label>
+              <label className="mb-1 block text-xs font-medium text-ink-500">{copy.code}</label>
               <input value={newPromo.code} onChange={(e) => setNewPromo({ ...newPromo, code: e.target.value.toUpperCase() })}
                 placeholder="SUMMER10" className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm uppercase focus:border-ember-500 focus:outline-none" />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-ink-500">Description</label>
+              <label className="mb-1 block text-xs font-medium text-ink-500">{copy.description}</label>
               <input value={newPromo.description} onChange={(e) => setNewPromo({ ...newPromo, description: e.target.value })}
-                placeholder="Summer 10% off" className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
+                placeholder={copy.promoDescription} className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-ink-500">Type</label>
+              <label className="mb-1 block text-xs font-medium text-ink-500">{copy.type}</label>
               <select value={newPromo.discount_type} onChange={(e) => setNewPromo({ ...newPromo, discount_type: e.target.value })}
                 className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none">
-                <option value="percentage">Percentage (%)</option>
-                <option value="fixed">Fixed (DZD)</option>
+                <option value="percentage">{copy.percentage}</option>
+                <option value="fixed">{copy.fixed}</option>
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-ink-500">Value</label>
+              <label className="mb-1 block text-xs font-medium text-ink-500">{copy.value}</label>
               <input type="number" value={newPromo.discount_value} onChange={(e) => setNewPromo({ ...newPromo, discount_value: e.target.value })}
                 className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-ink-500">Min order (DZD)</label>
+              <label className="mb-1 block text-xs font-medium text-ink-500">{copy.minOrder}</label>
               <input type="number" value={newPromo.min_order} onChange={(e) => setNewPromo({ ...newPromo, min_order: e.target.value })}
                 className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-ink-500">Max discount (DZD)</label>
+              <label className="mb-1 block text-xs font-medium text-ink-500">{copy.maxDiscount}</label>
               <input type="number" value={newPromo.max_discount} onChange={(e) => setNewPromo({ ...newPromo, max_discount: e.target.value })}
-                placeholder="No limit" className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
+                placeholder={copy.noLimit} className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-ink-500">Valid until</label>
+              <label className="mb-1 block text-xs font-medium text-ink-500">{copy.validUntil}</label>
               <input type="date" value={newPromo.valid_until} onChange={(e) => setNewPromo({ ...newPromo, valid_until: e.target.value })}
                 className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
             </div>
           </div>
           <div className="flex gap-2">
-            <button onClick={createPromo} className="kiyo-btn-primary">Create</button>
-            <button onClick={() => setShowForm(false)} className="kiyo-btn-secondary">Cancel</button>
+            <button onClick={createPromo} className="kiyo-btn-primary">{copy.create}</button>
+            <button onClick={() => setShowForm(false)} className="kiyo-btn-secondary">{copy.cancel}</button>
           </div>
         </div>
       )}
 
       {promos.length === 0 ? (
-        <div className="kiyo-card p-6 text-center text-sm text-ink-400">No promo codes yet</div>
+        <div className="kiyo-card p-6 text-center text-sm text-ink-400">{copy.noPromos}</div>
       ) : (
         <div className="kiyo-card overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-ink-100 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
-                <th className="px-4 py-3">Code</th>
-                <th className="px-4 py-3">Type</th>
-                <th className="px-4 py-3 text-right">Value</th>
-                <th className="px-4 py-3 text-right">Used</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 text-right">Action</th>
+              <tr className="border-b border-ink-100 text-start text-xs font-semibold uppercase tracking-wide text-ink-400">
+                <th className="px-4 py-3">{copy.code}</th>
+                <th className="px-4 py-3">{copy.type}</th>
+                <th className="px-4 py-3 text-end">{copy.value}</th>
+                <th className="px-4 py-3 text-end">{copy.used}</th>
+                <th className="px-4 py-3">{copy.status}</th>
+                <th className="px-4 py-3 text-end">{copy.action}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-50">
@@ -2225,21 +2238,21 @@ function MarketingTab() {
                     <div className="font-mono font-bold text-ink-900">{p.code}</div>
                     {p.description && <div className="text-xs text-ink-400">{p.description}</div>}
                   </td>
-                  <td className="px-4 py-3 capitalize text-ink-600">{p.discount_type}</td>
-                  <td className="px-4 py-3 text-right text-ink-700">
+                  <td className="px-4 py-3 text-ink-600">{discountTypeLabel(p.discount_type)}</td>
+                  <td className="px-4 py-3 text-end text-ink-700">
                     {p.discount_type === 'percentage' ? `${p.discount_value}%` : `${p.discount_value} DZD`}
                   </td>
-                  <td className="px-4 py-3 text-right text-ink-500">
+                  <td className="px-4 py-3 text-end text-ink-500">
                     {p.used_count}{p.usage_limit ? ` / ${p.usage_limit}` : ''}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                       p.is_active ? 'bg-sage-500/10 text-sage-600' : 'bg-ink-100 text-ink-500'
-                    }`}>{p.is_active ? 'Active' : 'Inactive'}</span>
+                    }`}>{p.is_active ? copy.active : copy.inactive}</span>
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3 text-end">
                     <button onClick={() => togglePromo(p)} className="kiyo-btn-secondary text-xs">
-                      {p.is_active ? 'Disable' : 'Enable'}
+                      {p.is_active ? copy.disable : copy.enable}
                     </button>
                   </td>
                 </tr>
@@ -2252,84 +2265,84 @@ function MarketingTab() {
       {/* Marketing Campaigns */}
       <div className="mt-8">
         <div className="flex items-center justify-between">
-          <h3 className="font-display text-base font-bold text-ink-900">Marketing Campaigns</h3>
+          <h3 className="font-display text-base font-bold text-ink-900">{copy.campaignTitle}</h3>
           <button onClick={() => setShowCampaignForm((v) => !v)} className="kiyo-btn-primary">
             <Send className="h-4 w-4" />
-            <span className="hidden sm:inline">New Campaign</span>
+            <span className="hidden sm:inline">{copy.newCampaign}</span>
           </button>
         </div>
 
         {showCampaignForm && (
           <div className="kiyo-card mt-3 space-y-3 p-5">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label className="mb-1 block text-xs font-medium text-ink-500">Name</label>
+                <label className="mb-1 block text-xs font-medium text-ink-500">{copy.name}</label>
                 <input value={newCampaign.name} onChange={(e) => setNewCampaign({ ...newCampaign, name: e.target.value })}
-                  placeholder="Summer Sale" className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
+                  placeholder={copy.campaignName} className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-ink-500">Type</label>
+                <label className="mb-1 block text-xs font-medium text-ink-500">{copy.type}</label>
                 <select value={newCampaign.type} onChange={(e) => setNewCampaign({ ...newCampaign, type: e.target.value })}
                   className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none">
-                  <option value="push">Push Notification</option>
-                  <option value="email">Email</option>
-                  <option value="in_app">In-App Banner</option>
-                  <option value="loyalty">Loyalty Bonus</option>
+                  <option value="push">{copy.push}</option>
+                  <option value="email">{copy.email}</option>
+                  <option value="in_app">{copy.inApp}</option>
+                  <option value="loyalty">{copy.loyalty}</option>
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-ink-500">Audience</label>
+                <label className="mb-1 block text-xs font-medium text-ink-500">{copy.audience}</label>
                 <select value={newCampaign.audience} onChange={(e) => setNewCampaign({ ...newCampaign, audience: e.target.value })}
                   className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none">
-                  <option value="all">All Users</option>
-                  <option value="customers">Customers Only</option>
-                  <option value="owners">Restaurant Owners</option>
-                  <option value="inactive">Inactive Users</option>
+                  <option value="all">{copy.allUsers}</option>
+                  <option value="customers">{copy.customersOnly}</option>
+                  <option value="owners">{copy.ownersOnly}</option>
+                  <option value="inactive">{copy.inactiveUsers}</option>
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-ink-500">Message</label>
+                <label className="mb-1 block text-xs font-medium text-ink-500">{copy.message}</label>
                 <input value={newCampaign.content} onChange={(e) => setNewCampaign({ ...newCampaign, content: e.target.value })}
-                  placeholder="Get 20% off your next order!" className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
+                  placeholder={copy.campaignMessage} className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
               </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={createCampaign} className="kiyo-btn-primary">Create</button>
-              <button onClick={() => setShowCampaignForm(false)} className="kiyo-btn-secondary">Cancel</button>
+              <button onClick={createCampaign} className="kiyo-btn-primary">{copy.create}</button>
+              <button onClick={() => setShowCampaignForm(false)} className="kiyo-btn-secondary">{copy.cancel}</button>
             </div>
           </div>
         )}
 
         {campaigns.length === 0 ? (
-          <div className="kiyo-card mt-3 p-6 text-center text-sm text-ink-400">No campaigns yet</div>
+          <div className="kiyo-card mt-3 p-6 text-center text-sm text-ink-400">{copy.noCampaigns}</div>
         ) : (
           <div className="kiyo-card mt-3 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-ink-100 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
-                  <th className="px-4 py-3">Name</th>
-                  <th className="px-4 py-3">Type</th>
-                  <th className="px-4 py-3">Audience</th>
-                  <th className="px-4 py-3 text-right">Sent</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Action</th>
+                <tr className="border-b border-ink-100 text-start text-xs font-semibold uppercase tracking-wide text-ink-400">
+                  <th className="px-4 py-3">{copy.name}</th>
+                  <th className="px-4 py-3">{copy.type}</th>
+                  <th className="px-4 py-3">{copy.audience}</th>
+                  <th className="px-4 py-3 text-end">{copy.sent}</th>
+                  <th className="px-4 py-3">{copy.status}</th>
+                  <th className="px-4 py-3 text-end">{copy.action}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-50">
                 {campaigns.map((c) => (
                   <tr key={c.id} className="hover:bg-ink-50/50">
                     <td className="px-4 py-3 font-medium text-ink-900">{c.name}</td>
-                    <td className="px-4 py-3 capitalize text-ink-600">{c.campaign_type.replace('_', ' ')}</td>
-                    <td className="px-4 py-3 text-ink-600">{c.target_audience}</td>
-                    <td className="px-4 py-3 text-right text-ink-500">{c.sent_count}</td>
+                    <td className="px-4 py-3 text-ink-600">{campaignTypeLabel(c.campaign_type)}</td>
+                    <td className="px-4 py-3 text-ink-600">{audienceLabel(c.target_audience)}</td>
+                    <td className="px-4 py-3 text-end text-ink-500">{c.sent_count}</td>
                     <td className="px-4 py-3">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                         c.is_active ? 'bg-sage-500/10 text-sage-600' : 'bg-ink-100 text-ink-500'
-                      }`}>{c.is_active ? 'Active' : 'Inactive'}</span>
+                      }`}>{c.is_active ? copy.active : copy.inactive}</span>
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-end">
                       <button onClick={() => toggleCampaign(c)} className="kiyo-btn-secondary text-xs">
-                        {c.is_active ? 'Stop' : 'Start'}
+                        {c.is_active ? copy.stop : copy.start}
                       </button>
                     </td>
                   </tr>
@@ -2342,20 +2355,20 @@ function MarketingTab() {
 
       {/* Feature Flags */}
       <div className="mt-8">
-        <h3 className="font-display text-base font-bold text-ink-900">Feature Flags</h3>
-        <p className="mb-3 text-xs text-ink-500">Toggle platform features without code changes.</p>
+        <h3 className="font-display text-base font-bold text-ink-900">{copy.flagsTitle}</h3>
+        <p className="mb-3 text-xs text-ink-500">{copy.flagsHint}</p>
         {flags.length === 0 ? (
-          <div className="kiyo-card p-6 text-center text-sm text-ink-400">No feature flags configured</div>
+          <div className="kiyo-card p-6 text-center text-sm text-ink-400">{copy.noFlags}</div>
         ) : (
           <div className="kiyo-card overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-ink-100 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
-                  <th className="px-4 py-3">Feature</th>
-                  <th className="px-4 py-3">Description</th>
-                  <th className="px-4 py-3 text-right">Rollout</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Action</th>
+                <tr className="border-b border-ink-100 text-start text-xs font-semibold uppercase tracking-wide text-ink-400">
+                  <th className="px-4 py-3">{copy.feature}</th>
+                  <th className="px-4 py-3">{copy.description}</th>
+                  <th className="px-4 py-3 text-end">{copy.rollout}</th>
+                  <th className="px-4 py-3">{copy.status}</th>
+                  <th className="px-4 py-3 text-end">{copy.action}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-50">
@@ -2366,15 +2379,15 @@ function MarketingTab() {
                       <div className="text-xs text-ink-600">{f.name}</div>
                     </td>
                     <td className="px-4 py-3 text-xs text-ink-500">{f.description || '—'}</td>
-                    <td className="px-4 py-3 text-right text-ink-600">{f.rollout_percentage}%</td>
+                    <td className="px-4 py-3 text-end text-ink-600">{f.rollout_percentage}%</td>
                     <td className="px-4 py-3">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                         f.is_enabled ? 'bg-sage-500/10 text-sage-600' : 'bg-ink-100 text-ink-500'
-                      }`}>{f.is_enabled ? 'Enabled' : 'Disabled'}</span>
+                      }`}>{f.is_enabled ? copy.enabled : copy.disabled}</span>
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-end">
                       <button onClick={() => toggleFlag(f)} className="kiyo-btn-secondary text-xs">
-                        {f.is_enabled ? 'Disable' : 'Enable'}
+                        {f.is_enabled ? copy.disable : copy.enable}
                       </button>
                     </td>
                   </tr>
@@ -2388,80 +2401,80 @@ function MarketingTab() {
       {/* Subscription Plans */}
       <div className="mt-8">
         <div className="flex items-center justify-between">
-          <h3 className="font-display text-base font-bold text-ink-900">Subscription Plans</h3>
+          <h3 className="font-display text-base font-bold text-ink-900">{copy.plansTitle}</h3>
           <button onClick={() => setShowPlanForm((v) => !v)} className="kiyo-btn-primary">
             <Sparkles className="h-4 w-4" />
-            <span className="hidden sm:inline">New Plan</span>
+            <span className="hidden sm:inline">{copy.newPlan}</span>
           </button>
         </div>
 
         {showPlanForm && (
           <div className="kiyo-card mt-3 space-y-3 p-5">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label className="mb-1 block text-xs font-medium text-ink-500">Plan Name</label>
+                <label className="mb-1 block text-xs font-medium text-ink-500">{copy.planName}</label>
                 <input value={newPlan.name} onChange={(e) => setNewPlan({ ...newPlan, name: e.target.value })}
-                  placeholder="Premium" className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
+                  placeholder={copy.planPlaceholder} className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-ink-500">Plan Type</label>
+                <label className="mb-1 block text-xs font-medium text-ink-500">{copy.planType}</label>
                 <select value={newPlan.type} onChange={(e) => setNewPlan({ ...newPlan, type: e.target.value })}
                   className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none">
-                  <option value="customer">Customer</option>
-                  <option value="restaurant">Restaurant</option>
-                  <option value="driver">Driver</option>
+                  <option value="customer">{copy.customer}</option>
+                  <option value="restaurant">{copy.restaurant}</option>
+                  <option value="driver">{copy.driver}</option>
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-ink-500">Monthly Price (DZD)</label>
+                <label className="mb-1 block text-xs font-medium text-ink-500">{copy.monthlyPrice}</label>
                 <input type="number" value={newPlan.price} onChange={(e) => setNewPlan({ ...newPlan, price: e.target.value })}
                   placeholder="1000" className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-ink-500">Features</label>
+                <label className="mb-1 block text-xs font-medium text-ink-500">{copy.features}</label>
                 <input value={newPlan.features} onChange={(e) => setNewPlan({ ...newPlan, features: e.target.value })}
-                  placeholder="Free delivery, priority support" className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
+                  placeholder={copy.featuresPlaceholder} className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
               </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={createPlan} className="kiyo-btn-primary">Create</button>
-              <button onClick={() => setShowPlanForm(false)} className="kiyo-btn-secondary">Cancel</button>
+              <button onClick={createPlan} className="kiyo-btn-primary">{copy.create}</button>
+              <button onClick={() => setShowPlanForm(false)} className="kiyo-btn-secondary">{copy.cancel}</button>
             </div>
           </div>
         )}
 
         {plans.length === 0 ? (
-          <div className="kiyo-card mt-3 p-6 text-center text-sm text-ink-400">No subscription plans yet</div>
+          <div className="kiyo-card mt-3 p-6 text-center text-sm text-ink-400">{copy.noPlans}</div>
         ) : (
           <div className="kiyo-card mt-3 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-ink-100 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
-                  <th className="px-4 py-3">Plan</th>
-                  <th className="px-4 py-3">Type</th>
-                  <th className="px-4 py-3 text-right">Price/mo</th>
-                  <th className="px-4 py-3">Features</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Action</th>
+                <tr className="border-b border-ink-100 text-start text-xs font-semibold uppercase tracking-wide text-ink-400">
+                  <th className="px-4 py-3">{copy.plan}</th>
+                  <th className="px-4 py-3">{copy.type}</th>
+                  <th className="px-4 py-3 text-end">{copy.priceMonth}</th>
+                  <th className="px-4 py-3">{copy.features}</th>
+                  <th className="px-4 py-3">{copy.status}</th>
+                  <th className="px-4 py-3 text-end">{copy.action}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-50">
                 {plans.map((p) => (
                   <tr key={p.id} className="hover:bg-ink-50/50">
                     <td className="px-4 py-3 font-medium text-ink-900">{p.name}</td>
-                    <td className="px-4 py-3 capitalize text-ink-600">{p.plan_type}</td>
-                    <td className="px-4 py-3 text-right text-ink-700">{p.price_monthly} DZD</td>
+                    <td className="px-4 py-3 text-ink-600">{planTypeLabel(p.plan_type)}</td>
+                    <td className="px-4 py-3 text-end text-ink-700">{p.price_monthly} DZD</td>
                     <td className="px-4 py-3 text-xs text-ink-500">
                       {(p.features as Record<string, string>)?.description || '—'}
                     </td>
                     <td className="px-4 py-3">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                         p.is_active ? 'bg-sage-500/10 text-sage-600' : 'bg-ink-100 text-ink-500'
-                      }`}>{p.is_active ? 'Active' : 'Inactive'}</span>
+                      }`}>{p.is_active ? copy.active : copy.inactive}</span>
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-end">
                       <button onClick={() => togglePlan(p)} className="kiyo-btn-secondary text-xs">
-                        {p.is_active ? 'Disable' : 'Enable'}
+                        {p.is_active ? copy.disable : copy.enable}
                       </button>
                     </td>
                   </tr>
@@ -2526,7 +2539,7 @@ function AlertsTab() {
                   <span className="block truncate text-sm font-medium text-ink-800">
                     #{o.id.slice(0, 8)} / {orderStatusLabel(o.status, locale)}
                   </span>
-                  <span className="text-xs text-ink-400">{new Date(o.created_at).toLocaleString()}</span>
+                  <span className="text-xs text-ink-400">{new Date(o.created_at).toLocaleString(locale === 'ar' ? 'ar-DZ' : locale === 'fr' ? 'fr-DZ' : 'en-DZ')}</span>
                 </div>
                 <span className="text-sm font-medium text-ink-700">{o.total} DZD</span>
               </li>
@@ -2830,7 +2843,8 @@ function AdminTicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () 
 
 // ===================== MONITORING =====================
 function MonitoringTab() {
-  const { t } = useT();
+  const { t, locale } = useT();
+  const copy = adminCopy(locale).monitoring;
   const [audit, setAudit] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -2866,13 +2880,13 @@ function MonitoringTab() {
       {/* Audit log */}
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="font-display text-base font-bold text-ink-900">Audit Logs</h3>
+          <h3 className="font-display text-base font-bold text-ink-900">{copy.auditLogs}</h3>
           <Link to="/admin/audit" className="inline-flex items-center gap-1 text-xs font-semibold text-ember-600 hover:text-ember-700">
-            View all <ChevronRight className="h-3 w-3" />
+            {copy.viewAll} <ChevronRight className={`h-3 w-3 ${locale === 'ar' ? 'rotate-180' : ''}`} />
           </Link>
         </div>
         {audit.length === 0 ? (
-          <div className="kiyo-card p-6 text-center text-sm text-ink-400">No audit entries</div>
+          <div className="kiyo-card p-6 text-center text-sm text-ink-400">{copy.noEntries}</div>
         ) : (
           <ul className="kiyo-card divide-y divide-ink-100">
             {audit.map((log) => (
@@ -2882,14 +2896,14 @@ function MonitoringTab() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-ink-800">
-                    {log.action.replace(/_/g, ' ')}
+                    {auditActionLabel(log.action, locale)}
                   </span>
                   {log.target_type && (
                     <span className="text-xs text-ink-400">{log.target_type}</span>
                   )}
                 </div>
                 <span className="flex-shrink-0 text-xs text-ink-400">
-                  {new Date(log.created_at).toLocaleString()}
+                  {new Date(log.created_at).toLocaleString(locale === 'ar' ? 'ar-DZ' : locale === 'fr' ? 'fr-DZ' : 'en-DZ')}
                 </span>
               </li>
             ))}

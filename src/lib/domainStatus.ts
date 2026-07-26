@@ -105,6 +105,45 @@ const DELIVERY_STATUS: Record<Locale, Record<string, string>> = {
   },
 };
 
+const AUDIT_ACTION: Record<Locale, Record<string, string>> = {
+  en: {
+    status_change: 'Status changed', application_submitted: 'Application submitted',
+    application_transition: 'Application status changed', internal_notes_updated: 'Internal notes updated',
+    preliminary_approval: 'Preliminary approval granted', restaurant_published: 'Restaurant published',
+    rule_override_set: 'Business rule override saved', rule_override_removed: 'Business rule override removed',
+    delivery_status_transition: 'Delivery status changed', data_export_requested: 'Data export requested',
+    account_deletion_requested: 'Account deletion requested', settlement_generated: 'Settlement generated',
+    settlement_marked_paid: 'Settlement marked paid', user_suspended: 'User suspended',
+    user_restored: 'User restored', restaurant_admin_update: 'Restaurant updated by admin',
+    platform_setting_updated: 'Platform setting updated', force_close_order: 'Order force-closed',
+    update_ticket_status: 'Support ticket status changed',
+  },
+  fr: {
+    status_change: 'Statut modifié', application_submitted: 'Candidature envoyée',
+    application_transition: 'Statut de candidature modifié', internal_notes_updated: 'Notes internes mises à jour',
+    preliminary_approval: 'Approbation préliminaire accordée', restaurant_published: 'Restaurant publié',
+    rule_override_set: 'Exception de règle enregistrée', rule_override_removed: 'Exception de règle supprimée',
+    delivery_status_transition: 'Statut de livraison modifié', data_export_requested: 'Export de données demandé',
+    account_deletion_requested: 'Suppression de compte demandée', settlement_generated: 'Règlement généré',
+    settlement_marked_paid: 'Règlement marqué payé', user_suspended: 'Utilisateur suspendu',
+    user_restored: 'Utilisateur rétabli', restaurant_admin_update: 'Restaurant mis à jour par l’administration',
+    platform_setting_updated: 'Paramètre de plateforme modifié', force_close_order: 'Commande clôturée par l’administration',
+    update_ticket_status: 'Statut du ticket d’assistance modifié',
+  },
+  ar: {
+    status_change: 'تم تغيير الحالة', application_submitted: 'تم إرسال طلب الانضمام',
+    application_transition: 'تم تغيير حالة الطلب', internal_notes_updated: 'تم تحديث الملاحظات الداخلية',
+    preliminary_approval: 'تمت الموافقة الأولية', restaurant_published: 'تم نشر المطعم',
+    rule_override_set: 'تم حفظ استثناء قاعدة العمل', rule_override_removed: 'تم حذف استثناء قاعدة العمل',
+    delivery_status_transition: 'تم تغيير حالة التوصيل', data_export_requested: 'تم طلب تصدير البيانات',
+    account_deletion_requested: 'تم طلب حذف الحساب', settlement_generated: 'تم إنشاء التسوية',
+    settlement_marked_paid: 'تم تسجيل التسوية كمدفوعة', user_suspended: 'تم تعليق المستخدم',
+    user_restored: 'تمت إعادة تفعيل المستخدم', restaurant_admin_update: 'تم تحديث المطعم من الإدارة',
+    platform_setting_updated: 'تم تحديث إعداد المنصة', force_close_order: 'تم إغلاق الطلب إداريًا',
+    update_ticket_status: 'تم تغيير حالة تذكرة الدعم',
+  },
+};
+
 function fallbackStatus(status: string) {
   return status.replace(/_/g, ' ');
 }
@@ -127,4 +166,8 @@ export function orderStatusLabel(status: string, locale: Locale) {
 
 export function deliveryStatusLabel(status: string, locale: Locale) {
   return DELIVERY_STATUS[locale][status] ?? fallbackStatus(status);
+}
+
+export function auditActionLabel(action: string, locale: Locale) {
+  return AUDIT_ACTION[locale][action] ?? fallbackStatus(action);
 }

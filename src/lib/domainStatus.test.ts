@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  auditActionLabel,
   applicationStatusLabel,
   deliveryStatusLabel,
   orderStatusLabel,
@@ -21,5 +22,11 @@ describe('domain status localization', () => {
   it('covers customer order and driver delivery states', () => {
     expect(orderStatusLabel('out_for_delivery', 'fr')).toBe('En livraison');
     expect(deliveryStatusLabel('picking_up', 'ar')).toBe('في الطريق إلى المطعم');
+  });
+
+  it('turns audit event codes into owner-readable localized actions', () => {
+    expect(auditActionLabel('restaurant_published', 'ar')).toBe('تم نشر المطعم');
+    expect(auditActionLabel('rule_override_set', 'fr')).toBe('Exception de règle enregistrée');
+    expect(auditActionLabel('future_event', 'en')).toBe('future event');
   });
 });
