@@ -1,6 +1,7 @@
 name: PR7 Conflict Diagnose
 
 on:
+  pull_request:
   push:
     branches:
       - agent/premium-platform-continuation
