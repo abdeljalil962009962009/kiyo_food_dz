@@ -83,13 +83,20 @@ export default function RestaurantMenuPage() {
   };
 
   const deleteItem = async (item: MenuItem) => {
+    if (!await confirmAction({
+      title: t('restaurant.delete'),
+      message: t('restaurant.deleteItemConfirm').replace('{name}', item.name),
+      confirmLabel: t('restaurant.delete'),
+      tone: 'danger',
+    })) return;
+
     const previous = items;
     setItems((prev) => prev.filter((i) => i.id !== item.id));
     const { error: e } = await supabase.from('menu_items').delete().eq('id', item.id);
     if (e) {
       setItems(previous);
       console.error(e);
-      setError(t('error.genericBody'));
+      setError(userFacingError(e, locale, t('error.genericBody')));
     }
   };
 
@@ -104,7 +111,7 @@ export default function RestaurantMenuPage() {
     return (
       <AppShell>
         <ErrorState
-          title={t('error.genericTitle')} message={error ?? 'Error'}
+          title={t('error.genericTitle')} message={error ?? t('error.genericBody')}
           onRetry={load} retryLabel={t('error.retry')}
         />
       </AppShell>
@@ -176,7 +183,7 @@ export default function RestaurantMenuPage() {
                       const { error: e } = await supabase.from('menu_categories').delete().eq('id', cat.id);
                       if (e) {
                         console.error(e);
-                        setError(t('error.genericBody'));
+                        setError(userFacingError(e, locale, t('error.genericBody')));
                         return;
                       }
                       setCategories((prev) => prev.filter((c) => c.id !== cat.id));

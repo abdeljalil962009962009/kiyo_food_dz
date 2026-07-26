@@ -270,7 +270,7 @@ export default function RestaurantSettingsPage() {
     return (
       <AppShell>
         <ErrorState
-          title={t('error.genericTitle')} message={error ?? 'Error'}
+          title={t('error.genericTitle')} message={error ?? t('error.genericBody')}
           onRetry={load} retryLabel={t('error.retry')}
         />
       </AppShell>
@@ -508,13 +508,17 @@ export default function RestaurantSettingsPage() {
                   key={status}
                   onClick={async () => {
                     if (!restaurant) return;
+                    setSaveError(null);
                     const { error: e } = await supabase
                       .from('restaurants')
                       .update({ operational_status: status })
                       .eq('id', restaurant.id);
-                    if (!e) {
-                      setRestaurant({ ...restaurant, operational_status: status as Restaurant['operational_status'] });
+                    if (e) {
+                      console.error('[Kiyo] Restaurant operational status update failed:', e);
+                      setSaveError(userFacingError(e, locale, t('error.genericBody')));
+                      return;
                     }
+                    setRestaurant({ ...restaurant, operational_status: status as Restaurant['operational_status'] });
                   }}
                   className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
                     restaurant.operational_status === status

@@ -6,14 +6,22 @@ import { supabase, type Restaurant } from '../lib/supabase';
 import { useWilaya, getWilayaName } from '../context/WilayaContext';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
-import { ErrorState, PremiumEmptyState } from '../components/feedback';
+import { ErrorState, PremiumEmptyState, Spinner } from '../components/feedback';
 import { RestaurantImage } from '../components/ui';
 import { haversineKm } from '../lib/geo';
 import { withExponentialBackoff } from '../lib/locationNetwork';
 import { useRealtime } from '../lib/useRealtime';
+import { sanitizeMarketplaceSearchTerm, scoreMarketplaceRestaurant } from '../lib/marketplaceSearch';
+import { userFacingError } from '../lib/userFacingError';
 
 type RestaurantWithDistance = Restaurant & {
   distance_km?: number | null;
+};
+
+type MenuSearchMatch = {
+  restaurant_id: string;
+  name: string;
+  price: string;
 };
 
 const pageCopy = {
@@ -28,6 +36,10 @@ const pageCopy = {
     verified: 'Verified by Kiyo Food',
     preparation: 'Prep. ~{minutes} min',
     reviews: '{count} reviews',
+    dishMatch: 'Matches dish: {dish} · {price} DZD',
+    searchDelayed: 'Dish search is delayed. Restaurant search still works.',
+    retryDishSearch: 'Retry dish search',
+    searchingMenu: 'Searching restaurants and dishes',
   },
   fr: {
     trustAvailability: 'Disponibilité vérifiée avant la commande',
@@ -40,6 +52,10 @@ const pageCopy = {
     verified: 'Vérifié par Kiyo Food',
     preparation: 'Préparation ~{minutes} min',
     reviews: '{count} avis',
+    dishMatch: 'Plat correspondant : {dish} · {price} DZD',
+    searchDelayed: 'La recherche de plats est retardée. La recherche de restaurants reste disponible.',
+    retryDishSearch: 'Relancer la recherche de plats',
+    searchingMenu: 'Recherche dans les restaurants et les plats',
   },
   ar: {
     trustAvailability: 'يتم التحقق من التوفر قبل تأكيد الطلب',
@@ -52,6 +68,10 @@ const pageCopy = {
     verified: 'موثّق من كيو فود',
     preparation: 'التحضير نحو {minutes} د',
     reviews: '{count} تقييم',
+    dishMatch: 'طبق مطابق: {dish} · {price} دج',
+    searchDelayed: 'البحث عن الأطباق متأخر. لا يزال البحث عن المطاعم متاحاً.',
+    retryDishSearch: 'إعادة البحث عن الأطباق',
+    searchingMenu: 'جارٍ البحث في المطاعم والأطباق',
   },
 } as const;
 
@@ -64,6 +84,10 @@ export default function RestaurantsPage() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'open' | 'top'>('all');
+  const [menuMatches, setMenuMatches] = useState<Map<string, MenuSearchMatch>>(new Map());
+  const [menuSearchLoading, setMenuSearchLoading] = useState(false);
+  const [menuSearchError, setMenuSearchError] = useState<string | null>(null);
+  const [menuSearchRetry, setMenuSearchRetry] = useState(0);
   const currentLocation = useMemo(() => deliveryLocation
     ? { lat: deliveryLocation.lat, lng: deliveryLocation.lng }
     : null, [deliveryLocation]);
@@ -140,6 +164,62 @@ export default function RestaurantsPage() {
     filter: selectedWilaya?.id ? { wilaya_id: `eq.${selectedWilaya.id}` } : undefined,
   });
 
+  useEffect(() => {
+    const term = sanitizeMarketplaceSearchTerm(query);
+    if (term.length < 2) {
+      setMenuMatches(new Map());
+      setMenuSearchLoading(false);
+      setMenuSearchError(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    setMenuSearchLoading(true);
+    setMenuSearchError(null);
+    const timer = window.setTimeout(() => {
+      void withExponentialBackoff(async () => {
+        const pattern = `%${term}%`;
+        const result = await supabase
+          .from('menu_items')
+          .select('restaurant_id,name,price')
+          .eq('is_available', true)
+          .or(`name.ilike.${pattern},description.ilike.${pattern}`)
+          .limit(40)
+          .abortSignal(controller.signal);
+        if (result.error) throw result.error;
+        return (result.data as MenuSearchMatch[] | null) ?? [];
+      }, {
+        attempts: 2,
+        timeoutMs: 12_000,
+        shouldRetry: (searchError) => !(searchError instanceof DOMException && searchError.name === 'AbortError'),
+      })
+        .then((matches) => {
+          if (controller.signal.aborted) return;
+          const bestByRestaurant = new Map<string, MenuSearchMatch>();
+          for (const match of matches) {
+            if (!bestByRestaurant.has(match.restaurant_id)) {
+              bestByRestaurant.set(match.restaurant_id, match);
+            }
+          }
+          setMenuMatches(bestByRestaurant);
+        })
+        .catch((searchError: unknown) => {
+          if (controller.signal.aborted) return;
+          console.error('[Kiyo] Dish search failed:', searchError);
+          setMenuMatches(new Map());
+          setMenuSearchError(userFacingError(searchError, locale, tx.searchDelayed));
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setMenuSearchLoading(false);
+        });
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [locale, menuSearchRetry, query, tx.searchDelayed]);
+
   const filtered = useMemo(() => {
     let list = items;
     if (filter === 'open') list = list.filter((r) => r.operational_status === 'open');
@@ -148,15 +228,21 @@ export default function RestaurantsPage() {
       list = [...list].sort((a, b) => (a.distance_km ?? Number.MAX_VALUE) - (b.distance_km ?? Number.MAX_VALUE));
     }
     if (query.trim()) {
-      const q = query.toLowerCase();
-      list = list.filter(
-        (r) =>
-          r.name.toLowerCase().includes(q) ||
-          (r.cuisine ?? []).some((c) => c.toLowerCase().includes(q)),
-      );
+      list = list
+        .map((restaurant) => ({
+          restaurant,
+          score: scoreMarketplaceRestaurant(
+            restaurant,
+            query,
+            menuMatches.get(restaurant.id)?.name,
+          ),
+        }))
+        .filter(({ score }) => score > 0)
+        .sort((a, b) => b.score - a.score)
+        .map(({ restaurant }) => restaurant);
     }
     return list;
-  }, [items, filter, query, currentLocation]);
+  }, [items, filter, query, currentLocation, menuMatches]);
 
   return (
     <AppShell>
@@ -183,6 +269,16 @@ export default function RestaurantsPage() {
             className={`kiyo-input ${locale === 'ar' ? 'pr-10' : 'pl-10'}`}
             aria-label={t('market.searchPlaceholder')}
           />
+          {menuSearchLoading && (
+            <span
+              className="pointer-events-none absolute top-1/2 -translate-y-1/2 text-ember-600"
+              style={{ insetInlineEnd: '0.75rem' }}
+              role="status"
+              aria-label={tx.searchingMenu}
+            >
+              <Spinner className="h-4 w-4" />
+            </span>
+          )}
         </div>
         <div className="flex gap-2">
           {[
@@ -202,6 +298,22 @@ export default function RestaurantsPage() {
           ))}
         </div>
       </div>
+
+      {menuSearchError && query.trim().length >= 2 && (
+        <div
+          className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-warning-200 bg-warning-50 px-3 py-2 text-xs text-warning-800"
+          role="status"
+        >
+          <span>{menuSearchError}</span>
+          <button
+            type="button"
+            className="min-h-11 font-bold underline underline-offset-2"
+            onClick={() => setMenuSearchRetry((value) => value + 1)}
+          >
+            {tx.retryDishSearch}
+          </button>
+        </div>
+      )}
 
       <div className="mb-5 grid gap-2 text-xs font-semibold text-ink-600 sm:grid-cols-3">
         <TrustPill icon={<Clock className="h-4 w-4" />} label={tx.trustAvailability} />
@@ -229,6 +341,18 @@ export default function RestaurantsPage() {
             onRetry={load}
             retryLabel={t('error.retry')}
           />
+        ) : menuSearchLoading && filtered.length === 0 && query.trim().length >= 2 ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label={tx.searchingMenu}>
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="kiyo-card overflow-hidden">
+                <div className="kiyo-skeleton h-36 w-full rounded-none" />
+                <div className="p-4">
+                  <SkeletonLine w="w-2/3" />
+                  <SkeletonLine w="w-1/2" h="h-3" />
+                </div>
+              </div>
+            ))}
+          </div>
         ) : filtered.length === 0 ? (
           <PremiumEmptyState
             icon={<MapPin className="h-7 w-7" />}
@@ -305,6 +429,13 @@ export default function RestaurantsPage() {
                   )}
                   {r.description && (
                     <p className="mt-2 line-clamp-2 text-sm text-ink-500">{r.description}</p>
+                  )}
+                  {menuMatches.has(r.id) && (
+                    <p className="mt-2 rounded-lg bg-ember-50 px-2.5 py-2 text-xs font-semibold text-ember-800">
+                      {tx.dishMatch
+                        .replace('{dish}', menuMatches.get(r.id)?.name ?? '')
+                        .replace('{price}', String(Number(menuMatches.get(r.id)?.price ?? 0)))}
+                    </p>
                   )}
                 </div>
               </Link>

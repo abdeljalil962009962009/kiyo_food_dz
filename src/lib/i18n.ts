@@ -180,6 +180,7 @@ export type TranslationKey =
   | 'restaurant.category'
   | 'restaurant.categoryName'
   | 'restaurant.deleteCategoryConfirm'
+  | 'restaurant.deleteItemConfirm'
   | 'restaurant.itemName'
   | 'restaurant.description'
   | 'restaurant.delete'
@@ -847,6 +848,7 @@ const en: Dict = {
   'restaurant.category': 'Category',
   'restaurant.categoryName': 'Category name',
   'restaurant.deleteCategoryConfirm': 'Delete category "{name}"? Its items will stay in your menu without a category.',
+  'restaurant.deleteItemConfirm': 'Delete "{name}" from the menu? This action cannot be undone.',
   'restaurant.itemName': 'Item name',
   'restaurant.description': 'Description',
   'restaurant.delete': 'Delete',
@@ -1509,6 +1511,7 @@ const fr: Dict = {
   'restaurant.category': 'Catégorie',
   'restaurant.categoryName': 'Nom de catégorie',
   'restaurant.deleteCategoryConfirm': 'Supprimer la catégorie « {name} » ? Ses plats resteront dans votre menu sans catégorie.',
+  'restaurant.deleteItemConfirm': 'Supprimer « {name} » du menu ? Cette action est irréversible.',
   'restaurant.itemName': 'Nom du plat',
   'restaurant.description': 'Description',
   'restaurant.delete': 'Supprimer',
@@ -2171,6 +2174,7 @@ const ar: Dict = {
   'restaurant.category': 'الفئة',
   'restaurant.categoryName': 'اسم الفئة',
   'restaurant.deleteCategoryConfirm': 'هل تريد حذف فئة "{name}"؟ ستبقى أطباقها في قائمتك بدون فئة.',
+  'restaurant.deleteItemConfirm': 'هل تريد حذف "{name}" من القائمة؟ لا يمكن التراجع عن هذا الإجراء.',
   'restaurant.itemName': 'اسم الطبق',
   'restaurant.description': 'الوصف',
   'restaurant.delete': 'حذف',
