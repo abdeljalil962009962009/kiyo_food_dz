@@ -19,6 +19,7 @@ import { useRealtime } from '../lib/useRealtime';
 import { checkoutEtaWindow } from '../lib/deliveryEta';
 import { userFacingError } from '../lib/userFacingError';
 import { algeriaAvailabilityDateRange, restaurantAcceptsOrders } from '../lib/restaurantAvailability';
+import { checkoutRecovery, deliveryQuoteNeedsRefresh, type CheckoutRecoveryKind } from '../lib/checkoutRecovery';
 
 type Step = 'details' | 'review' | 'success';
 type ContactPhoneMode = 'account' | 'alternate';
@@ -65,6 +66,8 @@ export default function CheckoutPage() {
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitRecovery, setSubmitRecovery] = useState<CheckoutRecoveryKind>('generic');
+  const [quoteClock, setQuoteClock] = useState(() => Date.now());
   const [placedOrderId, setPlacedOrderId] = useState<string | null>(null);
   const [saveAddressPrompt, setSaveAddressPrompt] = useState<LocationInsights | null>(null);
   const [savingRepeatedAddress, setSavingRepeatedAddress] = useState(false);
@@ -210,6 +213,17 @@ export default function CheckoutPage() {
   }, [mapLocation?.confirmed, mapLocation?.lat, mapLocation?.lng, recalcFinancials, restaurantGeo]);
 
   useEffect(() => {
+    if (step !== 'review' || !finance?.route_expires_at) return;
+    setQuoteClock(Date.now());
+    const timer = window.setInterval(() => setQuoteClock(Date.now()), 15_000);
+    return () => window.clearInterval(timer);
+  }, [finance?.route_expires_at, step]);
+
+  const quoteNeedsRefresh = finance
+    ? deliveryQuoteNeedsRefresh(finance.route_expires_at, quoteClock)
+    : false;
+
+  useEffect(() => {
     if (step !== 'success' || !profile || !mapLocation?.confirmed) return;
     let active = true;
     void withExponentialBackoff(async () => {
@@ -296,6 +310,17 @@ export default function CheckoutPage() {
       setSubmitError(t('checkout.errorCalc'));
       return;
     }
+    if (deliveryQuoteNeedsRefresh(finance.route_expires_at)) {
+      clearCachedDeliveryQuotes();
+      setFinance(null);
+      setCalcError(checkoutRecovery(
+        new Error('Delivery route quote expired.'),
+        locale,
+        t('checkout.errorCalc'),
+      ).message);
+      setStep('details');
+      return;
+    }
     const contactPhone = normalizeAlgerianPhone(selectedPhone);
     if (!contactPhone) {
       setSubmitError(t('checkout.invalidPhone'));
@@ -303,6 +328,7 @@ export default function CheckoutPage() {
     }
     setSubmitting(true);
     setSubmitError(null);
+    setSubmitRecovery('generic');
 
     const controller = new AbortController();
     const t0 = setTimeout(() => controller.abort(), SUBMIT_TIMEOUT_MS);
@@ -372,13 +398,28 @@ export default function CheckoutPage() {
       if (err instanceof DOMException && err.name === 'AbortError') {
         setSubmitError(t('checkout.error'));
       } else {
-        setSubmitError(userFacingError(err, locale, t('checkout.error')));
+        const fallback = userFacingError(err, locale, t('checkout.error'));
+        const recovery = checkoutRecovery(err, locale, fallback);
+        setSubmitRecovery(recovery.kind);
+        if (
+          recovery.kind === 'refresh_quote'
+          || recovery.kind === 'restaurant_closed'
+          || recovery.kind === 'outside_zone'
+          || recovery.kind === 'minimum_order'
+        ) {
+          clearCachedDeliveryQuotes();
+          setFinance(null);
+          setCalcError(recovery.message);
+          setStep('details');
+        } else {
+          setSubmitError(recovery.message);
+        }
       }
     } finally {
       clearTimeout(t0);
       setSubmitting(false);
     }
-  }, [submitting, profile, cart, address, selectedPhone, notes, t, clear, locale, mapLocation, finance?.route_quote_id]);
+  }, [submitting, profile, cart, address, selectedPhone, notes, t, clear, locale, mapLocation, finance?.route_quote_id, finance?.route_expires_at]);
 
   // Cart empty states for /checkout accessed without items.
   if (cart.lines.length === 0 && step !== 'success') {
@@ -605,9 +646,14 @@ export default function CheckoutPage() {
                   {t('common.loading')}
                 </div>
               </div>
-            ) : calcError ? (
+            ) : calcError || quoteNeedsRefresh ? (
               <ErrorState
-                title={t('error.genericTitle')} message={calcError}
+                title={t('error.genericTitle')}
+                message={calcError ?? checkoutRecovery(
+                  new Error('Delivery route quote expired.'),
+                  locale,
+                  t('checkout.errorCalc'),
+                ).message}
                 onRetry={recalcFinancials} retryLabel={t('error.retry')}
               />
             ) : finance ? (
@@ -657,15 +703,27 @@ export default function CheckoutPage() {
                 </div>
 
                 {submitError && (
-                  <div className="mb-3 flex items-start gap-2 rounded-lg bg-error-500/10 px-3 py-2.5 text-xs text-error-600">
-                    <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-                    <span className="font-medium">{submitError}</span>
-                  </div>
+                  <>
+                    <div className="mb-3 flex items-start gap-2 rounded-lg bg-error-500/10 px-3 py-2.5 text-xs text-error-600">
+                      <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                      <span className="font-medium">{submitError}</span>
+                    </div>
+                    {submitRecovery === 'review_cart' && (
+                      <button
+                        type="button"
+                        onClick={() => navigate('/cart')}
+                        className="kiyo-btn-secondary mb-3 w-full"
+                      >
+                        <ShoppingCart className="h-4 w-4" />
+                        {t('checkout.backToCart')}
+                      </button>
+                    )}
+                  </>
                 )}
 
                 <button
                   onClick={submitOrder}
-                  disabled={submitting}
+                  disabled={submitting || quoteNeedsRefresh || restaurantGeo?.operationalStatus === 'closed'}
                   className="kiyo-btn-primary w-full"
                 >
                   {submitting ? (
