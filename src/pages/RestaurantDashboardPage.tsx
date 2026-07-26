@@ -17,6 +17,7 @@ import { useActionDialog } from '../context/ActionDialogContext';
 import { useSettings } from '../context/SettingsContext';
 import { RestaurantReviews } from '../components/RestaurantReviews';
 import { applyReviewChange } from '../lib/reviews';
+import { withExponentialBackoff } from '../lib/locationNetwork';
 
 export default function RestaurantDashboardPage() {
   const { t, locale } = useT();
@@ -31,6 +32,7 @@ export default function RestaurantDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [financialsError, setFinancialsError] = useState<string | null>(null);
+  const [reviewsLoadError, setReviewsLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [newOrderAlert, setNewOrderAlert] = useState<OrderRow | null>(null);
@@ -43,50 +45,49 @@ export default function RestaurantDashboardPage() {
   const [replyingReviewId, setReplyingReviewId] = useState<string | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (foreground = true) => {
     if (!profile) return;
-    setLoading(true);
-    setError(null);
+    if (foreground) {
+      setLoading(true);
+      setError(null);
+    }
     try {
-      const { data: managedRestaurantId, error: managedRestaurantError } = await supabase.rpc('get_user_restaurant_id');
-      if (managedRestaurantError) throw managedRestaurantError;
+      const managedRestaurantId = await withExponentialBackoff(async () => {
+        const { data, error: managedRestaurantError } = await supabase.rpc('get_user_restaurant_id');
+        if (managedRestaurantError) throw managedRestaurantError;
+        return data as string | null;
+      }, { attempts: 3, baseDelayMs: 700, timeoutMs: 15000 });
       const { data: r, error: re } = managedRestaurantId
-        ? await supabase.from('restaurants').select('*').eq('id', managedRestaurantId).maybeSingle()
+        ? await withExponentialBackoff(
+          async () => supabase.from('restaurants').select('*').eq('id', managedRestaurantId).maybeSingle(),
+          { attempts: 3, baseDelayMs: 700, timeoutMs: 15000 },
+        )
         : { data: null, error: null };
       if (re) throw re;
       
       if (!r) {
-        setError(t('restaurant.notAssigned'));
+        if (foreground) setError(t('restaurant.notAssigned'));
         return;
       }
 
       const activeRestaurant = r as Restaurant;
       setRestaurant(activeRestaurant);
 
-      const [ordersResult, reviewsResult] = await Promise.all([
-        supabase
+      const ordersResult = await withExponentialBackoff(
+        async () => supabase
           .from('orders')
           .select('*')
           .eq('restaurant_id', activeRestaurant.id)
           .order('created_at', { ascending: false })
           .limit(100),
-        features.reviews
-          ? supabase
-              .from('reviews')
-              .select('id,restaurant_id,customer_id,order_id,rating,comment,owner_reply,replied_at,is_hidden,created_at,updated_at')
-              .eq('restaurant_id', activeRestaurant.id)
-              .eq('is_hidden', false)
-              .order('created_at', { ascending: false })
-              .limit(50)
-          : Promise.resolve({ data: [], error: null }),
-      ]);
+        { attempts: 3, baseDelayMs: 700, timeoutMs: 15000 },
+      );
       const { data: o, error: oe } = ordersResult;
       if (oe) throw oe;
-      if (reviewsResult.error) throw reviewsResult.error;
-      setReviews((reviewsResult.data as ReviewRow[]) ?? []);
       const list = (o as OrderRow[]) ?? [];
       
       setOrders(list);
+      setError(null);
       if (list.length === 0) {
         setItemsMap({});
         setFinancials({
@@ -98,27 +99,65 @@ export default function RestaurantDashboardPage() {
           orders_count: 0
         });
       } else {
-        const itemsResults = await Promise.all(
-          list.map((order) =>
-            supabase.from('order_items').select('*').eq('order_id', order.id),
-          ),
-        );
+        const itemRows = await withExponentialBackoff(async () => {
+          const { data, error: itemsError } = await supabase
+            .from('order_items')
+            .select('*')
+            .in('order_id', list.map((order) => order.id));
+          if (itemsError) throw itemsError;
+          return (data as OrderItemRow[]) ?? [];
+        }, { attempts: 3, baseDelayMs: 700, timeoutMs: 15000 });
         const map: Record<string, OrderItemRow[]> = {};
-        list.forEach((order, i) => {
-          if (itemsResults[i].error) throw itemsResults[i].error;
-          map[order.id] = (itemsResults[i].data as OrderItemRow[]) ?? [];
-        });
+        list.forEach((order) => { map[order.id] = []; });
+        itemRows.forEach((item) => { map[item.order_id]?.push(item); });
         setItemsMap(map);
+      }
+
+      if (features.reviews) {
+        try {
+          const reviewsResult = await withExponentialBackoff(
+            async () => supabase
+              .from('reviews')
+              .select('id,restaurant_id,customer_id,order_id,rating,comment,owner_reply,replied_at,is_hidden,created_at,updated_at')
+              .eq('restaurant_id', activeRestaurant.id)
+              .eq('is_hidden', false)
+              .order('created_at', { ascending: false })
+              .limit(50),
+            { attempts: 3, baseDelayMs: 700, timeoutMs: 15000 },
+          );
+          if (reviewsResult.error) throw reviewsResult.error;
+          setReviews((reviewsResult.data as ReviewRow[]) ?? []);
+          setReviewsLoadError(null);
+        } catch (reviewsError: unknown) {
+          console.error('[Kiyo] Restaurant reviews load failed:', reviewsError);
+          if (foreground) setReviewsLoadError(userFacingError(reviewsError, locale, t('error.genericBody')));
+        }
+      } else {
+        setReviews([]);
+        setReviewsLoadError(null);
       }
     } catch (err: unknown) {
       console.error(err);
-      setError(userFacingError(err, locale, t('error.genericBody')));
+      if (foreground) setError(userFacingError(err, locale, t('error.genericBody')));
     } finally {
-      setLoading(false);
+      if (foreground) setLoading(false);
     }
   }, [features.reviews, locale, profile, t]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void load(false);
+    };
+    const interval = window.setInterval(refresh, 30000);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [load]);
 
   // Load financials for this restaurant
   useEffect(() => {
@@ -126,10 +165,13 @@ export default function RestaurantDashboardPage() {
     void (async () => {
       try {
         setFinancialsError(null);
-        const { data, error: e } = await callUserAction('get_restaurant_financials', {
-          p_restaurant_id: restaurant.id,
-        });
-        if (e) throw e;
+        const data = await withExponentialBackoff(async () => {
+          const result = await callUserAction('get_restaurant_financials', {
+            p_restaurant_id: restaurant.id,
+          });
+          if (result.error) throw result.error;
+          return result.data;
+        }, { attempts: 3, baseDelayMs: 700, timeoutMs: 15000 });
         const f = data as {
           revenue: { today: number; this_month: number; all_time: number };
           commission_owed: string; payout_pending: string; orders_count: number;
@@ -186,10 +228,13 @@ export default function RestaurantDashboardPage() {
           return next;
         }
         // Fetch the immutable item snapshots before prepending a new order.
-        void supabase
-          .from('order_items')
-          .select('*')
-          .eq('order_id', payload.new.id as string)
+        void withExponentialBackoff(
+          async () => supabase
+            .from('order_items')
+            .select('*')
+            .eq('order_id', payload.new.id as string),
+          { attempts: 3, baseDelayMs: 700, timeoutMs: 15000 },
+        )
           .then(({ data, error: e }) => {
             if (e) {
               console.error('[Kiyo] Realtime order items load failed:', e);
@@ -284,19 +329,20 @@ export default function RestaurantDashboardPage() {
     setPendingAction(orderId);
     setActionError(null);
     try {
-      const { error: e } = await callUserAction('transition_order_status', {
+      const { data, error: e } = await callUserAction<OrderRow>('transition_order_status', {
         p_order_id: orderId,
         p_target_status: to,
         p_reason: reason,
         p_expected_updated_at: order.updated_at,
       });
-      if (e) throw e;
+      if (e || !data) throw e ?? new Error(t('error.genericBody'));
       setOrders((prev) =>
-        prev.map((o) => (o.id === orderId ? { ...o, status: to } : o)),
+        prev.map((o) => (o.id === orderId ? { ...o, ...data } : o)),
       );
     } catch (err) {
       console.error('[Kiyo] Order status update failed:', err);
       setActionError(userFacingError(err, locale, t('error.genericBody')));
+      await load(false);
     } finally {
       setPendingAction(null);
     }
@@ -430,13 +476,20 @@ export default function RestaurantDashboardPage() {
       <ErrorBoundary variant="inline">
         {features.reviews && (
           <Section title={t('restaurant.dash.reviews')} icon={Star} badge={reviews.length}>
-            <RestaurantReviews
-              reviews={reviews}
-              locale={locale}
-              ownerMode
-              pendingReviewId={replyingReviewId}
-              onReply={(review) => void replyToReview(review)}
-            />
+            {reviewsLoadError ? (
+              <div className="kiyo-card flex flex-wrap items-center justify-between gap-3 border border-warning-200 bg-warning-50 p-4 text-sm text-warning-800">
+                <span>{reviewsLoadError}</span>
+                <button type="button" onClick={() => void load(false)} className="min-h-11 font-bold underline">{t('error.retry')}</button>
+              </div>
+            ) : (
+              <RestaurantReviews
+                reviews={reviews}
+                locale={locale}
+                ownerMode
+                pendingReviewId={replyingReviewId}
+                onReply={(review) => void replyToReview(review)}
+              />
+            )}
           </Section>
         )}
 
