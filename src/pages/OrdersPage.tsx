@@ -23,6 +23,9 @@ import { LiveOrderTracker } from '../components/LiveOrderTracker';
 import { requestCustomerCancellation } from '../lib/orderActions';
 import { useActionDialog } from '../context/ActionDialogContext';
 import { useSettings } from '../context/SettingsContext';
+import { useAuth } from '../context/AuthContext';
+import { withExponentialBackoff } from '../lib/locationNetwork';
+import { userFacingError } from '../lib/userFacingError';
 
 type OrderWithRestaurant = OrderRow & {
   restaurants: {
@@ -62,6 +65,7 @@ export default function OrdersPage() {
   const { t, locale } = useT();
   const tx = copy[locale];
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const { replaceCart } = useCart();
   const { confirmAction } = useActionDialog();
   const { features } = useSettings();
@@ -69,44 +73,81 @@ export default function OrdersPage() {
   const [itemsByOrder, setItemsByOrder] = useState<Record<string, OrderItemRow[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reviewLoadError, setReviewLoadError] = useState<string | null>(null);
   const [reviewingOrder, setReviewingOrder] = useState<{ id: string; restaurantName: string } | null>(null);
   const [reviewedOrders, setReviewedOrders] = useState<Set<string>>(new Set());
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
   const [reorderingOrderId, setReorderingOrderId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const load = useCallback(async (foreground = true) => {
+    if (foreground) {
+      setLoading(true);
+      setError(null);
+    }
     try {
-      const { data, error: ordersError } = await supabase
-        .from('orders')
-        .select('*, restaurants(id, name, latitude, longitude, estimated_delivery_min)')
-        .order('created_at', { ascending: false })
-        .limit(50);
-      if (ordersError) throw ordersError;
-      const list = (data as OrderWithRestaurant[]) ?? [];
+      const list = await withExponentialBackoff(async () => {
+        const { data, error: ordersError } = await supabase
+          .from('orders')
+          .select('*, restaurants(id, name, latitude, longitude, estimated_delivery_min)')
+          .order('created_at', { ascending: false })
+          .limit(50);
+        if (ordersError) throw ordersError;
+        return (data as OrderWithRestaurant[]) ?? [];
+      }, { attempts: 3, baseDelayMs: 700, timeoutMs: 15000 });
       setOrders(list);
-      if (list.length === 0) { setItemsByOrder({}); return; }
+      setError(null);
+      if (list.length === 0) {
+        setItemsByOrder({});
+        setReviewedOrders(new Set());
+        setReviewLoadError(null);
+        return;
+      }
 
-      const results = await Promise.all(list.map((order) => supabase.from('order_items').select('*').eq('order_id', order.id)));
+      const orderIds = list.map((order) => order.id);
+      const itemRows = await withExponentialBackoff(async () => {
+        const { data, error: itemsError } = await supabase
+          .from('order_items')
+          .select('*')
+          .in('order_id', orderIds);
+        if (itemsError) throw itemsError;
+        return (data as OrderItemRow[]) ?? [];
+      }, { attempts: 3, baseDelayMs: 700, timeoutMs: 15000 });
       const itemMap: Record<string, OrderItemRow[]> = {};
-      list.forEach((order, index) => { itemMap[order.id] = (results[index].data as OrderItemRow[]) ?? []; });
+      orderIds.forEach((orderId) => { itemMap[orderId] = []; });
+      itemRows.forEach((item) => { itemMap[item.order_id]?.push(item); });
       setItemsByOrder(itemMap);
 
       const delivered = features.reviews
         ? list.filter((order) => order.status === 'delivered')
         : [];
-      const reviewChecks = await Promise.all(delivered.map((order) => supabase.from('reviews').select('id').eq('order_id', order.id).maybeSingle()));
-      const reviewed = new Set<string>();
-      delivered.forEach((order, index) => { if (reviewChecks[index].data) reviewed.add(order.id); });
-      setReviewedOrders(reviewed);
-    } catch {
-      setError(t('error.genericBody'));
+      if (delivered.length === 0) {
+        setReviewedOrders(new Set());
+        setReviewLoadError(null);
+      } else {
+        try {
+          const reviewRows = await withExponentialBackoff(async () => {
+            const { data, error: reviewsError } = await supabase
+              .from('reviews')
+              .select('order_id')
+              .in('order_id', delivered.map((order) => order.id));
+            if (reviewsError) throw reviewsError;
+            return (data as Array<{ order_id: string | null }>) ?? [];
+          }, { attempts: 3, baseDelayMs: 700, timeoutMs: 15000 });
+          setReviewedOrders(new Set(reviewRows.flatMap((review) => review.order_id ? [review.order_id] : [])));
+          setReviewLoadError(null);
+        } catch (reviewError: unknown) {
+          console.error(reviewError);
+          if (foreground) setReviewLoadError(userFacingError(reviewError, locale, t('error.genericBody')));
+        }
+      }
+    } catch (loadError: unknown) {
+      console.error(loadError);
+      if (foreground) setError(userFacingError(loadError, locale, t('error.genericBody')));
     } finally {
-      setLoading(false);
+      if (foreground) setLoading(false);
     }
-  }, [features.reviews, t]);
+  }, [features.reviews, locale, t]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -115,14 +156,17 @@ export default function OrdersPage() {
     setOrders((current) => current.map((order) => order.id === payload.new.id
       ? { ...order, ...(payload.new as OrderRow) } as OrderWithRestaurant
       : order));
-  }, { enabled: !loading });
+  }, {
+    enabled: Boolean(profile) && !loading,
+    filter: profile ? { customer_id: `eq.${profile.id}` } : undefined,
+  });
 
   const activeOrder = orders.find((order) => ['pending', 'accepted', 'preparing', 'out_for_delivery'].includes(order.status));
   const reviewCandidate = useMemo(
-    () => features.reviews
+    () => features.reviews && !reviewLoadError
       ? orders.find((order) => order.status === 'delivered' && order.restaurants && !reviewedOrders.has(order.id))
       : undefined,
-    [features.reviews, orders, reviewedOrders],
+    [features.reviews, orders, reviewLoadError, reviewedOrders],
   );
 
   const handleCancelOrder = async (order: OrderWithRestaurant) => {
@@ -156,12 +200,12 @@ export default function OrdersPage() {
           .map((snapshot) => typeof snapshot.option_id === 'string' ? snapshot.option_id : null)
           .filter((id): id is string => Boolean(id)),
       ))];
-      const [menuResult, optionResult] = await Promise.all([
+      const [menuResult, optionResult] = await withExponentialBackoff(() => Promise.all([
         supabase.from('menu_items').select('*').eq('restaurant_id', order.restaurant_id).in('id', ids),
         historicalOptionIds.length > 0
           ? supabase.from('modifier_options').select('*').in('id', historicalOptionIds)
           : Promise.resolve({ data: [], error: null }),
-      ]);
+      ]), { attempts: 3, baseDelayMs: 700, timeoutMs: 15000 });
       const { data, error: menuError } = menuResult;
       if (menuError) throw menuError;
       if (optionResult.error) throw optionResult.error;
@@ -169,7 +213,10 @@ export default function OrdersPage() {
       const currentOptions = new Map(((optionResult.data as ModifierOption[]) ?? []).map((option) => [option.id, option]));
       const modifierIds = [...new Set([...currentOptions.values()].map((option) => option.modifier_id))];
       const modifierResult = modifierIds.length > 0
-        ? await supabase.from('menu_item_modifiers').select('*').in('id', modifierIds)
+        ? await withExponentialBackoff(
+          async () => supabase.from('menu_item_modifiers').select('*').in('id', modifierIds),
+          { attempts: 3, baseDelayMs: 700, timeoutMs: 15000 },
+        )
         : { data: [], error: null };
       if (modifierResult.error) throw modifierResult.error;
       const currentModifiers = new Map(((modifierResult.data as MenuItemModifier[]) ?? []).map((modifier) => [modifier.id, modifier]));
@@ -220,8 +267,8 @@ export default function OrdersPage() {
       const message = `${tx.reorderReady}${unavailable > 0 ? ` ${tx.reorderUnavailable}` : ''}${priceChanged ? ' ' + tx.pricesUpdated : ''}`;
       sessionStorage.setItem('kiyo-cart-notice', message);
       navigate('/cart');
-    } catch {
-      setNotice({ kind: 'error', text: t('error.genericBody') });
+    } catch (reorderError: unknown) {
+      setNotice({ kind: 'error', text: userFacingError(reorderError, locale, t('error.genericBody')) });
     } finally {
       setReorderingOrderId(null);
     }
@@ -240,8 +287,14 @@ export default function OrdersPage() {
         ) : (
           <div className="space-y-6">
             {activeOrder && <LiveOrderTracker order={activeOrder} onRefresh={load} realtimeStatus={realtimeStatus} />}
+            {reviewLoadError && (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-800" role="status">
+                <span>{reviewLoadError}</span>
+                <button type="button" onClick={() => void load(false)} className="min-h-11 font-bold underline">{t('error.retry')}</button>
+              </div>
+            )}
             {reviewCandidate && (
-              <button type="button" onClick={() => setReviewingOrder({ id: reviewCandidate.id, restaurantName: reviewCandidate.restaurants!.name })} className="kiyo-card flex w-full items-center gap-3 border border-amber-200 p-4 text-left hover:bg-amber-50">
+              <button type="button" onClick={() => setReviewingOrder({ id: reviewCandidate.id, restaurantName: reviewCandidate.restaurants!.name })} className="kiyo-card flex min-h-11 w-full items-center gap-3 border border-amber-200 p-4 text-start hover:bg-amber-50">
                 <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-amber-100 text-amber-600"><Star className="h-5 w-5" /></span>
                 <span><span className="block text-sm font-bold text-ink-900">{tx.reviewPrompt}</span><span className="block text-xs text-ink-500">{tx.reviewBody}</span></span>
               </button>
@@ -251,7 +304,7 @@ export default function OrdersPage() {
             <div className="space-y-3">
               {orders.map((order) => {
                 const items = itemsByOrder[order.id] ?? [];
-                const canReview = features.reviews && order.status === 'delivered' && order.restaurants;
+                const canReview = features.reviews && !reviewLoadError && order.status === 'delivered' && order.restaurants;
                 const past = ['delivered', 'cancelled', 'failed_delivery', 'refunded'].includes(order.status);
                 return (
                   <article key={order.id} className="kiyo-card p-4">
