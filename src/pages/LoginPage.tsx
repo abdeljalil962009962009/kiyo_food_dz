@@ -8,6 +8,57 @@ import { Field } from '../components/Field';
 import { Spinner } from '../components/feedback';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 
+const SETUP_COPY = {
+  en: {
+    setupQuestion: 'Production setup?', setupBanner: 'Configure Vercel variables and apply Supabase migrations in order.',
+    setupGuide: 'Setup guide', brandTitle: 'Local flavor, delivered.',
+    brandBody: 'Discover trusted local restaurants and follow every order with confidence.',
+    guideTitle: 'Production setup guide', guideSubtitle: 'Use versioned migrations and environment variables, never old copied schema snippets.',
+    close: 'Close', why: 'Why is this required?',
+    whyBody: 'Kiyo Food needs the production Supabase URL, public key, and ordered database migrations before launch. This prevents signup, checkout, owner controls, maps, and delivery rules from using an incomplete database.',
+    steps: 'Production steps', openSupabase: 'Open the Supabase dashboard.',
+    applyMigrations: 'Apply every file in supabase/migrations in filename order.',
+    setVariables: 'Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel.',
+    redeploy: 'Redeploy the main GitHub branch and confirm Vercel shows Ready.',
+    ownerRole: 'Create the owner account, then assign super_admin through the protected database workflow.',
+    checks: ['Production environment variables are configured.', 'All Supabase migrations are applied in order.', 'RLS policies are enabled and verified.', 'Owner access is granted through database RBAC.'],
+    operator: 'Operator checklist', serverIssue: 'This is a server configuration issue, not an incorrect password. Add both URLs below:',
+    supabaseRedirect: 'Supabase Auth → URL Configuration → Redirect URLs:', googleRedirect: 'Google Cloud → OAuth client → Authorized redirect URIs:', copy: 'Copy',
+  },
+  fr: {
+    setupQuestion: 'Configuration de production ?', setupBanner: 'Configurez les variables Vercel et appliquez les migrations Supabase dans l’ordre.',
+    setupGuide: 'Guide de configuration', brandTitle: 'Les saveurs locales, livrées.',
+    brandBody: 'Découvrez des restaurants locaux de confiance et suivez chaque commande en toute sérénité.',
+    guideTitle: 'Guide de configuration de production', guideSubtitle: 'Utilisez les migrations versionnées et les variables d’environnement, jamais d’anciens extraits de schéma.',
+    close: 'Fermer', why: 'Pourquoi est-ce nécessaire ?',
+    whyBody: 'Kiyo Food a besoin de l’URL Supabase de production, de la clé publique et des migrations appliquées dans l’ordre. Cela évite que l’inscription, le paiement, les contrôles propriétaire, les cartes et la livraison utilisent une base incomplète.',
+    steps: 'Étapes de production', openSupabase: 'Ouvrir le tableau de bord Supabase.',
+    applyMigrations: 'Appliquez chaque fichier de supabase/migrations dans l’ordre des noms.',
+    setVariables: 'Ajoutez VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY dans Vercel.',
+    redeploy: 'Redéployez la branche GitHub main et confirmez que Vercel affiche Ready.',
+    ownerRole: 'Créez le compte propriétaire, puis attribuez super_admin via le processus protégé de la base.',
+    checks: ['Les variables de production sont configurées.', 'Toutes les migrations Supabase sont appliquées dans l’ordre.', 'Les politiques RLS sont activées et vérifiées.', 'L’accès propriétaire est accordé via le RBAC de la base.'],
+    operator: 'Vérification opérateur', serverIssue: 'Il s’agit d’un réglage serveur, pas d’un mot de passe incorrect. Ajoutez les deux URL ci-dessous :',
+    supabaseRedirect: 'Supabase Auth → Configuration URL → URL de redirection :', googleRedirect: 'Google Cloud → Client OAuth → URI de redirection autorisés :', copy: 'Copier',
+  },
+  ar: {
+    setupQuestion: 'إعداد بيئة الإنتاج؟', setupBanner: 'اضبط متغيرات Vercel وطبّق ترحيلات Supabase بالترتيب.',
+    setupGuide: 'دليل الإعداد', brandTitle: 'نكهات محلية تصل إليك.',
+    brandBody: 'اكتشف مطاعم محلية موثوقة وتابع كل طلب بوضوح واطمئنان.',
+    guideTitle: 'دليل إعداد بيئة الإنتاج', guideSubtitle: 'استخدم الترحيلات المرقّمة ومتغيرات البيئة، ولا تستخدم نسخًا قديمة من مخطط القاعدة.',
+    close: 'إغلاق', why: 'لماذا هذا الإعداد ضروري؟',
+    whyBody: 'تحتاج Kiyo Food إلى رابط Supabase ومفتاحه العام وترحيلات قاعدة البيانات المرتبة قبل الإطلاق. يمنع ذلك التسجيل والدفع ولوحة المالك والخرائط والتوصيل من العمل على قاعدة ناقصة.',
+    steps: 'خطوات إعداد الإنتاج', openSupabase: 'فتح لوحة تحكم Supabase.',
+    applyMigrations: 'طبّق كل ملف داخل supabase/migrations حسب ترتيب اسم الملف.',
+    setVariables: 'أضف VITE_SUPABASE_URL وVITE_SUPABASE_ANON_KEY داخل Vercel.',
+    redeploy: 'أعد نشر فرع GitHub الرئيسي وتأكد أن Vercel يعرض Ready.',
+    ownerRole: 'أنشئ حساب المالك ثم امنحه super_admin عبر المسار المحمي في قاعدة البيانات.',
+    checks: ['تم ضبط متغيرات بيئة الإنتاج.', 'تم تطبيق كل ترحيلات Supabase بالترتيب.', 'تم تفعيل سياسات RLS والتحقق منها.', 'تم منح صلاحية المالك عبر نظام الصلاحيات في قاعدة البيانات.'],
+    operator: 'قائمة فحص المشغّل', serverIssue: 'هذه مشكلة إعداد في الخادم وليست كلمة مرور خاطئة. أضف الرابطين التاليين:',
+    supabaseRedirect: 'Supabase Auth ← إعدادات الروابط ← روابط إعادة التوجيه:', googleRedirect: 'Google Cloud ← عميل OAuth ← روابط إعادة التوجيه المسموح بها:', copy: 'نسخ',
+  },
+} as const;
+
 export default function LoginPage() {
   const { t } = useT();
   const { signInWithPassword, signInWithGoogle, signInWithApple, error } = useAuth();
@@ -140,6 +191,8 @@ export default function LoginPage() {
 
 // Shared split-screen layout for auth pages.
 export function AuthLayout({ children }: { children: React.ReactNode }) {
+  const { locale } = useT();
+  const tx = SETUP_COPY[locale];
   const [showHelper, setShowHelper] = useState(false);
 
   const showBanner = typeof window !== 'undefined' && window.location.search.includes('setup=true');
@@ -152,7 +205,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-2">
             <Database className="h-4 w-4 text-ink-950 animate-pulse flex-shrink-0" />
             <span>
-              <strong>Production setup?</strong> Configure Vercel env vars and apply Supabase migrations in order.
+              <strong>{tx.setupQuestion}</strong> {tx.setupBanner}
             </span>
           </div>
           <button
@@ -160,7 +213,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
             onClick={() => setShowHelper(true)}
             className="bg-ink-950 text-white rounded px-2.5 py-1 text-[11px] font-bold hover:bg-ink-900 transition-colors flex items-center gap-1.5 whitespace-nowrap"
           >
-            <Database className="h-3 w-3" /> Setup guide
+            <Database className="h-3 w-3" /> {tx.setupGuide}
           </button>
         </div>
       )}
@@ -180,10 +233,10 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
         </div>
         <div className="relative">
           <h2 className="font-display text-4xl font-extrabold leading-tight text-white">
-            Local flavor,<br />delivered.
+            {tx.brandTitle}
           </h2>
           <p className="mt-3 max-w-sm text-sm text-ink-200">
-            Kiyo connects you with the best restaurants across Algeria — fast, premium, and reliable.
+            {tx.brandBody}
           </p>
         </div>
         <div className="relative text-xs text-ink-400">© {new Date().getFullYear()} Kiyo</div>
@@ -206,15 +259,16 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
                 </div>
                 <div>
                   <h3 className="font-display font-extrabold text-ink-900 text-lg">
-                    Production setup guide
+                    {tx.guideTitle}
                   </h3>
-                  <p className="text-xs text-ink-500">Use migrations and environment variables, not copied legacy schema snippets.</p>
+                  <p className="text-xs text-ink-500">{tx.guideSubtitle}</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowHelper(false)}
                 className="text-ink-400 hover:text-ink-600 p-1.5 rounded-lg hover:bg-ink-100 transition-colors"
+                aria-label={tx.close}
               >
                 <X className="h-5 w-5" />
               </button>
@@ -225,16 +279,15 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
               <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex gap-3 text-sm text-amber-900">
                 <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <strong className="font-semibold block">Why is this required?</strong>
-                  Kiyo Food needs the production Supabase URL, anon key, and ordered database migrations before launch.
-                  This prevents signup, checkout, owner controls, maps, and delivery logic from running against a wrong or incomplete database.
+                  <strong className="font-semibold block">{tx.why}</strong>
+                  {tx.whyBody}
                 </div>
               </div>
 
               {/* Steps */}
               <div className="space-y-3">
                 <h4 className="font-display font-bold text-sm text-ink-900 uppercase tracking-wider">
-                  Production steps:
+                  {tx.steps}:
                 </h4>
                 <ol className="list-decimal list-inside text-sm text-ink-700 space-y-2 pl-1">
                   <li>
@@ -245,23 +298,18 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
                       rel="noopener noreferrer"
                       className="text-ember-600 font-semibold inline-flex items-center gap-1 hover:underline"
                     >
-                      Supabase Dashboard <ExternalLink className="h-3 w-3" />
+                      {tx.openSupabase} <ExternalLink className="h-3 w-3" />
                     </a>
                   </li>
-                  <li>Apply every file in <code>supabase/migrations</code> in filename order.</li>
-                  <li>Set <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> in Vercel.</li>
-                  <li>Redeploy from GitHub <code>main</code> and confirm Vercel shows <strong>Ready</strong>.</li>
-                  <li>Create the owner account, then assign <code>super_admin</code> through the protected database/admin workflow.</li>
+                  <li>{tx.applyMigrations}</li>
+                  <li>{tx.setVariables}</li>
+                  <li>{tx.redeploy}</li>
+                  <li>{tx.ownerRole}</li>
                 </ol>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                {[
-                  'Vercel env vars are set for Production.',
-                  'All Supabase migrations are applied in order.',
-                  'RLS policies are enabled and verified.',
-                  'Owner role is granted through RBAC, not signup metadata.',
-                ].map((item) => (
+                {tx.checks.map((item) => (
                   <div key={item} className="flex gap-2 rounded-xl border border-ink-100 bg-ink-50 px-3 py-2 text-xs text-ink-700">
                     <Check className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-sage-600" />
                     <span>{item}</span>
@@ -277,7 +325,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
                 onClick={() => setShowHelper(false)}
                 className="kiyo-btn-secondary px-4 py-2 text-sm"
               >
-                Close
+                {tx.close}
               </button>
             </div>
           </div>
@@ -321,6 +369,8 @@ function AuthErrorPanel({
   code?: AuthCode;
   onCopyStateChange?: () => void;
 }) {
+  const { locale } = useT();
+  const tx = SETUP_COPY[locale];
   const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim() ?? '';
   const supabaseCallback = supabaseUrl ? `${supabaseUrl.replace(/\/+$/, '')}/auth/v1/callback` : '';
 
@@ -352,25 +402,25 @@ function AuthErrorPanel({
         <span className="font-medium">{message}</span>
       </div>
       <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 space-y-2">
-        <p className="font-semibold">Operator checklist</p>
-        <p>This is a server-side configuration issue, not a wrong password. Two URLs must be in place:</p>
+        <p className="font-semibold">{tx.operator}</p>
+        <p>{tx.serverIssue}</p>
         <div>
-          <p className="font-mono text-[11px] text-amber-700">Supabase Auth &rarr; URL Configuration &rarr; Redirect URLs:</p>
+          <p className="font-mono text-[11px] text-amber-700">{tx.supabaseRedirect}</p>
           <div className="mt-1 flex items-start gap-2">
             <code className="flex-1 break-all rounded bg-white px-2 py-1 text-[11px] ring-1 ring-amber-200">
               {window.location.origin}/auth/callback
             </code>
-            <button type="button" onClick={() => copy(`${window.location.origin}/auth/callback`)} className="rounded bg-amber-600 px-2 py-1 text-[10px] font-bold text-white hover:bg-amber-700">Copy</button>
+            <button type="button" onClick={() => copy(`${window.location.origin}/auth/callback`)} className="min-h-11 rounded bg-amber-600 px-3 py-1 text-[10px] font-bold text-white hover:bg-amber-700">{tx.copy}</button>
           </div>
         </div>
         {supabaseCallback && (
           <div>
-            <p className="font-mono text-[11px] text-amber-700">Google Cloud &rarr; OAuth client &rarr; Authorized redirect URIs:</p>
+            <p className="font-mono text-[11px] text-amber-700">{tx.googleRedirect}</p>
             <div className="mt-1 flex items-start gap-2">
               <code className="flex-1 break-all rounded bg-white px-2 py-1 text-[11px] ring-1 ring-amber-200">
                 {supabaseCallback}
               </code>
-              <button type="button" onClick={() => copy(supabaseCallback)} className="rounded bg-amber-600 px-2 py-1 text-[10px] font-bold text-white hover:bg-amber-700">Copy</button>
+              <button type="button" onClick={() => copy(supabaseCallback)} className="min-h-11 rounded bg-amber-600 px-3 py-1 text-[10px] font-bold text-white hover:bg-amber-700">{tx.copy}</button>
             </div>
           </div>
         )}
