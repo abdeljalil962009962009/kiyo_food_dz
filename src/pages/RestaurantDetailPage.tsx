@@ -23,6 +23,7 @@ import { RestaurantImage, PriceTag } from '../components/ui';
 import { GoogleMapShell, GOOGLE_MAPS_MAP_ID, MapCircle, MapMarkerBadge } from '../components/GoogleMapShell';
 import { isValidMapCoordinate } from '../lib/googleMaps';
 import { useRealtime } from '../lib/useRealtime';
+import { publicRestaurantImageUrl } from '../lib/restaurantMedia';
 import { algeriaAvailabilityDateRange, restaurantAcceptsOrders } from '../lib/restaurantAvailability';
 import {
   buildModifierGroups,
@@ -36,7 +37,6 @@ import { RestaurantReviews } from '../components/RestaurantReviews';
 import { applyReviewChange } from '../lib/reviews';
 import { withExponentialBackoff } from '../lib/locationNetwork';
 import { userFacingError } from '../lib/userFacingError';
-import { publicRestaurantImageUrl } from '../lib/restaurantMedia';
 
 const detailCopy = {
   en: {
