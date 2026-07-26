@@ -10,6 +10,7 @@ import { ErrorState, PremiumEmptyState } from '../components/feedback';
 import { RestaurantImage } from '../components/ui';
 import { haversineKm } from '../lib/geo';
 import { withExponentialBackoff } from '../lib/locationNetwork';
+import { useRealtime } from '../lib/useRealtime';
 
 type RestaurantWithDistance = Restaurant & {
   distance_km?: number | null;
@@ -107,6 +108,37 @@ export default function RestaurantsPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedWilaya?.id, wilayaLoading, currentLocation?.lat, currentLocation?.lng]);
+
+  useRealtime('restaurants', (payload) => {
+    const changed = payload.new as Partial<RestaurantWithDistance>;
+    const previousId = String(payload.old?.id ?? '');
+    const changedId = String(changed.id ?? previousId);
+    if (!changedId) return;
+
+    if (payload.eventType === 'DELETE' || changed.status !== 'published') {
+      setItems((current) => current.filter((restaurant) => restaurant.id !== changedId));
+      return;
+    }
+
+    if (
+      payload.eventType === 'INSERT'
+      || (payload.eventType === 'UPDATE' && payload.old?.status !== 'published')
+    ) {
+      void load();
+      return;
+    }
+
+    setItems((current) => {
+      const existing = current.find((restaurant) => restaurant.id === changedId);
+      if (!existing) return current;
+      return current.map((restaurant) => restaurant.id === changedId
+        ? { ...restaurant, ...changed }
+        : restaurant);
+    });
+  }, {
+    enabled: Boolean(selectedWilaya?.id),
+    filter: selectedWilaya?.id ? { wilaya_id: `eq.${selectedWilaya.id}` } : undefined,
+  });
 
   const filtered = useMemo(() => {
     let list = items;
