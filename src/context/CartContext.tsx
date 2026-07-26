@@ -2,12 +2,15 @@ import {
   createContext, useContext, useEffect, useMemo, useReducer, useCallback,
   type ReactNode,
 } from 'react';
-import type { MenuItem } from '../lib/supabase';
+import type { MenuItem, SelectedModifierOption } from '../lib/supabase';
+import { cartLineId, modifierPriceTotal } from '../lib/menuCustomization';
 
 export type CartLine = {
+  lineId: string;
   item: MenuItem;
   quantity: number;
   notes?: string;
+  selectedOptions: SelectedModifierOption[];
   unitPriceSnapshot: number;
 };
 
@@ -18,10 +21,10 @@ type CartState = {
 };
 
 type CartAction =
-  | { type: 'ADD'; item: MenuItem; quantity?: number; notes?: string; unitPriceSnapshot: number }
-  | { type: 'REMOVE'; itemId: string }
-  | { type: 'SET_QTY'; itemId: string; quantity: number }
-  | { type: 'SET_NOTES'; itemId: string; notes: string }
+  | { type: 'ADD'; line: CartLine }
+  | { type: 'REMOVE'; lineId: string }
+  | { type: 'SET_QTY'; lineId: string; quantity: number }
+  | { type: 'SET_NOTES'; lineId: string; notes: string }
   | { type: 'SET_RESTAURANT_NAME'; name: string }
   | { type: 'REPLACE'; restaurantId: string; restaurantName: string; lines: CartLine[] }
   | { type: 'CLEAR' }
@@ -33,57 +36,77 @@ function emptyState(): CartState {
   return { restaurantId: null, restaurantName: null, lines: [] };
 }
 
+function normalizeLine(line: Partial<CartLine> & Pick<CartLine, 'item' | 'quantity'>): CartLine {
+  const selectedOptions = Array.isArray(line.selectedOptions) ? line.selectedOptions : [];
+  const notes = typeof line.notes === 'string' ? line.notes : undefined;
+  return {
+    lineId: line.lineId || cartLineId(line.item.id, selectedOptions, notes),
+    item: line.item,
+    quantity: Number.isFinite(line.quantity) ? Math.max(1, Math.min(99, line.quantity)) : 1,
+    notes,
+    selectedOptions,
+    unitPriceSnapshot: Number.isFinite(Number(line.unitPriceSnapshot))
+      ? Number(line.unitPriceSnapshot)
+      : Number(line.item.price) + modifierPriceTotal(selectedOptions),
+  };
+}
+
+function normalizeState(state: CartState): CartState {
+  return {
+    restaurantId: state?.restaurantId ?? null,
+    restaurantName: state?.restaurantName ?? null,
+    lines: Array.isArray(state?.lines)
+      ? state.lines.filter((line) => line?.item?.id).map(normalizeLine)
+      : [],
+  };
+}
+
 function reducer(state: CartState, action: CartAction): CartState {
   switch (action.type) {
     case 'HYDRATE':
-      return action.state ?? emptyState();
+      return normalizeState(action.state ?? emptyState());
     case 'ADD': {
       // Switching restaurants wipes the cart (standard for delivery apps).
-      if (state.restaurantId && state.restaurantId !== action.item.restaurant_id) {
+      if (state.restaurantId && state.restaurantId !== action.line.item.restaurant_id) {
         return {
-          restaurantId: action.item.restaurant_id,
+          restaurantId: action.line.item.restaurant_id,
           restaurantName: null,
-          lines: [
-            { item: action.item, quantity: action.quantity ?? 1, notes: action.notes, unitPriceSnapshot: action.unitPriceSnapshot },
-          ],
+          lines: [action.line],
         };
       }
-      const existing = state.lines.find((l) => l.item.id === action.item.id);
+      const existing = state.lines.find((line) => line.lineId === action.line.lineId);
       if (existing) {
         return {
           ...state,
           lines: state.lines.map((l) =>
-            l.item.id === action.item.id
-              ? { ...l, quantity: l.quantity + (action.quantity ?? 1) }
+            l.lineId === action.line.lineId
+              ? { ...l, quantity: Math.min(99, l.quantity + action.line.quantity) }
               : l,
           ),
         };
       }
       return {
         ...state,
-        restaurantId: action.item.restaurant_id,
-        lines: [
-          ...state.lines,
-          { item: action.item, quantity: action.quantity ?? 1, notes: action.notes, unitPriceSnapshot: action.unitPriceSnapshot },
-        ],
+        restaurantId: action.line.item.restaurant_id,
+        lines: [...state.lines, action.line],
       };
     }
     case 'REMOVE':
       return {
         ...state,
-        lines: state.lines.filter((l) => l.item.id !== action.itemId),
+        lines: state.lines.filter((line) => line.lineId !== action.lineId),
       };
     case 'SET_QTY': {
       if (action.quantity <= 0) {
         return {
           ...state,
-          lines: state.lines.filter((l) => l.item.id !== action.itemId),
+          lines: state.lines.filter((line) => line.lineId !== action.lineId),
         };
       }
       return {
         ...state,
         lines: state.lines.map((l) =>
-          l.item.id === action.itemId ? { ...l, quantity: action.quantity } : l,
+          l.lineId === action.lineId ? { ...l, quantity: Math.min(99, action.quantity) } : l,
         ),
       };
     }
@@ -91,17 +114,17 @@ function reducer(state: CartState, action: CartAction): CartState {
       return {
         ...state,
         lines: state.lines.map((l) =>
-          l.item.id === action.itemId ? { ...l, notes: action.notes } : l,
+          l.lineId === action.lineId ? { ...l, notes: action.notes } : l,
         ),
       };
     case 'SET_RESTAURANT_NAME':
       return { ...state, restaurantName: action.name };
     case 'REPLACE':
-      return {
+      return normalizeState({
         restaurantId: action.restaurantId,
         restaurantName: action.restaurantName,
         lines: action.lines,
-      };
+      });
     case 'CLEAR':
       return emptyState();
     default:
@@ -113,10 +136,10 @@ type CartContextValue = {
   state: CartState;
   totalItems: number;
   subtotal: number;
-  addItem: (item: MenuItem, quantity?: number, notes?: string) => void;
-  removeItem: (itemId: string) => void;
-  setQuantity: (itemId: string, qty: number) => void;
-  setNotes: (itemId: string, notes: string) => void;
+  addItem: (item: MenuItem, quantity?: number, notes?: string, selectedOptions?: SelectedModifierOption[]) => void;
+  removeItem: (lineId: string) => void;
+  setQuantity: (lineId: string, qty: number) => void;
+  setNotes: (lineId: string, notes: string) => void;
   setRestaurantName: (name: string) => void;
   replaceCart: (restaurantId: string, restaurantName: string, lines: CartLine[]) => void;
   clear: () => void;
@@ -151,14 +174,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [state]);
 
-  const addItem = useCallback((item: MenuItem, quantity?: number, notes?: string) => {
-    dispatch({ type: 'ADD', item, quantity, notes, unitPriceSnapshot: Number(item.price) });
+  const addItem = useCallback((item: MenuItem, quantity = 1, notes?: string, selectedOptions: SelectedModifierOption[] = []) => {
+    dispatch({
+      type: 'ADD',
+      line: normalizeLine({
+        lineId: cartLineId(item.id, selectedOptions, notes),
+        item,
+        quantity,
+        notes,
+        selectedOptions,
+        unitPriceSnapshot: Number(item.price) + modifierPriceTotal(selectedOptions),
+      }),
+    });
   }, []);
-  const removeItem = useCallback((itemId: string) => dispatch({ type: 'REMOVE', itemId }), []);
-  const setQuantity = useCallback((itemId: string, quantity: number) =>
-    dispatch({ type: 'SET_QTY', itemId, quantity }), []);
-  const setNotes = useCallback((itemId: string, notes: string) =>
-    dispatch({ type: 'SET_NOTES', itemId, notes }), []);
+  const removeItem = useCallback((lineId: string) => dispatch({ type: 'REMOVE', lineId }), []);
+  const setQuantity = useCallback((lineId: string, quantity: number) =>
+    dispatch({ type: 'SET_QTY', lineId, quantity }), []);
+  const setNotes = useCallback((lineId: string, notes: string) =>
+    dispatch({ type: 'SET_NOTES', lineId, notes }), []);
   const setRestaurantName = useCallback((name: string) =>
     dispatch({ type: "SET_RESTAURANT_NAME", name }), []);
   const replaceCart = useCallback((restaurantId: string, restaurantName: string, lines: CartLine[]) =>

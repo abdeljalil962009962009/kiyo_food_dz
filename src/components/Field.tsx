@@ -21,13 +21,13 @@ export function Field({ label, error, icon, id, className = '', ...rest }: Field
       <label htmlFor={inputId} className="kiyo-label">{label}</label>
       <div className="relative">
         {icon && (
-          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-400">
+          <span className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-ink-400">
             {icon}
           </span>
         )}
         <input
           id={inputId}
-          className={`kiyo-input ${icon ? 'pl-10' : ''} ${error ? 'border-error-500 focus:border-error-500 focus:ring-error-500/10' : ''} ${className}`}
+          className={`kiyo-input ${icon ? 'ps-10' : ''} ${error ? 'border-error-500 focus:border-error-500 focus:ring-error-500/10' : ''} ${className}`}
           {...rest}
         />
       </div>

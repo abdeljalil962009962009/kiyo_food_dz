@@ -12,6 +12,8 @@ import { localizePublicationBlocker } from '../lib/publicationReadiness';
 import { callAdminAction } from '../lib/adminApi';
 import { callUserAction } from '../lib/userApi';
 import { PrivateRestaurantImage } from './PrivateRestaurantImage';
+import { applicationStatusLabel } from '../lib/domainStatus';
+import { useActionDialog } from '../context/ActionDialogContext';
 
 type Applicant = Pick<Profile, 'id' | 'email' | 'full_name' | 'phone'>;
 
@@ -164,6 +166,7 @@ const labels = {
 
 export function RestaurantApplicationsPanel() {
   const { locale, t } = useT();
+  const { confirmAction } = useActionDialog();
   const tx = labels[locale];
   const [applications, setApplications] = useState<RestaurantApplication[]>([]);
   const [applicants, setApplicants] = useState<Record<string, Applicant>>({});
@@ -298,7 +301,12 @@ export function RestaurantApplicationsPanel() {
       setError(tx.reason);
       return;
     }
-    if (['rejected', 'suspended'].includes(target) && !window.confirm(tx.transitionConfirm(target, selected.restaurant_name))) return;
+    if (['rejected', 'suspended'].includes(target) && !await confirmAction({
+      title: applicationStatusLabel(target, locale),
+      message: tx.transitionConfirm(applicationStatusLabel(target, locale), selected.restaurant_name),
+      confirmLabel: applicationStatusLabel(target, locale),
+      tone: 'danger',
+    })) return;
     await run(() => callAdminAction('review_restaurant_application', {
       p_application_id: selected.id,
       p_target_status: target,
@@ -315,7 +323,12 @@ export function RestaurantApplicationsPanel() {
       setError(tx.ratesInvalid);
       return;
     }
-    if (!window.confirm(tx.approveConfirm(selected.restaurant_name, foodRate))) return;
+    if (!await confirmAction({
+      title: tx.approve,
+      message: tx.approveConfirm(selected.restaurant_name, foodRate),
+      confirmLabel: tx.approve,
+      tone: 'success',
+    })) return;
     await run(() => callAdminAction('preliminarily_approve_restaurant_application', {
       p_application_id: selected.id,
       p_food_commission_rate: food,
@@ -328,7 +341,12 @@ export function RestaurantApplicationsPanel() {
 
   const publish = async () => {
     if (!selected?.restaurant_id) return;
-    if (!window.confirm(tx.publishConfirm(selected.restaurant_name))) return;
+    if (!await confirmAction({
+      title: tx.publish,
+      message: tx.publishConfirm(selected.restaurant_name),
+      confirmLabel: tx.publish,
+      tone: 'success',
+    })) return;
     await run(() => callAdminAction('publish_restaurant', {
       p_restaurant_id: selected.restaurant_id,
       p_expected_application_version: selected.application_version,
@@ -364,13 +382,13 @@ export function RestaurantApplicationsPanel() {
 
       <div className="flex flex-col gap-2 sm:flex-row">
         <label className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-ink-400" />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} className="kiyo-input min-h-11 pl-10" placeholder={tx.search} />
+          <Search className="pointer-events-none absolute start-3 top-3.5 h-4 w-4 text-ink-400" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} className="kiyo-input min-h-11 ps-10" placeholder={tx.search} />
         </label>
         <select value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)} className="kiyo-input min-h-11 sm:w-56">
           <option value="waiting">{tx.waiting}</option>
           <option value="all">{tx.all}</option>
-          {statuses.map((status) => <option key={status} value={status}>{status.replace(/_/g, ' ')}</option>)}
+          {statuses.map((status) => <option key={status} value={status}>{applicationStatusLabel(status, locale)}</option>)}
         </select>
       </div>
 
@@ -386,9 +404,9 @@ export function RestaurantApplicationsPanel() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-bold text-ink-900">{application.restaurant_name}</p>
                     <p className="truncate text-xs text-ink-400">{applicant?.full_name ?? applicant?.email ?? application.applicant_id}</p>
-                    <span className="mt-1 inline-flex rounded-full bg-ink-100 px-2 py-0.5 text-[11px] font-semibold text-ink-600">{application.status.replace(/_/g, ' ')}</span>
+                    <span className="mt-1 inline-flex rounded-full bg-ink-100 px-2 py-0.5 text-[11px] font-semibold text-ink-600">{applicationStatusLabel(application.status, locale)}</span>
                     {(unreadByApplication[application.id] ?? 0) > 0 && (
-                      <span className="ml-1 inline-flex rounded-full bg-ember-600 px-2 py-0.5 text-[11px] font-bold text-white">
+                      <span className="ms-1 inline-flex rounded-full bg-ember-600 px-2 py-0.5 text-[11px] font-bold text-white">
                         {unreadByApplication[application.id]} {tx.newBadge}
                       </span>
                     )}
@@ -407,7 +425,7 @@ export function RestaurantApplicationsPanel() {
                 <h3 className="font-display text-xl font-extrabold text-ink-900">{selected.restaurant_name}</h3>
                 <p className="text-sm text-ink-500">{applicants[selected.applicant_id]?.email}</p>
               </div>
-              <span className="rounded-full bg-ember-50 px-3 py-1 text-xs font-bold text-ember-700">{selected.status.replace(/_/g, ' ')}</span>
+              <span className="rounded-full bg-ember-50 px-3 py-1 text-xs font-bold text-ember-700">{applicationStatusLabel(selected.status, locale)}</span>
             </div>
 
             <dl className="grid gap-3 text-sm sm:grid-cols-2">
@@ -442,7 +460,7 @@ export function RestaurantApplicationsPanel() {
                 ) : (
                   <div className="mt-1 text-sm text-warning-800">
                     <p>{tx.blocked}</p>
-                    <ul className="mt-1 list-disc space-y-1 pl-5">
+                    <ul className="mt-1 list-disc space-y-1 ps-5">
                       {readiness.blockers.map((blocker) => (
                         <li key={blocker}>{localizePublicationBlocker(blocker, locale)}</li>
                       ))}

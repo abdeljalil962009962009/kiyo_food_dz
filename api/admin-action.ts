@@ -34,6 +34,17 @@ const ALLOWED_ACTIONS = new Set([
   'set_restaurant_status',
   'set_marketplace_rule_override',
   'remove_marketplace_rule_override',
+  'review_driver_application',
+  'create_delivery_zone',
+  'set_delivery_zone_active',
+  'set_wilaya_active',
+  'create_promo_code',
+  'set_promo_code_active',
+  'create_marketing_campaign',
+  'set_marketing_campaign_active',
+  'set_feature_flag_enabled',
+  'create_subscription_plan',
+  'set_subscription_plan_active',
 ]);
 
 export default async function handler(request: RequestLike, response: ResponseLike) {
@@ -87,12 +98,44 @@ export default async function handler(request: RequestLike, response: ResponseLi
     return;
   }
 
-  const { data, error } = await serviceClient.rpc('execute_owner_action', {
-    p_actor_id: authData.user.id,
-    p_request_id: requestId,
-    p_action: action,
-    p_args: args,
-  });
+  const geographyAction = action === 'create_delivery_zone'
+    || action === 'set_delivery_zone_active'
+    || action === 'set_wilaya_active';
+  const marketingAction = action === 'create_promo_code'
+    || action === 'set_promo_code_active'
+    || action === 'create_marketing_campaign'
+    || action === 'set_marketing_campaign_active'
+    || action === 'set_feature_flag_enabled'
+    || action === 'create_subscription_plan'
+    || action === 'set_subscription_plan_active';
+  const { data, error } = action === 'review_driver_application'
+    ? await serviceClient.rpc('review_driver_application', {
+        p_actor_id: authData.user.id,
+        p_driver_id: args.p_driver_id,
+        p_target_status: args.p_target_status,
+        p_reason: args.p_reason ?? null,
+        p_expected_version: args.p_expected_version ?? null,
+      })
+    : geographyAction
+    ? await serviceClient.rpc('manage_geography_control', {
+        p_actor_id: authData.user.id,
+        p_request_id: requestId,
+        p_action: action,
+        p_args: args,
+      })
+    : marketingAction
+    ? await serviceClient.rpc('manage_marketing_control', {
+        p_actor_id: authData.user.id,
+        p_request_id: requestId,
+        p_action: action,
+        p_args: args,
+      })
+    : await serviceClient.rpc('execute_owner_action', {
+        p_actor_id: authData.user.id,
+        p_request_id: requestId,
+        p_action: action,
+        p_args: args,
+      });
   if (error) {
     response.status(statusForDatabaseError(error.code)).json({
       code: error.code ?? 'admin_action_failed',

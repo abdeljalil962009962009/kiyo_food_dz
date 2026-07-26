@@ -7,6 +7,7 @@ import { requestCustomerCancellation } from '../lib/orderActions';
 import { liveEtaWindow } from '../lib/deliveryEta';
 import { isValidMapCoordinate } from '../lib/googleMaps';
 import TrackingMap from './TrackingMap';
+import { useActionDialog } from '../context/ActionDialogContext';
 
 type OrderWithRestaurant = OrderRow & {
   restaurants: {
@@ -68,6 +69,7 @@ const TRACKED_STATUSES = ['pending', 'accepted', 'preparing', 'out_for_delivery'
 export function LiveOrderTracker({ order, onRefresh, realtimeStatus }: Props) {
   const { locale } = useT();
   const tx = copy[locale];
+  const { confirmAction } = useActionDialog();
   const [cancelling, setCancelling] = useState(false);
   const [cancelMessage, setCancelMessage] = useState<string | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
@@ -89,12 +91,17 @@ export function LiveOrderTracker({ order, onRefresh, realtimeStatus }: Props) {
     && isValidMapCoordinate(order.delivery_latitude, order.delivery_longitude);
 
   const handleCancel = async () => {
-    if (!window.confirm(`${tx.cancel}?\n\n${tx.cod}`)) return;
+    if (!await confirmAction({
+      title: tx.cancel,
+      message: tx.cod,
+      confirmLabel: tx.cancel,
+      tone: 'danger',
+    })) return;
     setCancelling(true);
     setCancelMessage(null);
     setCancelError(null);
     try {
-      const result = await requestCustomerCancellation(order);
+      const result = await requestCustomerCancellation(order, locale);
       if (result.status === 'failed') {
         setCancelError(result.message || tx.failure);
         return;
@@ -162,8 +169,8 @@ export function LiveOrderTracker({ order, onRefresh, realtimeStatus }: Props) {
       )}
 
       <div className="relative flex items-start justify-between overflow-x-auto pb-1">
-        <div className="absolute left-4 right-4 top-4 z-0 h-0.5 bg-ink-100" />
-        <div className="absolute left-4 top-4 z-0 h-0.5 bg-ember-500 transition-all duration-500" style={{ width: progress }} />
+        <div className="absolute inset-x-4 top-4 z-0 h-0.5 bg-ink-100" />
+        <div className="absolute start-4 top-4 z-0 h-0.5 bg-ember-500 transition-all duration-500" style={{ width: progress }} />
         {steps.map((step, index) => {
           const state = currentIndex > index ? 'completed' : currentIndex === index ? 'active' : 'upcoming';
           const Icon = step.icon;

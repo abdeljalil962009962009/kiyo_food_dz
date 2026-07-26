@@ -18,7 +18,10 @@ type ResponseLike = {
 };
 
 const ALLOWED_ACTIONS = new Set([
+  'create_support_ticket',
   'create_order_with_items',
+  'delete_restaurant_special_hours',
+  'get_restaurant_effective_delivery_rules',
   'get_restaurant_analytics_summary',
   'get_restaurant_financials',
   'get_restaurant_publication_readiness',
@@ -28,11 +31,17 @@ const ALLOWED_ACTIONS = new Set([
   'reply_to_ticket',
   'request_account_deletion',
   'request_personal_data_export',
+  'reply_to_restaurant_review',
   'send_restaurant_application_message',
+  'submit_driver_application',
+  'submit_order_review',
   'submit_restaurant_application',
   'transition_delivery_status',
   'transition_order_status',
   'update_driver_live_location',
+  'update_restaurant_operational_state',
+  'update_restaurant_profile_settings',
+  'upsert_restaurant_special_hours',
 ]);
 
 export default async function handler(request: RequestLike, response: ResponseLike) {
@@ -86,12 +95,79 @@ export default async function handler(request: RequestLike, response: ResponseLi
     return;
   }
 
-  const { data, error } = await serviceClient.rpc('execute_user_action', {
-    p_actor_id: authData.user.id,
-    p_request_id: requestId,
-    p_action: action,
-    p_args: args,
-  });
+  const { data, error } = action === 'create_support_ticket'
+    ? await serviceClient.rpc('create_support_ticket', {
+        p_actor_id: authData.user.id,
+        p_request_id: requestId,
+        p_subject: args.p_subject,
+        p_body: args.p_body,
+        p_category: args.p_category ?? 'general',
+        p_priority: args.p_priority ?? 'normal',
+        p_order_id: args.p_order_id ?? null,
+      })
+    : action === 'get_restaurant_effective_delivery_rules'
+    ? await serviceClient.rpc('get_restaurant_effective_delivery_rules', {
+        p_actor_id: authData.user.id,
+        p_restaurant_id: args.p_restaurant_id,
+      })
+    : action === 'update_restaurant_operational_state'
+    ? await serviceClient.rpc('update_restaurant_operational_state', {
+        p_actor_id: authData.user.id,
+        p_restaurant_id: args.p_restaurant_id,
+        p_operational_status: args.p_operational_status ?? null,
+        p_vacation_mode: args.p_vacation_mode ?? null,
+        p_expected_updated_at: args.p_expected_updated_at,
+      })
+    : action === 'update_restaurant_profile_settings'
+    ? await serviceClient.rpc('update_restaurant_profile_settings', {
+        p_actor_id: authData.user.id,
+        p_restaurant_id: args.p_restaurant_id,
+        p_payload: args.p_payload,
+        p_expected_updated_at: args.p_expected_updated_at,
+      })
+    : action === 'upsert_restaurant_special_hours'
+    ? await serviceClient.rpc('upsert_restaurant_special_hours', {
+        p_actor_id: authData.user.id,
+        p_restaurant_id: args.p_restaurant_id,
+        p_date: args.p_date,
+        p_is_closed: args.p_is_closed,
+        p_open_time: args.p_open_time ?? null,
+        p_close_time: args.p_close_time ?? null,
+        p_reason: args.p_reason ?? null,
+        p_expected_updated_at: args.p_expected_updated_at ?? null,
+      })
+    : action === 'delete_restaurant_special_hours'
+    ? await serviceClient.rpc('delete_restaurant_special_hours', {
+        p_actor_id: authData.user.id,
+        p_restaurant_id: args.p_restaurant_id,
+        p_special_hours_id: args.p_special_hours_id,
+        p_expected_updated_at: args.p_expected_updated_at,
+      })
+    : action === 'submit_driver_application'
+    ? await serviceClient.rpc('submit_driver_application', {
+        p_actor_id: authData.user.id,
+        p_payload: args.p_payload,
+        p_submission_key: args.p_submission_key,
+      })
+    : action === 'reply_to_restaurant_review'
+      ? await serviceClient.rpc('reply_to_restaurant_review', {
+          p_actor_id: authData.user.id,
+          p_review_id: args.p_review_id,
+          p_reply: args.p_reply,
+        })
+    : action === 'submit_order_review'
+      ? await serviceClient.rpc('submit_order_review', {
+          p_actor_id: authData.user.id,
+          p_order_id: args.p_order_id,
+          p_rating: args.p_rating,
+          p_comment: args.p_comment ?? null,
+        })
+    : await serviceClient.rpc('execute_user_action', {
+        p_actor_id: authData.user.id,
+        p_request_id: requestId,
+        p_action: action,
+        p_args: args,
+      });
   if (error) {
     response.status(statusForDatabaseError(error.code)).json({
       code: error.code ?? 'user_action_failed',

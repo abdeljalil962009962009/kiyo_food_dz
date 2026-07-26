@@ -8,6 +8,11 @@ import { AppShell } from '../components/AppShell';
 import { PriceTag } from '../components/ui';
 import { Spinner } from '../components/feedback';
 import { getAuthoritativeDeliveryQuote, type AuthoritativeDeliveryQuote } from '../lib/deliveryQuote';
+import { supabase, type Restaurant, type RestaurantSpecialHours } from '../lib/supabase';
+import { withExponentialBackoff } from '../lib/locationNetwork';
+import { useRealtime } from '../lib/useRealtime';
+import { userFacingError } from '../lib/userFacingError';
+import { algeriaAvailabilityDateRange, restaurantAcceptsOrders } from '../lib/restaurantAvailability';
 
 const copy = {
   en: {
@@ -17,6 +22,8 @@ const copy = {
     cashTitle: 'Pay the displayed total in cash', cashBody: 'No card charge. The server checks the restaurant, route, item prices, and total again before creating your order.',
     continueCheckout: 'Review delivery details', decrease: 'Decrease', increase: 'Increase',
     clearConfirm: 'Remove every item from this cart?', clearYes: 'Yes, clear cart', keepCart: 'Keep my cart',
+    pausedTitle: 'This restaurant paused orders', pausedBody: 'Your cart is safe. Wait for the restaurant to reopen or choose another available restaurant.',
+    alternatives: 'See available restaurants', availabilityError: 'Restaurant availability could not be refreshed. Retry before checkout.',
   },
   fr: {
     exact: 'Prix complet pour votre adresse', choose: 'Choisissez une adresse pr\u00e9cise \u00e0 la prochaine \u00e9tape pour calculer tous les frais.',
@@ -25,6 +32,8 @@ const copy = {
     cashTitle: 'Payez le total affich\u00e9 en esp\u00e8ces', cashBody: 'Aucun d\u00e9bit de carte. Le serveur rev\u00e9rifie le restaurant, le trajet, les prix et le total avant de cr\u00e9er la commande.',
     continueCheckout: 'V\u00e9rifier les d\u00e9tails de livraison', decrease: 'Diminuer', increase: 'Augmenter',
     clearConfirm: 'Retirer tous les articles de ce panier ?', clearYes: 'Oui, vider le panier', keepCart: 'Garder mon panier',
+    pausedTitle: 'Ce restaurant a suspendu les commandes', pausedBody: 'Votre panier est conserv\u00e9. Attendez la r\u00e9ouverture ou choisissez un autre restaurant disponible.',
+    alternatives: 'Voir les restaurants disponibles', availabilityError: 'Impossible d\u2019actualiser la disponibilit\u00e9. R\u00e9essayez avant de commander.',
   },
   ar: {
     exact: '\u0627\u0644\u0633\u0639\u0631 \u0627\u0644\u0643\u0627\u0645\u0644 \u0644\u0639\u0646\u0648\u0627\u0646\u0643 \u0627\u0644\u0645\u062d\u062f\u062f', choose: '\u062d\u062f\u062f \u0639\u0646\u0648\u0627\u0646 \u0627\u0644\u062a\u0648\u0635\u064a\u0644 \u0627\u0644\u062f\u0642\u064a\u0642 \u0641\u064a \u0627\u0644\u062e\u0637\u0648\u0629 \u0627\u0644\u062a\u0627\u0644\u064a\u0629 \u0644\u062d\u0633\u0627\u0628 \u062c\u0645\u064a\u0639 \u0627\u0644\u0631\u0633\u0648\u0645.',
@@ -33,6 +42,8 @@ const copy = {
     cashTitle: '\u0627\u062f\u0641\u0639 \u0627\u0644\u0645\u0628\u0644\u063a \u0627\u0644\u0638\u0627\u0647\u0631 \u0646\u0642\u062f\u0627\u064b', cashBody: '\u0644\u0627 \u064a\u0648\u062c\u062f \u062e\u0635\u0645 \u0645\u0646 \u0627\u0644\u0628\u0637\u0627\u0642\u0629. \u064a\u0639\u064a\u062f \u0627\u0644\u062e\u0627\u062f\u0645 \u0627\u0644\u062a\u062d\u0642\u0642 \u0645\u0646 \u0627\u0644\u0645\u0637\u0639\u0645 \u0648\u0627\u0644\u0645\u0633\u0627\u0631 \u0648\u0627\u0644\u0623\u0633\u0639\u0627\u0631 \u0648\u0627\u0644\u0645\u062c\u0645\u0648\u0639 \u0642\u0628\u0644 \u0625\u0646\u0634\u0627\u0621 \u0637\u0644\u0628\u0643.',
     continueCheckout: '\u0645\u0631\u0627\u062c\u0639\u0629 \u062a\u0641\u0627\u0635\u064a\u0644 \u0627\u0644\u062a\u0648\u0635\u064a\u0644', decrease: '\u062a\u0642\u0644\u064a\u0644', increase: '\u0632\u064a\u0627\u062f\u0629',
     clearConfirm: '\u0647\u0644 \u062a\u0631\u064a\u062f \u0625\u0632\u0627\u0644\u0629 \u0643\u0644 \u0639\u0646\u0627\u0635\u0631 \u0627\u0644\u0633\u0644\u0629\u061f', clearYes: '\u0646\u0639\u0645\u060c \u062a\u0641\u0631\u064a\u063a \u0627\u0644\u0633\u0644\u0629', keepCart: '\u0627\u0644\u0627\u062d\u062a\u0641\u0627\u0638 \u0628\u0627\u0644\u0633\u0644\u0629',
+    pausedTitle: '\u0623\u0648\u0642\u0641 \u0627\u0644\u0645\u0637\u0639\u0645 \u0627\u0644\u0637\u0644\u0628\u0627\u062a \u0645\u0624\u0642\u062a\u0627\u064b', pausedBody: '\u0633\u0644\u062a\u0643 \u0645\u062d\u0641\u0648\u0638\u0629. \u0627\u0646\u062a\u0638\u0631 \u0625\u0639\u0627\u062f\u0629 \u0627\u0644\u0641\u062a\u062d \u0623\u0648 \u0627\u062e\u062a\u0631 \u0645\u0637\u0639\u0645\u0627\u064b \u0622\u062e\u0631 \u0645\u062a\u0627\u062d\u0627\u064b.',
+    alternatives: '\u0639\u0631\u0636 \u0627\u0644\u0645\u0637\u0627\u0639\u0645 \u0627\u0644\u0645\u062a\u0627\u062d\u0629', availabilityError: '\u062a\u0639\u0630\u0631 \u062a\u062d\u062f\u064a\u062b \u062d\u0627\u0644\u0629 \u0627\u0644\u0645\u0637\u0639\u0645. \u0623\u0639\u062f \u0627\u0644\u0645\u062d\u0627\u0648\u0644\u0629 \u0642\u0628\u0644 \u0627\u0644\u0637\u0644\u0628.',
   },
 } as const;
 
@@ -45,6 +56,8 @@ export default function CartPage() {
   const [quote, setQuote] = useState<AuthoritativeDeliveryQuote | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
+  const [operationalStatus, setOperationalStatus] = useState<'open' | 'busy' | 'closed' | null>(null);
+  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
   const [confirmingClear, setConfirmingClear] = useState(false);
   const [cartNotice] = useState(() => {
     const value = sessionStorage.getItem('kiyo-cart-notice');
@@ -53,7 +66,7 @@ export default function CartPage() {
   });
 
   const calculate = useCallback(async () => {
-    if (!state.restaurantId || !deliveryLocation?.confirmed || state.lines.length === 0) return;
+    if (!state.restaurantId || !deliveryLocation?.confirmed || state.lines.length === 0 || operationalStatus === 'closed') return;
     setQuoteLoading(true);
     setQuoteError(null);
     try {
@@ -64,9 +77,76 @@ export default function CartPage() {
     } finally {
       setQuoteLoading(false);
     }
-  }, [deliveryLocation, state.lines, state.restaurantId, tx.unavailable]);
+  }, [deliveryLocation, operationalStatus, state.lines, state.restaurantId, tx.unavailable]);
 
   useEffect(() => { void calculate(); }, [calculate]);
+
+  const refreshAvailability = useCallback(async () => {
+    if (!state.restaurantId) return;
+    setAvailabilityError(null);
+    try {
+      const data = await withExponentialBackoff(async () => {
+        const result = await supabase
+          .from('restaurants')
+          .select('status, operational_status, is_vacation_mode, opening_hours, timezone')
+          .eq('id', state.restaurantId)
+          .maybeSingle();
+        if (result.error) throw result.error;
+        if (!result.data) return { restaurant: null, specialHours: [] };
+        const range = algeriaAvailabilityDateRange();
+        const special = await supabase
+          .from('restaurant_special_hours')
+          .select('*')
+          .eq('restaurant_id', state.restaurantId)
+          .gte('date', range.from)
+          .lte('date', range.to);
+        if (special.error) throw special.error;
+        return {
+          restaurant: result.data as Pick<Restaurant, 'status' | 'operational_status' | 'is_vacation_mode' | 'opening_hours' | 'timezone'>,
+          specialHours: (special.data as RestaurantSpecialHours[] | null) ?? [],
+        };
+      }, { attempts: 3, timeoutMs: 12_000 });
+      setOperationalStatus(data.restaurant && restaurantAcceptsOrders(data.restaurant, data.specialHours)
+        ? data.restaurant.operational_status
+        : 'closed');
+    } catch (err) {
+      console.error('[Kiyo] Cart restaurant availability refresh failed:', err);
+      setOperationalStatus('closed');
+      setAvailabilityError(userFacingError(err, locale, tx.availabilityError));
+    }
+  }, [locale, state.restaurantId, tx.availabilityError]);
+
+  useEffect(() => { void refreshAvailability(); }, [refreshAvailability]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => void refreshAvailability(), 60_000);
+    return () => window.clearInterval(timer);
+  }, [refreshAvailability]);
+
+  useRealtime('restaurants', () => {
+    void refreshAvailability();
+  }, {
+    enabled: Boolean(state.restaurantId),
+    filter: state.restaurantId ? { id: `eq.${state.restaurantId}` } : undefined,
+  });
+
+  useRealtime('restaurant_special_hours', () => {
+    void refreshAvailability();
+  }, {
+    enabled: Boolean(state.restaurantId),
+    filter: state.restaurantId ? { restaurant_id: `eq.${state.restaurantId}` } : undefined,
+  });
+
+  /*
+   * Quotes are cleared only after the refreshed authoritative availability
+   * state closes the restaurant, so transient realtime payloads cannot race
+   * with the full schedule check above.
+   */
+  useEffect(() => {
+    if (operationalStatus !== 'closed') return;
+    setQuote(null);
+    setQuoteError(null);
+  }, [operationalStatus]);
 
   if (state.lines.length === 0) {
     return (
@@ -105,15 +185,32 @@ export default function CartPage() {
       )}
 
       {cartNotice && <div className="mb-4 rounded-lg border border-sage-200 bg-sage-50 px-4 py-3 text-sm text-sage-700">{cartNotice}</div>}
+      {operationalStatus === 'closed' && (
+        <div className="mb-4 rounded-xl border border-warning-200 bg-warning-50 p-4 text-warning-900" role="alert">
+          <p className="text-sm font-bold">{tx.pausedTitle}</p>
+          <p className="mt-1 text-xs leading-5">{tx.pausedBody}</p>
+          <Link to="/restaurants" className="mt-2 inline-flex min-h-11 items-center text-xs font-bold underline">
+            {tx.alternatives}
+          </Link>
+        </div>
+      )}
+      {availabilityError && (
+        <div className="mb-4 flex flex-col gap-2 rounded-xl border border-error-100 bg-error-50 p-4 text-sm text-error-700 sm:flex-row sm:items-center sm:justify-between" role="alert">
+          <span>{availabilityError}</span>
+          <button type="button" onClick={() => void refreshAvailability()} className="inline-flex min-h-11 items-center gap-1 font-bold">
+            <RefreshCw className="h-4 w-4" /> {tx.retry}
+          </button>
+        </div>
+      )}
       <div className="grid gap-4 lg:grid-cols-[1fr,360px]">
         <div className="space-y-2">
           {state.lines.map((line) => (
-            <div key={line.item.id} className="kiyo-card flex items-center gap-3 p-3">
+            <div key={line.lineId} className="kiyo-card flex items-center gap-3 p-3">
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-2">
                   <h3 className="font-display text-sm font-bold text-ink-900">{line.item.name}</h3>
                   <button
-                    onClick={() => removeItem(line.item.id)}
+                    onClick={() => removeItem(line.lineId)}
                     className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg text-ink-400 transition-colors hover:bg-error-50 hover:text-error-600"
                     aria-label={t('cart.removeItem')}
                   >
@@ -121,13 +218,18 @@ export default function CartPage() {
                   </button>
                 </div>
                 <PriceTag value={line.unitPriceSnapshot} />
+                {line.selectedOptions.length > 0 && (
+                  <p className="mt-1 text-xs leading-5 text-ink-500">
+                    {line.selectedOptions.map((option) => option.optionName).join(' · ')}
+                  </p>
+                )}
                 {line.notes && (
                   <p className="mt-1 text-xs italic text-ink-400">"{line.notes}"</p>
                 )}
               </div>
               <div className="flex min-h-11 items-center gap-1 rounded-lg border border-ink-200 bg-white p-0.5">
                 <button
-                  onClick={() => setQuantity(line.item.id, line.quantity - 1)}
+                  onClick={() => setQuantity(line.lineId, line.quantity - 1)}
                   className="flex h-10 w-10 items-center justify-center rounded-md text-ink-700 hover:bg-ink-100"
                   aria-label={`${tx.decrease} ${line.item.name}`}
                 ><Minus className="h-4 w-4" /></button>
@@ -135,7 +237,7 @@ export default function CartPage() {
                   {line.quantity}
                 </span>
                 <button
-                  onClick={() => setQuantity(line.item.id, line.quantity + 1)}
+                  onClick={() => setQuantity(line.lineId, line.quantity + 1)}
                   className="flex h-10 w-10 items-center justify-center rounded-md text-ink-700 hover:bg-ink-100"
                   aria-label={`${tx.increase} ${line.item.name}`}
                 ><Plus className="h-4 w-4" /></button>
@@ -238,7 +340,8 @@ export default function CartPage() {
           </div>
           <button
             onClick={() => navigate(`/checkout?id=${state.restaurantId}`)}
-            className="kiyo-btn-primary w-full"
+            disabled={operationalStatus === 'closed' || Boolean(availabilityError)}
+            className="kiyo-btn-primary w-full disabled:cursor-not-allowed disabled:opacity-50"
           >
             {tx.continueCheckout}
           </button>

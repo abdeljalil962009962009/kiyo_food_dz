@@ -43,6 +43,12 @@ const TYPE_ICONS: Record<string, string> = {
   restaurant_ready_to_publish: 'R',
   restaurant_published: 'R',
   restaurant_suspended: 'R',
+  new_driver_application: 'D',
+  driver_application_submitted: 'D',
+  driver_application_under_review: 'D',
+  driver_application_approved: 'D',
+  driver_application_rejected: 'D',
+  driver_application_suspended: 'D',
 };
 
 const TYPE_ALIASES: Record<string, string> = {
@@ -101,6 +107,12 @@ const NOTIFICATION_COPY: Record<NotificationLocale, NotificationCopy> = {
       restaurant_ready_to_publish: { title: 'Restaurant ready to publish', body: 'A restaurant is ready for final publication review.' },
       restaurant_published: { title: 'Restaurant published', body: 'Your restaurant is now visible to customers.' },
       restaurant_suspended: { title: 'Restaurant suspended', body: 'This restaurant was suspended by Kiyo Food.' },
+      new_driver_application: { title: 'New driver application', body: 'A driver application is waiting for your review.' },
+      driver_application_submitted: { title: 'Driver application submitted', body: 'Your application is waiting for Kiyo Food review.' },
+      driver_application_under_review: { title: 'Application under review', body: 'Kiyo Food has started reviewing your driver application.' },
+      driver_application_approved: { title: 'Driver application approved', body: 'You can now activate your availability and accept deliveries.' },
+      driver_application_rejected: { title: 'Driver application not approved', body: 'Open your driver dashboard to review the reason.' },
+      driver_application_suspended: { title: 'Driver access suspended', body: 'Your driver access has been suspended. Open the dashboard for details.' },
     },
   },
   fr: {
@@ -136,6 +148,12 @@ const NOTIFICATION_COPY: Record<NotificationLocale, NotificationCopy> = {
       restaurant_ready_to_publish: { title: 'Restaurant prêt à publier', body: 'Un restaurant est prêt pour la validation finale.' },
       restaurant_published: { title: 'Restaurant publié', body: 'Votre restaurant est maintenant visible par les clients.' },
       restaurant_suspended: { title: 'Restaurant suspendu', body: 'Ce restaurant a été suspendu par Kiyo Food.' },
+      new_driver_application: { title: 'Nouvelle candidature de livreur', body: 'Une candidature de livreur attend votre examen.' },
+      driver_application_submitted: { title: 'Candidature de livreur envoyée', body: 'Votre candidature attend l’examen de Kiyo Food.' },
+      driver_application_under_review: { title: 'Candidature en cours d’examen', body: 'Kiyo Food a commencé l’examen de votre candidature de livreur.' },
+      driver_application_approved: { title: 'Candidature de livreur approuvée', body: 'Vous pouvez maintenant activer votre disponibilité et accepter des livraisons.' },
+      driver_application_rejected: { title: 'Candidature non approuvée', body: 'Ouvrez votre tableau de livreur pour consulter le motif.' },
+      driver_application_suspended: { title: 'Accès livreur suspendu', body: 'Votre accès livreur a été suspendu. Consultez votre tableau de bord pour les détails.' },
     },
   },
   ar: {
@@ -171,6 +189,12 @@ const NOTIFICATION_COPY: Record<NotificationLocale, NotificationCopy> = {
       restaurant_ready_to_publish: { title: 'مطعم جاهز للنشر', body: 'يوجد مطعم جاهز للمراجعة النهائية قبل النشر.' },
       restaurant_published: { title: 'تم نشر المطعم', body: 'مطعمك أصبح ظاهراً للعملاء الآن.' },
       restaurant_suspended: { title: 'تم تعليق المطعم', body: 'تم تعليق هذا المطعم من طرف كيو فود.' },
+      new_driver_application: { title: 'طلب سائق جديد', body: 'يوجد طلب سائق بانتظار مراجعتك.' },
+      driver_application_submitted: { title: 'تم إرسال طلب السائق', body: 'طلبك بانتظار مراجعة كيو فود.' },
+      driver_application_under_review: { title: 'الطلب قيد المراجعة', body: 'بدأت كيو فود مراجعة طلب انضمامك كسائق.' },
+      driver_application_approved: { title: 'تمت الموافقة على طلب السائق', body: 'يمكنك الآن تفعيل جاهزيتك وقبول عمليات التوصيل.' },
+      driver_application_rejected: { title: 'لم تتم الموافقة على الطلب', body: 'افتح لوحة السائق للاطلاع على السبب.' },
+      driver_application_suspended: { title: 'تم تعليق وصول السائق', body: 'تم تعليق وصولك كسائق. افتح لوحة التحكم للاطلاع على التفاصيل.' },
     },
   },
 };
@@ -292,7 +316,7 @@ export function NotificationBell() {
       >
         <Bell className="h-5 w-5" />
         {unreadCount > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-ember-500 px-1 text-[10px] font-bold text-white">
+          <span className="absolute -end-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-ember-500 px-1 text-[10px] font-bold text-white">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}

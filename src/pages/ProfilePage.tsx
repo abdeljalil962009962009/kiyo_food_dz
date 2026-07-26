@@ -15,10 +15,34 @@ import { Spinner } from '../components/feedback';
 import { AddressManager } from '../components/AddressManager';
 import { Link } from 'react-router-dom';
 import { callUserAction } from '../lib/userApi';
+import { userFacingError } from '../lib/userFacingError';
+import { useSettings } from '../context/SettingsContext';
+import { normalizeLoyaltyRules } from '../lib/loyaltyRules';
+
+const LOYALTY_COPY = {
+  en: {
+    earn: (points: number) => `Earn ${points} ${points === 1 ? 'point' : 'points'} for every 100 DZD spent`,
+    bronze: 'Bronze', silver: 'Silver', gold: 'Gold', platinum: 'Platinum',
+    toTier: (points: number, tier: string) => `${points.toLocaleString('en')} points to ${tier}`,
+  },
+  fr: {
+    earn: (points: number) => `Gagnez ${points} point${points > 1 ? 's' : ''} pour chaque tranche de 100 DZD`,
+    bronze: 'Bronze', silver: 'Argent', gold: 'Or', platinum: 'Platine',
+    toTier: (points: number, tier: string) => `${points.toLocaleString('fr')} points avant le niveau ${tier}`,
+  },
+  ar: {
+    earn: (points: number) => `اكسب ${points.toLocaleString('ar-DZ')} نقطة مقابل كل 100 د.ج`,
+    bronze: 'برونزي', silver: 'فضي', gold: 'ذهبي', platinum: 'بلاتيني',
+    toTier: (points: number, tier: string) => `${points.toLocaleString('ar-DZ')} نقطة للوصول إلى المستوى ${tier}`,
+  },
+} as const;
 
 export default function ProfilePage() {
   const { t } = useT();
   const { profile, signOut, locale, setLocale } = useAuth();
+  const { settings, features } = useSettings();
+  const loyaltyRules = normalizeLoyaltyRules(settings?.loyalty_referral);
+  const loyaltyCopy = LOYALTY_COPY[locale];
   const navigate = useNavigate();
   const [savingLang, setSavingLang] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -35,6 +59,17 @@ export default function ProfilePage() {
     lifetime_points: number;
     tier: string;
   } | null>(null);
+  const lifetimePoints = loyalty?.lifetime_points ?? 0;
+  const currentTier = loyalty?.tier === 'silver' || loyalty?.tier === 'gold' || loyalty?.tier === 'platinum'
+    ? loyalty.tier
+    : 'bronze';
+  const nextTier = currentTier === 'bronze'
+    ? { name: loyaltyCopy.silver, threshold: 2_000 }
+    : currentTier === 'silver'
+      ? { name: loyaltyCopy.gold, threshold: 5_000 }
+      : currentTier === 'gold'
+        ? { name: loyaltyCopy.platinum, threshold: 10_000 }
+        : null;
 
   useEffect(() => {
     if (!profile || profile.role !== 'customer') return;
@@ -62,7 +97,7 @@ export default function ProfilePage() {
       if (error) throw error;
     } catch (err) {
       setLocale(previousLocale);
-      setLanguageError(err instanceof Error ? err.message : t('error.genericBody'));
+      setLanguageError(userFacingError(err, locale, t('error.genericBody')));
     } finally {
       setSavingLang(false);
     }
@@ -153,8 +188,8 @@ export default function ProfilePage() {
 
       <ErrorBoundary variant="inline">
         {/* Loyalty Points - Customer only */}
-        {profile?.role === 'customer' && (
-          <div className="mb-4 kiyo-card border-l-4 border-l-amber-500 bg-gradient-to-r from-amber-50 to-white p-5">
+        {profile?.role === 'customer' && features.loyalty && loyaltyRules.enabled && (
+          <div className="mb-4 kiyo-card border-s-4 border-s-amber-500 bg-gradient-to-r from-amber-50 to-white p-5 rtl:bg-gradient-to-l">
             <div className="flex items-start justify-between">
               <div>
                 <div className="flex items-center gap-2">
@@ -164,7 +199,7 @@ export default function ProfilePage() {
                   </h2>
                 </div>
                 <p className="mt-1 text-xs text-ink-500">
-                  {t('profile.loyalty.subtitle')}
+                  {loyaltyCopy.earn(loyaltyRules.pointsPerHundred)}
                 </p>
               </div>
               <div className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${
@@ -173,10 +208,10 @@ export default function ProfilePage() {
                 loyalty?.tier === 'silver' ? 'bg-gray-200 text-gray-700' :
                 'bg-orange-200 text-orange-800'
               }`}>
-                {loyalty?.tier ?? 'bronze'}
+                {loyaltyCopy[currentTier]}
               </div>
             </div>
-            <div className="mt-4 grid grid-cols-3 gap-4">
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div>
                 <div className="flex items-center gap-1 text-xs text-ink-400">
                   <Star className="h-3 w-3" /> {t('profile.loyalty.currentPoints')}
@@ -196,10 +231,9 @@ export default function ProfilePage() {
               <div>
                 <div className="text-xs text-ink-400">{t('profile.loyalty.nextTier')}</div>
                 <div className="mt-1 text-sm font-semibold text-ink-700">
-                  {(loyalty?.tier === 'bronze' && '500 pts to Silver') ||
-                   (loyalty?.tier === 'silver' && '1500 pts to Gold') ||
-                   (loyalty?.tier === 'gold' && '5000 pts to Platinum') ||
-                   t('profile.loyalty.maxTier')}
+                  {nextTier
+                    ? loyaltyCopy.toTier(Math.max(0, nextTier.threshold - lifetimePoints), nextTier.name)
+                    : t('profile.loyalty.maxTier')}
                 </div>
               </div>
             </div>
@@ -221,7 +255,7 @@ export default function ProfilePage() {
 
           <div className="kiyo-card p-5">
             <h2 className="mb-4 font-display text-base font-bold text-ink-900">
-              <Globe className="mr-1.5 inline h-4 w-4" />
+              <Globe className="me-1.5 inline h-4 w-4" />
               {t('profile.language')}
             </h2>
             <div className="space-y-2">
@@ -280,7 +314,7 @@ export default function ProfilePage() {
         {/* Saved Addresses */}
         <div className="kiyo-card mt-6 p-5">
           <h2 className="mb-4 font-display text-base font-bold text-ink-900">
-            <MapPin className="mr-1.5 inline h-4 w-4" />
+            <MapPin className="me-1.5 inline h-4 w-4" />
             {t('profile.addresses.title')}
           </h2>
           <AddressManager />
@@ -289,7 +323,7 @@ export default function ProfilePage() {
         {/* Privacy & Data section */}
         <div className="kiyo-card mt-6 p-5">
           <h2 className="mb-1 font-display text-base font-bold text-ink-900">
-            <Shield className="mr-1.5 inline h-4 w-4" />
+            <Shield className="me-1.5 inline h-4 w-4" />
             {t('profile.privacy.title')}
           </h2>
           <p className="mb-4 text-xs text-ink-500">

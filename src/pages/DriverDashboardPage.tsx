@@ -11,6 +11,9 @@ import { useAuth } from '../context/AuthContext';
 import { useT } from '../lib/i18n-react';
 import { watchCurrentPosition, type LiveGeoPoint } from '../lib/geo';
 import { callUserAction } from '../lib/userApi';
+import { userFacingError } from '../lib/userFacingError';
+import { deliveryStatusLabel } from '../lib/domainStatus';
+import { useActionDialog } from '../context/ActionDialogContext';
 
 type Driver = {
   id: string;
@@ -29,6 +32,8 @@ type Driver = {
   last_location_update: string | null;
   rating: number;
   delivery_count: number;
+  application_status: 'pending' | 'under_review' | 'approved' | 'rejected' | 'suspended';
+  review_reason: string | null;
 };
 
 type LocationRpcResult = {
@@ -64,7 +69,8 @@ type Delivery = {
 export default function DriverDashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { t } = useT();
+  const { t, locale } = useT();
+  const { requestText } = useActionDialog();
 
   const [driver, setDriver] = useState<Driver | null>(null);
   const [loading, setLoading] = useState(true);
@@ -103,7 +109,17 @@ export default function DriverDashboardPage() {
       setDriver(d as Driver);
 
       if (!(d as Driver).is_verified) {
-        setError(t('driver.dash.pendingVerification'));
+        const application = d as Driver;
+        const statusMessage = application.application_status === 'rejected'
+          ? t('driver.dash.applicationRejected')
+          : application.application_status === 'suspended'
+            ? t('driver.dash.applicationSuspended')
+            : application.application_status === 'under_review'
+              ? t('driver.dash.applicationUnderReview')
+              : t('driver.dash.pendingVerification');
+        setError(application.review_reason
+          ? `${statusMessage} ${t('driver.dash.reviewReason')}: ${application.review_reason}`
+          : statusMessage);
         setLoading(false);
         return;
       }
@@ -150,11 +166,12 @@ export default function DriverDashboardPage() {
         });
       }
     } catch (err) {
-      setError((err as Error)?.message ?? t('driver.dash.failedLoad'));
+      console.error('[Kiyo] Driver dashboard load failed:', err);
+      setError(userFacingError(err, locale, t('driver.dash.failedLoad')));
     } finally {
       setLoading(false);
     }
-  }, [user, navigate, t]);
+  }, [locale, user, navigate, t]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -235,7 +252,7 @@ export default function DriverDashboardPage() {
       .eq('id', driver.id);
     if (e) {
       setDriver(prev => prev ? { ...prev, is_online: !newStatus } : null);
-      setActionError(e.message);
+      setActionError(userFacingError(e, locale, t('error.genericBody')));
     }
     setPendingAction(null);
   };
@@ -251,7 +268,7 @@ export default function DriverDashboardPage() {
       p_expected_updated_at: delivery?.updated_at ?? null,
     });
     if (e) {
-      setActionError(e.message);
+      setActionError(userFacingError(e, locale, t('error.genericBody')));
       setPendingAction(null);
       return;
     }
@@ -270,7 +287,7 @@ export default function DriverDashboardPage() {
       p_expected_updated_at: delivery?.updated_at ?? null,
     });
     if (e) {
-      setActionError(e.message);
+      setActionError(userFacingError(e, locale, t('error.genericBody')));
       setPendingAction(null);
       return;
     }
@@ -284,7 +301,13 @@ export default function DriverDashboardPage() {
     const delivery = activeDelivery || pendingDeliveries.find((item) => item.id === deliveryId);
     let reason: string | null = null;
     if (newStatus === 'failed') {
-      reason = window.prompt('Please explain why delivery failed:')?.trim() ?? null;
+      reason = await requestText({
+        title: t('driver.dash.failureReasonPrompt'),
+        inputLabel: t('driver.dash.failureReasonPrompt'),
+        confirmLabel: t('common.continue'),
+        required: true,
+        tone: 'danger',
+      });
       if (!reason || reason.length < 3) {
         setPendingAction(null);
         return;
@@ -297,7 +320,7 @@ export default function DriverDashboardPage() {
       p_expected_updated_at: delivery?.updated_at ?? null,
     });
     if (e) {
-      setActionError(e.message);
+      setActionError(userFacingError(e, locale, t('error.genericBody')));
       setPendingAction(null);
       return;
     }
@@ -377,7 +400,7 @@ export default function DriverDashboardPage() {
               : 'bg-ink-200 text-ink-600 hover:bg-ink-300'
           }`}
         >
-          <Power className="mr-1.5 inline h-4 w-4" />
+          <Power className="me-1.5 inline h-4 w-4" />
           {driver?.is_online ? t('driver.dash.online') : t('driver.dash.goOnline')}
         </button>
       </div>
@@ -442,13 +465,13 @@ export default function DriverDashboardPage() {
       <ErrorBoundary variant="inline">
         {/* Active delivery */}
         {activeDelivery && (
-          <div className="mb-5 kiyo-card border-l-4 border-ember-500 p-4">
+          <div className="mb-5 kiyo-card border-s-4 border-ember-500 p-4">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-xs font-semibold uppercase text-ember-600">
                 {t('driver.dash.activeDelivery')}
               </span>
               <span className="rounded-full bg-ember-100 px-2 py-0.5 text-xs font-medium text-ember-700">
-                {activeDelivery.status.replace('_', ' ')}
+                {deliveryStatusLabel(activeDelivery.status, locale)}
               </span>
             </div>
             <h3 className="font-display text-base font-bold text-ink-900">

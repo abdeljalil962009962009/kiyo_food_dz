@@ -1,11 +1,21 @@
 import { lazy, Suspense, useEffect, useState, useCallback } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { Map, AdvancedMarker } from '@vis.gl/react-google-maps';
-import { Star, Clock, MapPin, Plus, ChevronLeft, ShoppingBag, Info, Truck, Heart, BadgeCheck, ShieldCheck, Utensils } from 'lucide-react';
+import { Star, Clock, MapPin, Plus, Minus, X, ChevronLeft, ShoppingBag, Info, Truck, Heart, BadgeCheck, ShieldCheck, Utensils } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
-import { supabase, type Restaurant, type MenuItem, type MenuCategory } from '../lib/supabase';
+import {
+  supabase,
+  type Restaurant,
+  type MenuItem,
+  type MenuCategory,
+  type MenuItemModifier,
+  type ModifierOption,
+  type RestaurantSpecialHours,
+  type ReviewRow,
+} from '../lib/supabase';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import { useSettings } from '../context/SettingsContext';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Skeleton, ErrorState, PremiumEmptyState } from '../components/feedback';
@@ -14,8 +24,19 @@ import { GoogleMapShell, GOOGLE_MAPS_MAP_ID, MapCircle, MapMarkerBadge } from '.
 import { isValidMapCoordinate } from '../lib/googleMaps';
 import { useRealtime } from '../lib/useRealtime';
 import { publicRestaurantImageUrl } from '../lib/restaurantMedia';
-
-const OpenStreetMapDisplay = lazy(() => import('../components/OpenStreetMapDisplay'));
+import { algeriaAvailabilityDateRange, restaurantAcceptsOrders } from '../lib/restaurantAvailability';
+import {
+  buildModifierGroups,
+  defaultModifierOptionIds,
+  modifierPriceTotal,
+  selectedModifierOptions,
+  validateModifierSelection,
+  type ModifierGroup,
+} from '../lib/menuCustomization';
+import { RestaurantReviews } from '../components/RestaurantReviews';
+import { applyReviewChange } from '../lib/reviews';
+import { withExponentialBackoff } from '../lib/locationNetwork';
+import { userFacingError } from '../lib/userFacingError';
 
 const detailCopy = {
   en: {
@@ -23,18 +44,36 @@ const detailCopy = {
     closedTitle: 'Orders are paused', closedBody: 'You can view the menu, but new items cannot be added until the restaurant reopens.',
     pricing: 'Availability and the final road-route delivery price are checked again before your order is created.',
     emptyTitle: 'The menu is being prepared', emptyBody: 'This published restaurant has no available dishes to order right now. Check again later or choose another restaurant.',
+    customize: 'Customize', chooseRequired: 'Required choice', chooseOptional: 'Optional', chooseUpTo: 'Choose up to {count}',
+    requiredMessage: 'Complete this required choice.', minimumMessage: 'Choose at least {count}.', maximumMessage: 'Choose no more than {count}.',
+    instructions: 'Instructions for the kitchen', instructionsPlaceholder: 'Example: no onions, sauce on the side',
+    addConfigured: 'Add to cart', each: 'each', close: 'Close', decrease: 'Decrease quantity', increase: 'Increase quantity',
+    reviewsDelayed: 'Customer reviews are taking longer to load. The restaurant and menu remain available.',
+    retryReviews: 'Retry reviews',
   },
   fr: {
     verified: 'Vérifié par Kiyo Food', reviews: '{count} avis', preparation: 'Préparation habituelle : environ {minutes} min',
     closedTitle: 'Les commandes sont en pause', closedBody: 'Vous pouvez consulter le menu, mais aucun nouvel article ne peut être ajouté avant la réouverture du restaurant.',
     pricing: 'La disponibilité et le prix final selon le trajet routier sont revérifiés avant la création de votre commande.',
     emptyTitle: 'Le menu est en préparation', emptyBody: 'Ce restaurant publié ne propose aucun plat disponible pour le moment. Revenez plus tard ou choisissez un autre restaurant.',
+    customize: 'Personnaliser', chooseRequired: 'Choix obligatoire', chooseOptional: 'Facultatif', chooseUpTo: "Jusqu'à {count} choix",
+    requiredMessage: 'Complétez ce choix obligatoire.', minimumMessage: 'Choisissez au moins {count}.', maximumMessage: 'Choisissez au maximum {count}.',
+    instructions: 'Instructions pour la cuisine', instructionsPlaceholder: 'Exemple : sans oignons, sauce à part',
+    addConfigured: 'Ajouter au panier', each: "l'unité", close: 'Fermer', decrease: 'Réduire la quantité', increase: 'Augmenter la quantité',
+    reviewsDelayed: 'Les avis clients mettent plus de temps à charger. Le restaurant et son menu restent disponibles.',
+    retryReviews: 'Recharger les avis',
   },
   ar: {
     verified: 'موثّق من كيو فود', reviews: '{count} تقييم', preparation: 'مدة التحضير المعتادة: نحو {minutes} دقيقة',
     closedTitle: 'الطلبات متوقفة مؤقتا', closedBody: 'يمكنك تصفح القائمة، لكن لا يمكن إضافة عناصر جديدة إلى أن يعيد المطعم فتح الطلبات.',
     pricing: 'يُعاد التحقق من التوفر وسعر التوصيل النهائي حسب المسار الطرقي قبل إنشاء طلبك.',
     emptyTitle: 'قائمة الطعام قيد التحضير', emptyBody: 'لا يقدّم هذا المطعم المنشور أطباقا متاحة للطلب حاليا. عُد لاحقا أو اختر مطعما آخر.',
+    customize: 'تخصيص', chooseRequired: 'اختيار إلزامي', chooseOptional: 'اختياري', chooseUpTo: 'اختر حتى {count}',
+    requiredMessage: 'أكمل هذا الاختيار الإلزامي.', minimumMessage: 'اختر {count} على الأقل.', maximumMessage: 'اختر {count} كحد أقصى.',
+    instructions: 'تعليمات للمطبخ', instructionsPlaceholder: 'مثال: بدون بصل، الصلصة جانبا',
+    addConfigured: 'أضف إلى السلة', each: 'للوحدة', close: 'إغلاق', decrease: 'تقليل الكمية', increase: 'زيادة الكمية',
+    reviewsDelayed: 'يتأخر تحميل تقييمات العملاء. المطعم وقائمة الطعام ما زالا متاحين.',
+    retryReviews: 'إعادة تحميل التقييمات',
   },
 } as const;
 
@@ -44,6 +83,7 @@ export default function RestaurantDetailPage() {
   const navigate = useNavigate();
   const { addItem, state: cart, setRestaurantName } = useCart();
   const { user, locale } = useAuth();
+  const { features } = useSettings();
   const tx = detailCopy[locale];
 
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
@@ -55,17 +95,62 @@ export default function RestaurantDetailPage() {
   const [favoriteAnimating, setFavoriteAnimating] = useState(false);
   const [addedItemId, setAddedItemId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [specialHours, setSpecialHours] = useState<RestaurantSpecialHours[]>([]);
+  const [modifierGroupsByItem, setModifierGroupsByItem] = useState<Record<string, ModifierGroup[]>>({});
+  const [customizingItem, setCustomizingItem] = useState<MenuItem | null>(null);
+  const [availabilityClock, setAvailabilityClock] = useState(() => new Date());
+  const [reviews, setReviews] = useState<ReviewRow[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsError, setReviewsError] = useState<string | null>(null);
+
+  const loadReviews = useCallback(async () => {
+    if (!features.reviews || !id) {
+      setReviews([]);
+      setReviewsLoading(false);
+      setReviewsError(null);
+      return;
+    }
+    setReviewsLoading(true);
+    setReviewsError(null);
+    try {
+      const data = await withExponentialBackoff(async () => {
+        const result = await supabase
+          .from('reviews')
+          .select('id,restaurant_id,customer_id,order_id,rating,comment,owner_reply,replied_at,is_hidden,created_at,updated_at')
+          .eq('restaurant_id', id)
+          .eq('is_hidden', false)
+          .order('created_at', { ascending: false })
+          .limit(20);
+        if (result.error) throw result.error;
+        return (result.data as ReviewRow[] | null) ?? [];
+      }, { attempts: 3, timeoutMs: 12_000 });
+      setReviews(data);
+    } catch (err: unknown) {
+      console.error('[Kiyo] Restaurant reviews load failed:', err);
+      setReviewsError(userFacingError(err, locale, tx.reviewsDelayed));
+    } finally {
+      setReviewsLoading(false);
+    }
+  }, [features.reviews, id, locale, tx.reviewsDelayed]);
 
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true);
     setError(null);
     try {
-      const [r, c, m] = await Promise.all([
-        supabase.from('restaurants').select('*').eq('id', id).maybeSingle(),
-        supabase.from('menu_categories').select('*').eq('restaurant_id', id).order('position'),
-        supabase.from('menu_items').select('*').eq('restaurant_id', id).order('position'),
-      ]);
+      const range = algeriaAvailabilityDateRange();
+      const [r, c, m, special] = await withExponentialBackoff(async () => {
+        const results = await Promise.all([
+          supabase.from('restaurants').select('*').eq('id', id).maybeSingle(),
+          supabase.from('menu_categories').select('*').eq('restaurant_id', id).order('position'),
+          supabase.from('menu_items').select('*').eq('restaurant_id', id).order('position'),
+          supabase.from('restaurant_special_hours').select('*').eq('restaurant_id', id)
+            .gte('date', range.from).lte('date', range.to),
+        ]);
+        const failed = results.find((result) => result.error);
+        if (failed?.error) throw failed.error;
+        return results;
+      }, { attempts: 3, timeoutMs: 16_000 });
       const foundRes = r.data as Restaurant;
       if (!foundRes) {
         setError('404');
@@ -74,25 +159,65 @@ export default function RestaurantDetailPage() {
         setRestaurantName(foundRes.name);
         setCategories((c.data as MenuCategory[]) ?? []);
         setMenuItems((m.data as MenuItem[]) ?? []);
+        setSpecialHours((special.data as RestaurantSpecialHours[]) ?? []);
+        const loadedItems = (m.data as MenuItem[]) ?? [];
+        const itemIds = loadedItems.map((item) => item.id);
+        if (itemIds.length > 0) {
+          const { modifiers, options } = await withExponentialBackoff(async () => {
+            const modifiersResult = await supabase
+              .from('menu_item_modifiers')
+              .select('*')
+              .in('menu_item_id', itemIds)
+              .order('position');
+            if (modifiersResult.error) throw modifiersResult.error;
+            const loadedModifiers = (modifiersResult.data as MenuItemModifier[]) ?? [];
+            const modifierIds = loadedModifiers.map((modifier) => modifier.id);
+            const optionsResult = modifierIds.length > 0
+              ? await supabase.from('modifier_options').select('*').in('modifier_id', modifierIds).order('position')
+              : { data: [], error: null };
+            if (optionsResult.error) throw optionsResult.error;
+            return {
+              modifiers: loadedModifiers,
+              options: (optionsResult.data as ModifierOption[]) ?? [],
+            };
+          }, { attempts: 3, timeoutMs: 12_000 });
+          setModifierGroupsByItem(Object.fromEntries(itemIds.map((itemId) => [
+            itemId,
+            buildModifierGroups(
+              modifiers.filter((modifier) => modifier.menu_item_id === itemId),
+              options,
+            ),
+          ])));
+        } else {
+          setModifierGroupsByItem({});
+        }
+
+        void loadReviews();
       }
 
       // Check if favorite
       if (user && foundRes) {
-        const { data: fav } = await supabase
-          .from('customer_favorites')
-          .select('id')
-          .eq('customer_id', user.id)
-          .eq('restaurant_id', id)
-          .maybeSingle();
-        setIsFavorite(!!fav);
+        void withExponentialBackoff(async () => {
+          const result = await supabase
+            .from('customer_favorites')
+            .select('id')
+            .eq('customer_id', user.id)
+            .eq('restaurant_id', id)
+            .maybeSingle();
+          if (result.error) throw result.error;
+          return result.data;
+        }, { attempts: 2, timeoutMs: 10_000 }).then(
+          (favorite) => setIsFavorite(Boolean(favorite)),
+          (favoriteError) => console.warn('[Kiyo] Favorite state load delayed:', favoriteError),
+        );
       }
     } catch (err: unknown) {
-      console.error(err);
-      setError('500');
+      console.error('[Kiyo] Restaurant ordering data load failed:', err);
+      setError(userFacingError(err, locale, t('error.genericBody')));
     } finally {
       setLoading(false);
     }
-  }, [id, setRestaurantName, user]);
+  }, [id, loadReviews, locale, setRestaurantName, t, user]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -100,6 +225,27 @@ export default function RestaurantDetailPage() {
     if (payload.new.id !== id) return;
     setRestaurant((current) => current ? { ...current, ...payload.new } as Restaurant : current);
   }, { enabled: Boolean(id), filter: id ? { id: `eq.${id}` } : undefined });
+
+  useRealtime('restaurant_special_hours', () => {
+    void load();
+  }, { enabled: Boolean(id), filter: id ? { restaurant_id: `eq.${id}` } : undefined });
+  useRealtime('menu_item_modifiers', () => {
+    void load();
+  }, { enabled: Boolean(id) });
+  useRealtime('modifier_options', () => {
+    void load();
+  }, { enabled: Boolean(id) });
+  useRealtime('reviews', (payload) => {
+    setReviews((current) => applyReviewChange(current, payload));
+  }, {
+    enabled: Boolean(id) && features.reviews,
+    filter: id ? { restaurant_id: `eq.${id}` } : undefined,
+  });
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setAvailabilityClock(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const toggleFavorite = async () => {
     if (!user || !restaurant) return;
@@ -118,6 +264,10 @@ export default function RestaurantDetailPage() {
 
   const handleAdd = (item: MenuItem) => {
     setActionError(null);
+    if ((modifierGroupsByItem[item.id]?.length ?? 0) > 0) {
+      setCustomizingItem(item);
+      return;
+    }
     addItem(item, 1);
     setAddedItemId(item.id);
     window.setTimeout(() => setAddedItemId(null), 450);
@@ -149,14 +299,15 @@ export default function RestaurantDetailPage() {
     return (
       <AppShell>
         <ErrorState
-          title={t('error.genericTitle')} message={t('error.genericBody')}
+          title={t('error.genericTitle')} message={error ?? t('error.genericBody')}
           onRetry={load} retryLabel={t('error.retry')}
         />
       </AppShell>
     );
   }
 
-  const isOpen = restaurant.operational_status !== 'closed';
+  const isOpen = restaurantAcceptsOrders(restaurant, specialHours, availabilityClock);
+  const displayStatus = isOpen ? restaurant.operational_status : 'closed';
   const cartHasOtherRestaurant = cart.restaurantId && cart.restaurantId !== restaurant.id;
 
   return (
@@ -174,7 +325,7 @@ export default function RestaurantDetailPage() {
           <div className="relative h-44 sm:h-56">
             <RestaurantImage url={restaurant.image_url} name={restaurant.name} />
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-            <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5">
+            <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5">
               <h1 className="font-display text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
                 {restaurant.name}
               </h1>
@@ -202,11 +353,11 @@ export default function RestaurantDetailPage() {
                   </span>
                 )}
                 <span className={`rounded-full px-2 py-0.5 font-semibold backdrop-blur ${
-                  restaurant.operational_status === 'open' ? 'bg-sage-500/80 text-white' :
-                  restaurant.operational_status === 'busy' ? 'bg-warning-500/80 text-white' :
+                  displayStatus === 'open' ? 'bg-sage-500/80 text-white' :
+                  displayStatus === 'busy' ? 'bg-warning-500/80 text-white' :
                   'bg-ink-900/80 text-white'
                 }`}>
-                  {t(`restaurant.${restaurant.operational_status}`)}
+                  {t(`restaurant.${displayStatus}`)}
                 </span>
                 {restaurant.estimated_delivery_min && (
                   <span className="flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 font-semibold backdrop-blur">
@@ -270,7 +421,7 @@ export default function RestaurantDetailPage() {
               action={<Link to="/restaurants" className="kiyo-btn-primary min-h-11">{t('market.browse')}</Link>}
             />
           ) : categories.length === 0 ? (
-            <MenuGrid items={menuItems} onAdd={handleAdd} disabled={!isOpen} addedItemId={addedItemId} />
+            <MenuGrid items={menuItems} onAdd={handleAdd} disabled={!isOpen} addedItemId={addedItemId} modifierGroupsByItem={modifierGroupsByItem} />
           ) : (
             <div className="space-y-6">
               {categories.map((cat) => {
@@ -279,7 +430,7 @@ export default function RestaurantDetailPage() {
                 return (
                   <div key={cat.id}>
                     <h3 className="mb-2 font-display text-base font-bold text-ink-900">{cat.name}</h3>
-                    <MenuGrid items={items} onAdd={handleAdd} disabled={!isOpen} addedItemId={addedItemId} />
+                    <MenuGrid items={items} onAdd={handleAdd} disabled={!isOpen} addedItemId={addedItemId} modifierGroupsByItem={modifierGroupsByItem} />
                   </div>
                 );
               })}
@@ -289,7 +440,7 @@ export default function RestaurantDetailPage() {
                   <h3 className="mb-2 font-display text-base font-bold text-ink-900">{t('profile.addresses.other')}</h3>
                   <MenuGrid
                     items={menuItems.filter((m) => !m.category_id)}
-                    onAdd={handleAdd} disabled={!isOpen} addedItemId={addedItemId}
+                    onAdd={handleAdd} disabled={!isOpen} addedItemId={addedItemId} modifierGroupsByItem={modifierGroupsByItem}
                   />
                 </div>
               )}
@@ -297,6 +448,25 @@ export default function RestaurantDetailPage() {
           )}
         </div>
       </ErrorBoundary>
+
+      {features.reviews && (
+        <div>
+          {reviewsLoading ? (
+            <div className="kiyo-card mt-6 p-4" role="status">
+              <Skeleton count={3} />
+            </div>
+          ) : reviewsError ? (
+            <div className="mt-6 rounded-lg border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-800" role="status">
+              <p>{reviewsError}</p>
+              <button type="button" onClick={() => void loadReviews()} className="mt-2 min-h-11 font-bold text-warning-900 underline">
+                {tx.retryReviews}
+              </button>
+            </div>
+          ) : (
+            <RestaurantReviews reviews={reviews} locale={locale} />
+          )}
+        </div>
+      )}
 
       {cart.restaurantId === restaurant.id && cart.lines.length > 0 && (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-ink-100 bg-white/90 px-4 py-3 backdrop-blur-xl sm:px-6"
@@ -322,6 +492,20 @@ export default function RestaurantDetailPage() {
         <h2 className="mb-2 font-display text-base font-bold text-ink-900">{t('map.locationDeliveryZone')}</h2>
         <RestaurantMiniMap restaurant={restaurant} />
       </div>
+      {customizingItem && (
+        <MenuCustomizationSheet
+          item={customizingItem}
+          groups={modifierGroupsByItem[customizingItem.id] ?? []}
+          copy={tx}
+          onClose={() => setCustomizingItem(null)}
+          onAdd={(quantity, notes, selectedOptions) => {
+            addItem(customizingItem, quantity, notes, selectedOptions);
+            setAddedItemId(customizingItem.id);
+            setCustomizingItem(null);
+            window.setTimeout(() => setAddedItemId(null), 450);
+          }}
+        />
+      )}
     </AppShell>
   );
 }
@@ -331,6 +515,7 @@ function RestaurantMiniMap({ restaurant }: { restaurant: Restaurant }) {
   const lat = restaurant.latitude;
   const lng = restaurant.longitude;
   const maxKm = restaurant.max_delivery_km;
+  const OpenStreetMapDisplay = lazy(() => import('../components/OpenStreetMapDisplay'));
   
   if (!isValidMapCoordinate(lat, lng)) {
     return (
@@ -378,10 +563,15 @@ function RestaurantMiniMap({ restaurant }: { restaurant: Restaurant }) {
   );
 }
 
-function MenuGrid({ items, onAdd, disabled, addedItemId }: {
-  items: MenuItem[]; onAdd: (item: MenuItem) => void; disabled: boolean; addedItemId: string | null;
+function MenuGrid({ items, onAdd, disabled, addedItemId, modifierGroupsByItem }: {
+  items: MenuItem[];
+  onAdd: (item: MenuItem) => void;
+  disabled: boolean;
+  addedItemId: string | null;
+  modifierGroupsByItem: Record<string, ModifierGroup[]>;
 }) {
-  const { t } = useT();
+  const { t, locale } = useT();
+  const tx = detailCopy[locale];
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       {items.map((item) => {
@@ -402,6 +592,11 @@ function MenuGrid({ items, onAdd, disabled, addedItemId }: {
               {item.description && (
                 <p className="mt-1 line-clamp-2 text-xs text-ink-500">{item.description}</p>
               )}
+              {(modifierGroupsByItem[item.id]?.length ?? 0) > 0 && (
+                <span className="mt-1.5 inline-block text-[11px] font-bold text-ember-700">
+                  {tx.customize}
+                </span>
+              )}
               {!item.is_available && (
                 <span className="mt-1.5 inline-block rounded bg-ink-100 px-2 py-0.5 text-[10px] font-semibold text-ink-500">
                   {t('restaurant.outOfStock')}
@@ -419,6 +614,146 @@ function MenuGrid({ items, onAdd, disabled, addedItemId }: {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function MenuCustomizationSheet({
+  item,
+  groups,
+  copy,
+  onClose,
+  onAdd,
+}: {
+  item: MenuItem;
+  groups: ModifierGroup[];
+  copy: typeof detailCopy[keyof typeof detailCopy];
+  onClose: () => void;
+  onAdd: (quantity: number, notes: string | undefined, selectedOptions: ReturnType<typeof selectedModifierOptions>) => void;
+}) {
+  const [selectedIds, setSelectedIds] = useState(() => defaultModifierOptionIds(groups));
+  const [quantity, setQuantity] = useState(1);
+  const [notes, setNotes] = useState('');
+  const [invalidGroupId, setInvalidGroupId] = useState<string | null>(null);
+  const selected = selectedModifierOptions(groups, selectedIds);
+  const unitPrice = Number(item.price) + modifierPriceTotal(selected);
+
+  const toggleOption = (group: ModifierGroup, optionId: string) => {
+    setInvalidGroupId(null);
+    setSelectedIds((current) => {
+      const groupOptionIds = new Set(group.options.map((option) => option.id));
+      if (!group.is_multiple) {
+        return [...current.filter((id) => !groupOptionIds.has(id)), optionId];
+      }
+      if (current.includes(optionId)) return current.filter((id) => id !== optionId);
+      const groupCount = current.filter((id) => groupOptionIds.has(id)).length;
+      const maximum = group.max_select ?? group.options.length;
+      if (groupCount >= maximum) return current;
+      return [...current, optionId];
+    });
+  };
+
+  const submit = () => {
+    const validation = validateModifierSelection(groups, selectedIds);
+    if (!validation.valid) {
+      setInvalidGroupId(validation.invalidGroupId);
+      document.getElementById(`modifier-${validation.invalidGroupId}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+      return;
+    }
+    onAdd(quantity, notes.trim() || undefined, selected);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4" onClick={onClose}>
+      <div
+        className="max-h-[calc(100dvh-var(--kiyo-safe-top)-12px)] w-full overflow-y-auto rounded-t-2xl bg-white shadow-card-lg sm:max-w-lg sm:rounded-2xl"
+        style={{ paddingBottom: 'var(--kiyo-safe-bottom)' }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="customize-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-ink-100 bg-white px-5 py-4">
+          <div>
+            <p className="text-xs font-bold uppercase text-ember-700">{copy.customize}</p>
+            <h2 id="customize-title" className="font-display text-lg font-extrabold text-ink-900">{item.name}</h2>
+            <PriceTag value={unitPrice} />
+            <span className="ms-1 text-xs text-ink-400">{copy.each}</span>
+          </div>
+          <button type="button" onClick={onClose} className="flex h-11 w-11 items-center justify-center rounded-lg hover:bg-ink-100" aria-label={copy.close}>
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="space-y-5 p-5">
+          {groups.map((group) => {
+            const minimum = Math.max(group.is_required ? 1 : 0, group.min_select);
+            const maximum = group.is_multiple ? (group.max_select ?? group.options.length) : 1;
+            const hasError = invalidGroupId === group.id;
+            return (
+              <fieldset
+                id={`modifier-${group.id}`}
+                key={group.id}
+                className={`rounded-xl border p-3 ${hasError ? 'border-error-500 bg-error-50' : 'border-ink-200'}`}
+              >
+                <legend className="px-1 text-sm font-bold text-ink-900">{group.name}</legend>
+                <p className={`mb-2 text-xs ${hasError ? 'text-error-700' : 'text-ink-500'}`}>
+                  {hasError
+                    ? (minimum > 1 ? copy.minimumMessage.replace('{count}', String(minimum)) : copy.requiredMessage)
+                    : (minimum > 0 ? copy.chooseRequired : maximum > 1 ? copy.chooseUpTo.replace('{count}', String(maximum)) : copy.chooseOptional)}
+                </p>
+                <div className="space-y-1">
+                  {group.options.map((option) => (
+                    <label key={option.id} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2 py-2 hover:bg-ink-50">
+                      <input
+                        type={group.is_multiple ? 'checkbox' : 'radio'}
+                        name={`modifier-${group.id}`}
+                        checked={selectedIds.includes(option.id)}
+                        onChange={() => toggleOption(group, option.id)}
+                        className="h-5 w-5 accent-ember-600"
+                      />
+                      <span className="min-w-0 flex-1 text-sm text-ink-800">{option.name}</span>
+                      {Number(option.price_adjustion) > 0 && (
+                        <span className="text-xs font-bold text-ink-600">+{Number(option.price_adjustion).toFixed(0)} DZD</span>
+                      )}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            );
+          })}
+
+          <label className="block">
+            <span className="kiyo-label">{copy.instructions}</span>
+            <textarea
+              value={notes}
+              onChange={(event) => setNotes(event.target.value.slice(0, 500))}
+              className="kiyo-input min-h-20"
+              rows={2}
+              placeholder={copy.instructionsPlaceholder}
+            />
+          </label>
+
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-h-11 items-center rounded-lg border border-ink-200">
+              <button type="button" onClick={() => setQuantity((value) => Math.max(1, value - 1))} className="flex h-11 w-11 items-center justify-center" aria-label={copy.decrease}>
+                <Minus className="h-4 w-4" />
+              </button>
+              <span className="min-w-8 text-center font-bold">{quantity}</span>
+              <button type="button" onClick={() => setQuantity((value) => Math.min(99, value + 1))} className="flex h-11 w-11 items-center justify-center" aria-label={copy.increase}>
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+            <button type="button" onClick={submit} className="kiyo-btn-primary min-h-11 flex-1">
+              {copy.addConfigured}
+              <span>{(unitPrice * quantity).toFixed(0)} DZD</span>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

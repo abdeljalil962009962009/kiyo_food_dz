@@ -8,6 +8,7 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Field } from '../components/Field';
 import { Spinner, ErrorState } from '../components/feedback';
 import DeliveryMap, { type DeliveryMapLocation } from '../components/DeliveryMap';
+import { userFacingError } from '../lib/userFacingError';
 
 const PLACEHOLDER_IMG =
   'https://images.unsplash.com/photo-1552566626-52f8b828add9?w=800&q=60&auto=format&fit=crop';
@@ -21,7 +22,7 @@ const PLACEHOLDER_IMG =
  * admin can review before publishing.
  */
 export default function RestaurantOnboardingPage() {
-  const { t } = useT();
+  const { t, locale } = useT();
   const navigate = useNavigate();
 
   const [owners, setOwners] = useState<Profile[]>([]);
@@ -56,12 +57,12 @@ export default function RestaurantOnboardingPage() {
       } catch (err) {
         console.error('Failed to load restaurant owners for onboarding', err);
         setOwners([]);
-        setOwnersError(formatOnboardingError(err, t('error.genericBody')));
+        setOwnersError(userFacingError(err, locale, t('error.genericBody')));
       } finally {
         setOwnersLoading(false);
       }
     })();
-  }, [t]);
+  }, [locale, t]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,7 +107,7 @@ export default function RestaurantOnboardingPage() {
       navigate('/admin/restaurants', { replace: true });
     } catch (err) {
       console.error('Failed to create restaurant', err);
-      setError(formatOnboardingError(err, t('error.genericBody')));
+      setError(userFacingError(err, locale, t('error.genericBody')));
     } finally {
       setSubmitting(false);
     }
@@ -261,12 +262,3 @@ export default function RestaurantOnboardingPage() {
 }
 
 void ErrorState;
-
-function formatOnboardingError(err: unknown, fallback: string): string {
-  if (err instanceof Error && err.message) return err.message;
-  if (typeof err === 'object' && err && 'message' in err) {
-    const message = (err as { message?: unknown }).message;
-    if (typeof message === 'string' && message.trim()) return message;
-  }
-  return fallback;
-}

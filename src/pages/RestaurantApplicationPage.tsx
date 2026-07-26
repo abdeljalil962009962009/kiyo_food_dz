@@ -15,6 +15,7 @@ import { uploadRestaurantImage } from '../lib/restaurantMedia';
 import { callUserAction } from '../lib/userApi';
 import { matchWilayaFromAddress } from '../lib/algeriaLocation';
 import { FALLBACK_WILAYAS } from '../context/WilayaContext';
+import { userFacingError } from '../lib/userFacingError';
 
 type Location = DeliveryMapLocation;
 const RESTAURANT_APPLICATION_DRAFT_KEY = 'kiyo-restaurant-application-draft-v2';
@@ -83,7 +84,8 @@ export default function RestaurantApplicationPage() {
       if (cancelled) return;
       setLoadingApplication(false);
       if (loadError) {
-        setError(loadError.message);
+        console.error('[Kiyo] Restaurant application load failed:', loadError);
+        setError(userFacingError(loadError, locale, t('error.genericBody')));
         return;
       }
       if (!data) return;
@@ -133,7 +135,7 @@ export default function RestaurantApplicationPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [profile]);
+  }, [locale, profile, t]);
 
   useEffect(() => {
     if (!profile) return;
@@ -258,7 +260,7 @@ export default function RestaurantApplicationPage() {
         ? t('restaurant.apply.errorImageType')
         : message === 'restaurant_image_size'
           ? t('restaurant.apply.errorImageSize')
-          : message || t('error.genericBody'));
+          : userFacingError(err, locale, t('error.genericBody')));
     } finally {
       setSubmitting(false);
     }

@@ -18,6 +18,12 @@ import { RestaurantApplicationsPanel } from '../components/RestaurantApplication
 import { MarketplaceRuleOverridesEditor } from '../components/MarketplaceRuleOverridesEditor';
 import { callAdminAction } from '../lib/adminApi';
 import { callUserAction } from '../lib/userApi';
+import type { TranslationKey } from '../lib/i18n';
+import { auditActionLabel, orderStatusLabel, restaurantStatusLabel, settlementStatusLabel } from '../lib/domainStatus';
+import { adminCopy } from '../lib/adminCopy';
+import { useActionDialog } from '../context/ActionDialogContext';
+import { withExponentialBackoff } from '../lib/locationNetwork';
+import { useRealtime } from '../lib/useRealtime';
 
 type Analytics = {
   revenue: { today: number; this_week: number; this_month: number; this_year: number; all_time: number };
@@ -26,6 +32,30 @@ type Analytics = {
   restaurants: { total: number; published: number; pending: number; suspended: number; verified: number };
   users: { total: number; customers: number; owners: number; admins: number; suspended: number };
   settlements: { pending: number; overdue: number; paid_this_year: number };
+};
+
+type DriverReviewStatus = 'pending' | 'under_review' | 'approved' | 'rejected' | 'suspended';
+
+type DriverReviewDocument = {
+  id: string;
+  document_type: string;
+  document_url: string;
+  status: string;
+  signed_url: string | null;
+};
+
+type DriverApplicationReview = {
+  id: string;
+  user_id: string;
+  vehicle_type: string;
+  vehicle_plate: string | null;
+  application_status: DriverReviewStatus;
+  application_version: number;
+  application_submitted_at: string | null;
+  review_reason: string | null;
+  applicant_name: string;
+  applicant_email: string;
+  documents: DriverReviewDocument[];
 };
 
 type Tab = 'overview' | 'orders' | 'financials' | 'settlements' | 'users' | 'restaurants' | 'rules' | 'analytics' | 'alerts' | 'marketing' | 'support' | 'monitoring' | 'geography';
@@ -76,6 +106,18 @@ const adminErrorMessage = (err: unknown, fallback: string) => {
 
 const isTechnicalDatabaseError = (message: string) => /(?:function\s+public\.|column\s+["\w.]+\s+does not exist|relation\s+["\w.]+\s+does not exist|schema cache|SQL statement|PL\/pgSQL|PGRST|violates row-level security|permission denied for (?:table|schema|function)|invalid input syntax)/i.test(message);
 
+async function readAdminActionWithRetry<T>(
+  action: string,
+  args: Record<string, unknown> = {},
+): Promise<T> {
+  return withExponentialBackoff(async () => {
+    const result = await callAdminAction<T>(action, args);
+    if (result.error) throw result.error;
+    if (result.data === null) throw new Error('admin_read_returned_no_data');
+    return result.data;
+  }, { attempts: 3, baseDelayMs: 700, timeoutMs: 15000 });
+}
+
 const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
   en: {
     'overview': 'Overview',
@@ -115,11 +157,28 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'confirm.restoreUser': 'Restore this user’s platform access?',
     'reason.suspendedByAdmin': 'Suspended by platform owner',
     'btn.verify': 'Verify',
+    'btn.review': 'Start review',
+    'btn.approveDriver': 'Approve driver',
+    'btn.rejectDriver': 'Reject application',
+    'btn.suspendDriver': 'Suspend driver',
     'btn.unverify': 'Unverify',
     'btn.feature': 'Feature',
     'btn.unfeature': 'Unfeature',
     'btn.publish': 'Publish',
     'search.users.placeholder': 'Search users by name or email...',
+    'drivers.reviewTitle': 'Driver applications',
+    'drivers.reviewSubtitle': 'Private identity documents and activation decisions are reviewed here.',
+    'drivers.empty': 'No driver applications are waiting.',
+    'drivers.documents': 'Private documents',
+    'drivers.documentUnavailable': 'Document temporarily unavailable',
+    'drivers.reasonPrompt': 'Enter a clear reason the driver can understand.',
+    'drivers.confirmApprove': 'Approve this driver? They will be able to activate delivery availability.',
+    'drivers.confirmReview': 'Move this application into review?',
+    'drivers.pending': 'Pending',
+    'drivers.under_review': 'Under review',
+    'drivers.approved': 'Approved',
+    'drivers.rejected': 'Rejected',
+    'drivers.suspended': 'Suspended',
     'tbl.user': 'User',
     'tbl.role': 'Role',
     'tbl.status': 'Status',
@@ -161,7 +220,15 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'geography.inactive': 'Inactive',
     'geography.deliveryZones': 'Delivery Zones',
     'geography.addZone': 'Add Zone',
-    'geography.zonesDesc': 'Configure delivery pricing for different zones.',
+    'geography.zonesDesc': 'Manage operational service areas. Checkout pricing is controlled only by versioned Business Rules.',
+    'geography.managePricing': 'Manage pricing rules',
+    'geography.selectWilaya': 'Select Wilaya',
+    'geography.wilayaRequired': 'Select the Wilaya covered by this service zone.',
+    'geography.unassigned': 'Unassigned',
+    'geography.confirmEnableZone': 'Enable this service zone for new customer discovery?',
+    'geography.confirmDisableZone': 'Disable this service zone for new customer discovery? Existing orders remain available.',
+    'geography.confirmEnableWilaya': 'Enable this Wilaya for customer browsing and new service configuration?',
+    'geography.confirmDisableWilaya': 'Disable this Wilaya for new browsing? Existing orders remain manageable.',
     'geography.zoneName': 'Zone name',
     'geography.baseFee': 'Base fee',
     'geography.perKm': 'Per km',
@@ -296,11 +363,28 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'confirm.restoreUser': 'Rétablir l’accès de cet utilisateur à la plateforme ?',
     'reason.suspendedByAdmin': 'Suspendu par le propriétaire de la plateforme',
     'btn.verify': 'Vérifier',
+    'btn.review': 'Commencer l’examen',
+    'btn.approveDriver': 'Approuver le livreur',
+    'btn.rejectDriver': 'Rejeter la candidature',
+    'btn.suspendDriver': 'Suspendre le livreur',
     'btn.unverify': 'Dé-vérifier',
     'btn.feature': 'Mettre en vedette',
     'btn.unfeature': 'Retirer de la vedette',
     'btn.publish': 'Publier',
     'search.users.placeholder': 'Rechercher des utilisateurs par nom ou email...',
+    'drivers.reviewTitle': 'Candidatures des livreurs',
+    'drivers.reviewSubtitle': 'Examinez ici les documents privés et les décisions d’activation.',
+    'drivers.empty': 'Aucune candidature de livreur en attente.',
+    'drivers.documents': 'Documents privés',
+    'drivers.documentUnavailable': 'Document temporairement indisponible',
+    'drivers.reasonPrompt': 'Saisissez un motif clair que le livreur pourra comprendre.',
+    'drivers.confirmApprove': 'Approuver ce livreur ? Il pourra activer sa disponibilité pour les livraisons.',
+    'drivers.confirmReview': 'Passer cette candidature en cours d’examen ?',
+    'drivers.pending': 'En attente',
+    'drivers.under_review': 'En cours d’examen',
+    'drivers.approved': 'Approuvé',
+    'drivers.rejected': 'Rejeté',
+    'drivers.suspended': 'Suspendu',
     'tbl.user': 'Utilisateur',
     'tbl.role': 'Rôle',
     'tbl.status': 'Statut',
@@ -342,7 +426,15 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'geography.inactive': 'Inactive',
     'geography.deliveryZones': 'Zones de livraison',
     'geography.addZone': 'Ajouter une zone',
-    'geography.zonesDesc': 'Configurer les tarifs de livraison pour différentes zones.',
+    'geography.zonesDesc': 'Gérez les zones de service opérationnelles. Les tarifs de commande sont contrôlés uniquement par les Règles commerciales versionnées.',
+    'geography.managePricing': 'Gérer les règles tarifaires',
+    'geography.selectWilaya': 'Sélectionner la Wilaya',
+    'geography.wilayaRequired': 'Sélectionnez la Wilaya couverte par cette zone de service.',
+    'geography.unassigned': 'Non attribuée',
+    'geography.confirmEnableZone': 'Activer cette zone de service pour les nouvelles recherches client ?',
+    'geography.confirmDisableZone': 'Désactiver cette zone pour les nouvelles recherches client ? Les commandes existantes restent accessibles.',
+    'geography.confirmEnableWilaya': 'Activer cette Wilaya pour la navigation client et la nouvelle configuration de service ?',
+    'geography.confirmDisableWilaya': 'Désactiver cette Wilaya pour les nouvelles recherches ? Les commandes existantes restent gérables.',
     'geography.zoneName': 'Nom de la zone',
     'geography.baseFee': 'Frais de base',
     'geography.perKm': 'Par km',
@@ -477,11 +569,28 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'confirm.restoreUser': 'هل تريد استعادة وصول هذا المستخدم إلى المنصة؟',
     'reason.suspendedByAdmin': 'تم التعليق بواسطة مالك المنصة',
     'btn.verify': 'التحقق',
+    'btn.review': 'بدء المراجعة',
+    'btn.approveDriver': 'الموافقة على السائق',
+    'btn.rejectDriver': 'رفض الطلب',
+    'btn.suspendDriver': 'تعليق السائق',
     'btn.unverify': 'إلغاء التحقق',
     'btn.feature': 'تمييز',
     'btn.unfeature': 'إلغاء التمييز',
     'btn.publish': 'نشر',
     'search.users.placeholder': 'ابحث عن مستخدم بالاسم أو البريد الإلكتروني...',
+    'drivers.reviewTitle': 'طلبات السائقين',
+    'drivers.reviewSubtitle': 'تتم هنا مراجعة الوثائق الخاصة وقرارات التفعيل.',
+    'drivers.empty': 'لا توجد طلبات سائقين بانتظار المراجعة.',
+    'drivers.documents': 'الوثائق الخاصة',
+    'drivers.documentUnavailable': 'الوثيقة غير متاحة مؤقتا',
+    'drivers.reasonPrompt': 'أدخل سببا واضحا يمكن للسائق فهمه.',
+    'drivers.confirmApprove': 'هل توافق على هذا السائق؟ سيتمكن من تفعيل استعداده للتوصيل.',
+    'drivers.confirmReview': 'هل تريد نقل هذا الطلب إلى مرحلة المراجعة؟',
+    'drivers.pending': 'قيد الانتظار',
+    'drivers.under_review': 'قيد المراجعة',
+    'drivers.approved': 'تمت الموافقة',
+    'drivers.rejected': 'مرفوض',
+    'drivers.suspended': 'معلق',
     'tbl.user': 'مستخدم',
     'tbl.role': 'الدور',
     'tbl.status': 'الحالة',
@@ -523,7 +632,15 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'geography.inactive': 'غير نشط',
     'geography.deliveryZones': 'مناطق التوصيل',
     'geography.addZone': 'إضافة منطقة',
-    'geography.zonesDesc': 'تهيئة تسعير التوصيل للمناطق المختلفة.',
+    'geography.zonesDesc': 'إدارة مناطق الخدمة التشغيلية. يتم التحكم في أسعار الطلبات حصرياً من خلال قواعد العمل المؤرخة.',
+    'geography.managePricing': 'إدارة قواعد التسعير',
+    'geography.selectWilaya': 'اختر الولاية',
+    'geography.wilayaRequired': 'اختر الولاية التي تغطيها منطقة الخدمة.',
+    'geography.unassigned': 'غير محددة',
+    'geography.confirmEnableZone': 'هل تريد تفعيل منطقة الخدمة هذه لعمليات بحث العملاء الجديدة؟',
+    'geography.confirmDisableZone': 'هل تريد تعطيل هذه المنطقة لعمليات البحث الجديدة؟ ستبقى الطلبات الحالية متاحة.',
+    'geography.confirmEnableWilaya': 'هل تريد تفعيل هذه الولاية لتصفح العملاء وإعدادات الخدمة الجديدة؟',
+    'geography.confirmDisableWilaya': 'هل تريد تعطيل هذه الولاية للتصفح الجديد؟ ستبقى الطلبات الحالية قابلة للإدارة.',
     'geography.zoneName': 'اسم المنطقة',
     'geography.baseFee': 'الرسوم الأساسية',
     'geography.perKm': 'لكل كم',
@@ -689,7 +806,7 @@ export default function AdminControlCenterPage() {
         {tab === 'settlements' && <SettlementsTab />}
         {tab === 'users' && <UsersTab />}
         {tab === 'restaurants' && <RestaurantsTab />}
-        {tab === 'geography' && <GeographyTab />}
+        {tab === 'geography' && <GeographyTab onOpenRules={() => setTab('rules')} />}
         {tab === 'rules' && <RulesTab />}
         {tab === 'analytics' && <AnalyticsTab />}
         {tab === 'alerts' && <AlertsTab />}
@@ -712,7 +829,7 @@ const ZERO_ANALYTICS: Analytics = {
 
 // ===================== OVERVIEW =====================
 function OverviewTab() {
-  const { t } = useT();
+  const { t, locale } = useT();
   const { tx } = useAdminT();
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
@@ -724,16 +841,19 @@ function OverviewTab() {
     setError(null);
     try {
       const [a, al] = await Promise.all([
-        callAdminAction('get_platform_analytics'),
-        supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(10),
+        readAdminActionWithRetry<Analytics>('get_platform_analytics'),
+        withExponentialBackoff(async () => {
+          const result = await supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(10);
+          if (result.error) throw result.error;
+          return result.data;
+        }, { attempts: 3, baseDelayMs: 700, timeoutMs: 15000 }),
       ]);
-      const fetchedAnalytics = a.data as Analytics;
-      const fetchedAudit = (al.data as AuditLog[]) ?? [];
-      setAnalytics(fetchedAnalytics || ZERO_ANALYTICS);
+      const fetchedAudit = (al as AuditLog[]) ?? [];
+      setAnalytics(a);
       setAudit(fetchedAudit);
     } catch (err: unknown) {
       console.error(err);
-      setError(err instanceof Error ? err.message : t('error.genericBody'));
+      setError(adminErrorMessage(err, t('error.genericBody')));
       setAnalytics(ZERO_ANALYTICS);
       setAudit([]);
     } finally {
@@ -792,9 +912,9 @@ function OverviewTab() {
                   <Activity className="h-4 w-4" />
                 </span>
                 <span className="flex-1 truncate text-sm font-medium text-ink-800">
-                  {log.action.replace(/_/g, ' ')}
+                  {auditActionLabel(log.action, locale)}
                 </span>
-                <span className="text-xs text-ink-400">{new Date(log.created_at).toLocaleString()}</span>
+                <span className="text-xs text-ink-400">{new Date(log.created_at).toLocaleString(locale === 'ar' ? 'ar-DZ' : locale === 'fr' ? 'fr-DZ' : 'en-DZ')}</span>
               </li>
             ))}
           </ul>
@@ -814,45 +934,35 @@ function OrdersTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const statusLabel = useCallback((status: OrderRow['status']) => {
-    const copy: Record<typeof status, Record<string, string>> = {
-      pending: { en: 'Pending', fr: 'En attente', ar: 'قيد الانتظار' },
-      accepted: { en: 'Accepted', fr: 'Acceptée', ar: 'مقبول' },
-      preparing: { en: 'Preparing', fr: 'En préparation', ar: 'قيد التحضير' },
-      out_for_delivery: { en: 'Out for delivery', fr: 'En livraison', ar: 'قيد التوصيل' },
-      delivered: { en: 'Delivered', fr: 'Livrée', ar: 'تم التوصيل' },
-      cancelled: { en: 'Cancelled', fr: 'Annulée', ar: 'ملغى' },
-      failed_delivery: { en: 'Failed delivery', fr: 'Échec de livraison', ar: 'فشل التوصيل' },
-      refunded: { en: 'Refunded', fr: 'Remboursée', ar: 'مسترد' },
-    };
-    return copy[status]?.[locale] ?? copy[status]?.fr ?? status;
-  }, [locale]);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const load = useCallback(async (foreground = true) => {
+    if (foreground) {
+      setLoading(true);
+      setError(null);
+    }
     try {
-      const { data, error: ordersError } = await supabase
-        .from('orders')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50);
-      if (ordersError) throw ordersError;
-
-      const rows = ((data ?? []) as OrderRow[]);
+      const rows = await withExponentialBackoff(async () => {
+        const { data, error: ordersError } = await supabase
+          .from('orders')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(50);
+        if (ordersError) throw ordersError;
+        return ((data ?? []) as OrderRow[]);
+      }, { attempts: 3, baseDelayMs: 700, timeoutMs: 15000 });
       setOrders(rows);
+      setError(null);
 
       const restaurantIds = Array.from(new Set(rows.map((order) => order.restaurant_id).filter(Boolean)));
       const customerIds = Array.from(new Set(rows.map((order) => order.customer_id).filter(Boolean)));
 
-      const [restaurantRes, customerRes] = await Promise.all([
+      const [restaurantRes, customerRes] = await withExponentialBackoff(() => Promise.all([
         restaurantIds.length
           ? supabase.from('restaurants').select('id, name').in('id', restaurantIds)
           : Promise.resolve({ data: [], error: null }),
         customerIds.length
           ? supabase.from('profiles').select('id, full_name, email').in('id', customerIds)
           : Promise.resolve({ data: [], error: null }),
-      ]);
+      ]), { attempts: 3, baseDelayMs: 700, timeoutMs: 15000 });
 
       if (restaurantRes.error) throw restaurantRes.error;
       if (customerRes.error) throw customerRes.error;
@@ -863,13 +973,46 @@ function OrdersTab() {
         profile.full_name || profile.email || profile.id.slice(0, 8),
       ])));
     } catch (err) {
-      setError(adminErrorMessage(err, t('error.genericBody')));
+      if (foreground) setError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
-      setLoading(false);
+      if (foreground) setLoading(false);
     }
   }, [t]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void load(false);
+    };
+    const interval = window.setInterval(refresh, 30000);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [load]);
+
+  useRealtime('orders', (payload) => {
+    const changed = (payload.eventType === 'DELETE' ? payload.old : payload.new) as Partial<OrderRow>;
+    if (!changed.id) return;
+    if (payload.eventType === 'DELETE') {
+      setOrders((current) => current.filter((order) => order.id !== changed.id));
+      return;
+    }
+    if (!orders.some((order) => order.id === changed.id)) {
+      void load(false);
+      return;
+    }
+    setOrders((current) => {
+      const index = current.findIndex((order) => order.id === changed.id);
+      if (index < 0) return current;
+      const next = [...current];
+      next[index] = { ...next[index], ...changed } as OrderRow;
+      return next;
+    });
+  }, { enabled: !loading });
 
   if (loading) return <Skeleton count={4} />;
   if (error) return <ErrorState title={t('error.genericTitle')} message={error} onRetry={load} retryLabel={t('error.retry')} />;
@@ -881,7 +1024,7 @@ function OrdersTab() {
           <h3 className="font-display text-base font-bold text-ink-900">{tx('orders.title', 'Order oversight')}</h3>
           <p className="text-sm text-ink-400">{tx('orders.subtitle', 'Recent customer orders across all restaurants.')}</p>
         </div>
-        <button onClick={load} className="kiyo-btn-secondary">
+        <button onClick={() => void load()} className="kiyo-btn-secondary">
           <Activity className="h-4 w-4" />
           {tx('orders.refresh', 'Refresh')}
         </button>
@@ -893,12 +1036,12 @@ function OrdersTab() {
         <div className="kiyo-card overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-ink-100 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
+              <tr className="border-b border-ink-100 text-start text-xs font-semibold uppercase tracking-wide text-ink-400">
                 <th className="px-4 py-3">{tx('orders.number', 'Order')}</th>
                 <th className="px-4 py-3">{tx('orders.restaurant', 'Restaurant')}</th>
                 <th className="px-4 py-3">{tx('orders.customer', 'Customer')}</th>
                 <th className="px-4 py-3">{tx('orders.status', 'Status')}</th>
-                <th className="px-4 py-3 text-right">{tx('orders.total', 'Total')}</th>
+                <th className="px-4 py-3 text-end">{tx('orders.total', 'Total')}</th>
                 <th className="px-4 py-3">{tx('orders.delivery', 'Delivery')}</th>
                 <th className="px-4 py-3">{tx('orders.created', 'Created')}</th>
               </tr>
@@ -911,10 +1054,10 @@ function OrdersTab() {
                   <td className="px-4 py-3 text-ink-600">{customers.get(order.customer_id) ?? order.customer_id.slice(0, 8)}</td>
                   <td className="px-4 py-3">
                     <span className="rounded-full bg-ink-100 px-2 py-1 text-xs font-semibold text-ink-700">
-                      {statusLabel(order.status)}
+                      {orderStatusLabel(order.status, locale)}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right font-semibold text-ink-900">{DZD(Number(order.total))}</td>
+                  <td className="px-4 py-3 text-end font-semibold text-ink-900">{DZD(Number(order.total))}</td>
                   <td className="px-4 py-3 text-xs text-ink-500">
                     {order.delivery_distance_km != null ? `${Number(order.delivery_distance_km).toLocaleString('fr-DZ')} km` : '—'}
                     {order.delivery_duration_minutes != null ? ` · ${Math.round(Number(order.delivery_duration_minutes))} min` : ''}
@@ -944,15 +1087,26 @@ function FinancialsTab() {
     setError(null);
     try {
       const [a, l] = await Promise.all([
-        callAdminAction('get_platform_analytics'),
-        supabase.from('financial_ledger').select('restaurant_id, platform_commission, restaurant_payout, order_total').order('created_at', { ascending: false }).limit(100),
+        readAdminActionWithRetry<Analytics>('get_platform_analytics'),
+        withExponentialBackoff(async () => {
+          const result = await supabase
+            .from('financial_ledger')
+            .select('restaurant_id, platform_commission, restaurant_payout, order_total')
+            .order('created_at', { ascending: false })
+            .limit(100);
+          if (result.error) throw result.error;
+          return result.data;
+        }, { attempts: 3, baseDelayMs: 700, timeoutMs: 15000 }),
       ]);
-      if (a.error) throw a.error;
-      setAnalytics(a.data as Analytics);
-      const r = await supabase.from('restaurants').select('id, name');
-      const rMap = new Map((r.data ?? []).map((x: { id: string; name: string }) => [x.id, x.name]));
+      setAnalytics(a);
+      const restaurantRows = await withExponentialBackoff(async () => {
+        const result = await supabase.from('restaurants').select('id, name');
+        if (result.error) throw result.error;
+        return result.data ?? [];
+      }, { attempts: 3, baseDelayMs: 700, timeoutMs: 15000 });
+      const rMap = new Map(restaurantRows.map((x: { id: string; name: string }) => [x.id, x.name]));
       const agg = new Map<string, { restaurant_name: string; total: number; commission: number; payout: number }>();
-      for (const row of (l.data ?? []) as Array<{ restaurant_id: string; platform_commission: string; restaurant_payout: string; order_total: string }>) {
+      for (const row of (l ?? []) as Array<{ restaurant_id: string; platform_commission: string; restaurant_payout: string; order_total: string }>) {
         const existing = agg.get(row.restaurant_id) ?? { restaurant_name: rMap.get(row.restaurant_id) ?? 'Unknown', total: 0, commission: 0, payout: 0 };
         existing.total += parseFloat(row.order_total);
         existing.commission += parseFloat(row.platform_commission);
@@ -1055,9 +1209,11 @@ function FinancialsTab() {
 
 // ===================== USERS =====================
 function UsersTab() {
-  const { t } = useT();
+  const { t, locale } = useT();
   const { tx } = useAdminT();
+  const { confirmAction, requestText } = useActionDialog();
   const [users, setUsers] = useState<Profile[]>([]);
+  const [driverApplications, setDriverApplications] = useState<DriverApplicationReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -1067,18 +1223,74 @@ function UsersTab() {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: e } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (e) throw e;
-      setUsers((data as Profile[]) ?? []);
+      const [profilesResult, driversResult, documentsResult] = await Promise.all([
+        supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+        supabase
+          .from('drivers')
+          .select('id,user_id,vehicle_type,vehicle_plate,application_status,application_version,application_submitted_at,review_reason')
+          .order('application_submitted_at', { ascending: false }),
+        supabase
+          .from('driver_documents')
+          .select('id,driver_id,document_type,document_url,status')
+          .order('created_at', { ascending: true }),
+      ]);
+      if (profilesResult.error) throw profilesResult.error;
+      if (driversResult.error) throw driversResult.error;
+      if (documentsResult.error) throw documentsResult.error;
+
+      const profiles = (profilesResult.data as Profile[]) ?? [];
+      const profileById = new Map(profiles.map((profile) => [profile.id, profile]));
+      const signedDocuments = await Promise.all(
+        ((documentsResult.data ?? []) as Array<{
+          id: string;
+          driver_id: string;
+          document_type: string;
+          document_url: string;
+          status: string;
+        }>).map(async (document) => {
+          const signed = await supabase.storage
+            .from('driver-documents')
+            .createSignedUrl(document.document_url, 300);
+          return {
+            ...document,
+            signed_url: signed.data?.signedUrl ?? null,
+          };
+        }),
+      );
+
+      setUsers(profiles);
+      setDriverApplications(((driversResult.data ?? []) as Array<{
+        id: string;
+        user_id: string;
+        vehicle_type: string;
+        vehicle_plate: string | null;
+        application_status: DriverReviewStatus;
+        application_version: number;
+        application_submitted_at: string | null;
+        review_reason: string | null;
+      }>).map((driver) => {
+        const applicant = profileById.get(driver.user_id);
+        return {
+          ...driver,
+          applicant_name: applicant?.full_name ?? tx('tbl.user', 'User'),
+          applicant_email: applicant?.email ?? '',
+          documents: signedDocuments
+            .filter((document) => document.driver_id === driver.id)
+            .map((document) => ({
+              id: document.id,
+              document_type: document.document_type,
+              document_url: document.document_url,
+              status: document.status,
+              signed_url: document.signed_url,
+            })),
+        };
+      }));
     } catch (err) {
       setError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [t, tx]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -1087,7 +1299,13 @@ function UsersTab() {
     const confirmation = nextSuspended
       ? tx('confirm.suspendUser', 'Suspend this user? They will lose platform access until restored.')
       : tx('confirm.restoreUser', 'Restore this user’s platform access?');
-    if (!window.confirm(confirmation)) return;
+    const confirmed = await confirmAction({
+      title: nextSuspended ? tx('btn.suspend', 'Suspend') : tx('btn.restore', 'Restore'),
+      message: confirmation,
+      confirmLabel: nextSuspended ? tx('btn.suspend', 'Suspend') : tx('btn.restore', 'Restore'),
+      tone: nextSuspended ? 'danger' : 'success',
+    });
+    if (!confirmed) return;
 
     setActingId(user.id);
     setError(null);
@@ -1106,6 +1324,73 @@ function UsersTab() {
     }
   };
 
+  const reviewDriver = async (
+    application: DriverApplicationReview,
+    targetStatus: DriverReviewStatus,
+  ) => {
+    let reason: string | null = null;
+    if (targetStatus === 'rejected' || targetStatus === 'suspended') {
+      reason = await requestText({
+        title: targetStatus === 'rejected'
+          ? tx('btn.rejectDriver', 'Reject application')
+          : tx('btn.suspendDriver', 'Suspend driver'),
+        message: tx('drivers.reasonPrompt', 'Enter a clear reason the driver can understand.'),
+        inputLabel: tx('drivers.reasonPrompt', 'Reason'),
+        confirmLabel: targetStatus === 'rejected'
+          ? tx('btn.rejectDriver', 'Reject application')
+          : tx('btn.suspendDriver', 'Suspend driver'),
+        tone: 'danger',
+        required: true,
+      });
+      if (!reason) return;
+    } else {
+      const confirmed = await confirmAction({
+        title: targetStatus === 'approved'
+          ? tx('btn.approveDriver', 'Approve driver')
+          : tx('btn.review', 'Start review'),
+        message: targetStatus === 'approved'
+          ? tx('drivers.confirmApprove', 'Approve this driver?')
+          : tx('drivers.confirmReview', 'Move this application into review?'),
+        confirmLabel: targetStatus === 'approved'
+          ? tx('btn.approveDriver', 'Approve driver')
+          : tx('btn.review', 'Start review'),
+        tone: targetStatus === 'approved' ? 'success' : 'default',
+      });
+      if (!confirmed) return;
+    }
+
+    setActingId(application.id);
+    setError(null);
+    try {
+      const { data, error: actionError } = await callAdminAction<{
+        application_status: DriverReviewStatus;
+        application_version: number;
+        review_reason: string | null;
+      }>('review_driver_application', {
+        p_driver_id: application.id,
+        p_target_status: targetStatus,
+        p_reason: reason,
+        p_expected_version: application.application_version,
+      });
+      if (actionError) throw actionError;
+      if (!data) throw new Error(t('error.genericBody'));
+      setDriverApplications((current) => current.map((driver) => (
+        driver.id === application.id
+          ? {
+              ...driver,
+              application_status: data.application_status,
+              application_version: data.application_version,
+              review_reason: data.review_reason,
+            }
+          : driver
+      )));
+    } catch (err) {
+      setError(adminErrorMessage(err, t('error.genericBody')));
+    } finally {
+      setActingId(null);
+    }
+  };
+
   const filtered = users.filter((u) => {
     const q = search.toLowerCase();
     return !q || (u.email ?? '').toLowerCase().includes(q) || (u.full_name ?? '').toLowerCase().includes(q);
@@ -1116,15 +1401,140 @@ function UsersTab() {
 
   return (
     <div className="space-y-4">
+      <section className="kiyo-card p-4 sm:p-5">
+        <div className="mb-4 flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-ember-50 text-ember-600">
+            <Truck className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="font-display text-lg font-bold text-ink-900">
+              {tx('drivers.reviewTitle', 'Driver applications')}
+            </h2>
+            <p className="text-sm text-ink-500">
+              {tx('drivers.reviewSubtitle', 'Review private documents and activation decisions.')}
+            </p>
+          </div>
+        </div>
+
+        {driverApplications.length === 0 ? (
+          <p className="rounded-lg bg-ink-50 p-4 text-sm text-ink-500">
+            {tx('drivers.empty', 'No driver applications are waiting.')}
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {driverApplications.map((application) => (
+              <article key={application.id} className="rounded-lg border border-ink-100 p-4">
+                <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-semibold text-ink-900">{application.applicant_name}</h3>
+                      <span className="rounded-full bg-ink-100 px-2 py-0.5 text-xs font-medium text-ink-700">
+                        {tx(`drivers.${application.application_status}`, application.application_status)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-ink-500">{application.applicant_email}</p>
+                    <p className="mt-1 text-sm text-ink-600">
+                      {t(`driver.vehicle.${application.vehicle_type}` as 'driver.vehicle.car')}
+                      {application.vehicle_plate ? ` · ${application.vehicle_plate}` : ''}
+                    </p>
+                    {application.application_submitted_at && (
+                      <p className="mt-1 text-xs text-ink-400">
+                        {new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' })
+                          .format(new Date(application.application_submitted_at))}
+                      </p>
+                    )}
+                    {application.review_reason && (
+                      <p className="mt-2 rounded-lg bg-error-55 px-3 py-2 text-sm text-error-700">
+                        {application.review_reason}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="min-w-48">
+                    <p className="mb-2 text-xs font-semibold uppercase text-ink-400">
+                      {tx('drivers.documents', 'Private documents')}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {application.documents.map((document) => (
+                        document.signed_url ? (
+                          <a
+                            key={document.id}
+                            href={document.signed_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-ink-200 px-3 py-2 text-xs font-medium text-ink-700 hover:border-ember-300"
+                          >
+                            <FileText className="h-4 w-4" />
+                            {document.document_type.replace(/_/g, ' ')}
+                          </a>
+                        ) : (
+                          <span key={document.id} className="text-xs text-error-600">
+                            {tx('drivers.documentUnavailable', 'Document temporarily unavailable')}
+                          </span>
+                        )
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {application.application_status === 'pending' && (
+                    <button
+                      type="button"
+                      className="kiyo-btn-secondary min-h-11 text-xs"
+                      disabled={actingId === application.id}
+                      onClick={() => void reviewDriver(application, 'under_review')}
+                    >
+                      <Clock className="h-4 w-4" /> {tx('btn.review', 'Start review')}
+                    </button>
+                  )}
+                  {['pending', 'under_review', 'suspended'].includes(application.application_status) && (
+                    <button
+                      type="button"
+                      className="kiyo-btn-primary min-h-11 text-xs"
+                      disabled={actingId === application.id}
+                      onClick={() => void reviewDriver(application, 'approved')}
+                    >
+                      <ShieldCheck className="h-4 w-4" /> {tx('btn.approveDriver', 'Approve driver')}
+                    </button>
+                  )}
+                  {['pending', 'under_review', 'suspended'].includes(application.application_status) && (
+                    <button
+                      type="button"
+                      className="kiyo-btn-secondary min-h-11 border-error-200 text-xs text-error-700"
+                      disabled={actingId === application.id}
+                      onClick={() => void reviewDriver(application, 'rejected')}
+                    >
+                      <Ban className="h-4 w-4" /> {tx('btn.rejectDriver', 'Reject application')}
+                    </button>
+                  )}
+                  {application.application_status === 'approved' && (
+                    <button
+                      type="button"
+                      className="kiyo-btn-secondary min-h-11 border-error-200 text-xs text-error-700"
+                      disabled={actingId === application.id}
+                      onClick={() => void reviewDriver(application, 'suspended')}
+                    >
+                      <Ban className="h-4 w-4" /> {tx('btn.suspendDriver', 'Suspend driver')}
+                    </button>
+                  )}
+                  {actingId === application.id && <Spinner className="h-4 w-4" />}
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-300" />
+          <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-300" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={tx('search.users.placeholder', 'Search users by name or email...')}
-            className="w-full rounded-lg border border-ink-100 bg-white py-2 pl-10 pr-4 text-sm text-ink-900 placeholder:text-ink-300 focus:border-ember-500 focus:outline-none"
+            className="w-full rounded-lg border border-ink-100 bg-white py-2 pe-4 ps-10 text-sm text-ink-900 placeholder:text-ink-300 focus:border-ember-500 focus:outline-none"
           />
         </div>
       </div>
@@ -1198,7 +1608,7 @@ function UsersTab() {
 
 // ===================== RESTAURANTS =====================
 function RestaurantsTab() {
-  const { t } = useT();
+  const { t, locale } = useT();
   const { tx } = useAdminT();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1271,7 +1681,7 @@ function RestaurantsTab() {
                 r.status === 'published' ? 'bg-sage-500/10 text-sage-600' :
                 r.status === 'suspended' ? 'bg-error-500/10 text-error-600' :
                 'bg-ink-100 text-ink-500'
-              }`}>{r.status.replace(/_/g, ' ')}</span>
+              }`}>{restaurantStatusLabel(r.status, locale)}</span>
               {r.rating > 0 && (
                 <span className="inline-flex items-center gap-0.5">
                   <Star className="h-3 w-3 text-ember-500" />
@@ -1300,13 +1710,7 @@ function RestaurantsTab() {
               {r.is_featured ? tx('btn.unfeature', 'Unfeature') : tx('btn.feature', 'Feature')}
             </button>
             {r.status !== 'published' && !r.source_application_id && (
-              <button
-                onClick={() => updateRestaurant(r, { status: 'published' })}
-                disabled={actingId === r.id}
-                className="kiyo-btn-primary bg-sage-500 text-xs hover:bg-sage-600"
-              >
-                {tx('btn.publish', 'Publish')}
-              </button>
+              <span className="max-w-48 text-right text-xs font-medium text-warning-700">{t('admin.applicationRequired')}</span>
             )}
             {r.status !== 'suspended' && (
               <button
@@ -1332,6 +1736,7 @@ const DEFAULT_SETTINGS: Record<string, Record<string, unknown>> = {
     max_fee: 500,
     free_delivery_threshold: 1500,
     default_max_delivery_km: 10,
+    minimum_order: 0,
   },
   commission: {
     default_rate: 0.07,
@@ -1379,8 +1784,8 @@ const DEFAULT_SETTINGS: Record<string, Record<string, unknown>> = {
     auto_assign_drivers: true,
   },
   loyalty_referral: {
-    loyalty_enabled: true,
-    points_per_hundred: 5,
+    loyalty_enabled: false,
+    points_per_hundred: 1,
     point_value_dzd: 1,
     referral_enabled: true,
     referrer_reward: 200,
@@ -1497,6 +1902,8 @@ function RulesTab() {
           onChange={(v) => updateField('delivery', 'free_delivery_threshold', Number(v))} />
         <RuleField label={tx('rules.delivery.defaultMaxKm', 'Default max delivery km')} value={settings.delivery?.default_max_delivery_km as number ?? 10}
           onChange={(v) => updateField('delivery', 'default_max_delivery_km', Number(v))} />
+        <RuleField label={tx('rules.delivery.minimumOrder', 'Default minimum order (DZD)')} value={settings.delivery?.minimum_order as number ?? 0}
+          onChange={(v) => updateField('delivery', 'minimum_order', Number(v))} />
       </RulesCard>
 
       {/* Commission Rules */}
@@ -1676,7 +2083,8 @@ function RuleToggle({ label, value, onChange }: { label: string; value: boolean;
 
 // ===================== ANALYTICS =====================
 function AnalyticsTab() {
-  const { t } = useT();
+  const { t, locale } = useT();
+  const copy = adminCopy(locale).analytics;
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1685,9 +2093,8 @@ function AnalyticsTab() {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: e } = await callAdminAction('get_platform_analytics');
-      if (e) throw e;
-      setAnalytics(data as Analytics);
+      const data = await readAdminActionWithRetry<Analytics>('get_platform_analytics');
+      setAnalytics(data);
     } catch (err) {
       setError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
@@ -1708,32 +2115,32 @@ function AnalyticsTab() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="mb-3 font-display text-base font-bold text-ink-900">Customer Analytics</h3>
+        <h3 className="mb-3 font-display text-base font-bold text-ink-900">{copy.customers}</h3>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatCard icon={Users} label="Total Customers" value={String(analytics.users.customers)} />
-          <StatCard icon={Users} label="Restaurant Owners" value={String(analytics.users.owners)} />
-          <StatCard icon={Users} label="Suspended" value={String(analytics.users.suspended)} accent="error" />
-          <StatCard icon={Users} label="Total Users" value={String(analytics.users.total)} />
+          <StatCard icon={Users} label={copy.totalCustomers} value={String(analytics.users.customers)} />
+          <StatCard icon={Users} label={copy.owners} value={String(analytics.users.owners)} />
+          <StatCard icon={Users} label={copy.suspended} value={String(analytics.users.suspended)} accent="error" />
+          <StatCard icon={Users} label={copy.totalUsers} value={String(analytics.users.total)} />
         </div>
       </div>
 
       <div>
-        <h3 className="mb-3 font-display text-base font-bold text-ink-900">Restaurant Analytics</h3>
+        <h3 className="mb-3 font-display text-base font-bold text-ink-900">{copy.restaurants}</h3>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatCard icon={Store} label="Total" value={String(analytics.restaurants.total)} />
-          <StatCard icon={Store} label="Published" value={String(analytics.restaurants.published)} accent="sage" />
-          <StatCard icon={Store} label="Pending" value={String(analytics.restaurants.pending)} accent="warning" />
-          <StatCard icon={BadgeCheck} label="Verified" value={String(analytics.restaurants.verified)} />
+          <StatCard icon={Store} label={copy.total} value={String(analytics.restaurants.total)} />
+          <StatCard icon={Store} label={copy.published} value={String(analytics.restaurants.published)} accent="sage" />
+          <StatCard icon={Store} label={copy.pending} value={String(analytics.restaurants.pending)} accent="warning" />
+          <StatCard icon={BadgeCheck} label={copy.verified} value={String(analytics.restaurants.verified)} />
         </div>
       </div>
 
       <div>
-        <h3 className="mb-3 font-display text-base font-bold text-ink-900">Order Analytics</h3>
+        <h3 className="mb-3 font-display text-base font-bold text-ink-900">{copy.orders}</h3>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatCard icon={ShoppingBag} label="Total Orders" value={String(analytics.orders.total)} />
-          <StatCard icon={ShoppingBag} label="Today" value={String(analytics.orders.today)} />
-          <StatCard icon={AlertTriangle} label={`Cancelled (${cancelRate}%)`} value={String(analytics.orders.cancelled)} accent="error" />
-          <StatCard icon={CheckCircle} label={`Delivered (${deliveryRate}%)`} value={String(analytics.orders.delivered)} accent="sage" />
+          <StatCard icon={ShoppingBag} label={copy.totalOrders} value={String(analytics.orders.total)} />
+          <StatCard icon={ShoppingBag} label={copy.today} value={String(analytics.orders.today)} />
+          <StatCard icon={AlertTriangle} label={`${copy.cancelled} (${cancelRate}%)`} value={String(analytics.orders.cancelled)} accent="error" />
+          <StatCard icon={CheckCircle} label={`${copy.delivered} (${deliveryRate}%)`} value={String(analytics.orders.delivered)} accent="sage" />
         </div>
       </div>
     </div>
@@ -1744,6 +2151,7 @@ function AnalyticsTab() {
 function SettlementsTab() {
   const { t } = useT();
   const { locale } = useAdminT();
+  const { confirmAction } = useActionDialog();
   const copy = SETTLEMENT_COPY[locale as keyof typeof SETTLEMENT_COPY] ?? SETTLEMENT_COPY.en;
   const [overview, setOverview] = useState<{
     total_owed: number; total_paid: number; overdue_count: number; pending_count: number; paid_count: number; disputed_count: number;
@@ -1769,9 +2177,8 @@ function SettlementsTab() {
     setLoading(true);
     setLoadError(null);
     try {
-      const { data, error: e } = await callAdminAction('get_settlement_overview');
-      if (e) throw e;
-      setOverview(data as typeof overview);
+      const data = await readAdminActionWithRetry<NonNullable<typeof overview>>('get_settlement_overview');
+      setOverview(data);
     } catch (err) {
       setLoadError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
@@ -1782,7 +2189,7 @@ function SettlementsTab() {
   useEffect(() => { void load(); }, [load]);
 
   const markPaid = async (id: string) => {
-    if (!window.confirm(copy.confirmPaid)) return;
+    if (!await confirmAction({ title: copy.markPaid, message: copy.confirmPaid, confirmLabel: copy.markPaid, tone: 'success' })) return;
     setActingId(id);
     setActionError(null);
     setNotice(null);
@@ -1801,7 +2208,7 @@ function SettlementsTab() {
   };
 
   const generateSettlement = async (restaurantId: string, periodStart: string) => {
-    if (!window.confirm(copy.confirmGenerate)) return;
+    if (!await confirmAction({ title: copy.generate, message: copy.confirmGenerate, confirmLabel: copy.generate })) return;
     const key = `${restaurantId}:${periodStart}`;
     setActingId(key);
     setActionError(null);
@@ -1924,7 +2331,7 @@ function SettlementsTab() {
                         s.status === 'overdue' ? 'bg-error-500/10 text-error-600' :
                         s.status === 'partially_paid' ? 'bg-ember-500/10 text-ember-600' :
                         'bg-ink-100 text-ink-500'
-                      }`}>{s.status.replace(/_/g, ' ')}</span>
+                      }`}>{settlementStatusLabel(s.status, locale)}</span>
                     </td>
                     <td className="px-4 py-3 text-right">
                       {!['paid', 'disputed'].includes(s.status) && (
@@ -1981,6 +2388,7 @@ type MarketingCampaign = {
   scheduled_end: string | null;
   sent_count: number;
   created_at: string;
+  updated_at: string;
 };
 
 type FeatureFlag = {
@@ -1990,6 +2398,7 @@ type FeatureFlag = {
   description: string | null;
   is_enabled: boolean;
   rollout_percentage: number;
+  updated_at: string;
 };
 
 type SubscriptionPlan = {
@@ -1999,10 +2408,23 @@ type SubscriptionPlan = {
   price_monthly: string;
   features: Record<string, unknown>;
   is_active: boolean;
+  updated_at: string;
 };
 
 function MarketingTab() {
-  const { t } = useT();
+  const { t, locale } = useT();
+  const copy = adminCopy(locale).marketing;
+  const { confirmAction } = useActionDialog();
+  const discountTypeLabel = (value: string) => value === 'percentage' ? copy.percentage : copy.fixed;
+  const campaignTypeLabel = (value: string) => ({
+    push: copy.push, email: copy.email, in_app: copy.inApp, loyalty: copy.loyalty,
+  }[value] ?? value);
+  const audienceLabel = (value: string) => ({
+    all: copy.allUsers, customers: copy.customersOnly, owners: copy.ownersOnly, inactive: copy.inactiveUsers,
+  }[value] ?? value);
+  const planTypeLabel = (value: string) => ({
+    customer: copy.customer, restaurant: copy.restaurant, driver: copy.driver,
+  }[value] ?? value);
   const [promos, setPromos] = useState<PromoCode[]>([]);
   const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([]);
   const [flags, setFlags] = useState<FeatureFlag[]>([]);
@@ -2015,6 +2437,7 @@ function MarketingTab() {
   const [newCampaign, setNewCampaign] = useState({ name: '', type: 'push', audience: 'all', content: '' });
   const [showPlanForm, setShowPlanForm] = useState(false);
   const [newPlan, setNewPlan] = useState({ name: '', type: 'customer', price: '0', features: '' });
+  const [saving, setSaving] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -2045,103 +2468,199 @@ function MarketingTab() {
   useEffect(() => { void load(); }, [load]);
 
   const createPromo = async () => {
+    const code = newPromo.code.trim().toUpperCase();
+    const value = Number(newPromo.discount_value);
+    const minimum = Number(newPromo.min_order);
+    const maximum = newPromo.max_discount ? Number(newPromo.max_discount) : null;
+    if (!/^[A-Z0-9][A-Z0-9_-]{2,31}$/.test(code)
+       || !Number.isFinite(value) || value <= 0
+       || (newPromo.discount_type === 'percentage' && value > 100)
+       || !Number.isFinite(minimum) || minimum < 0
+       || (maximum !== null && (!Number.isFinite(maximum) || maximum <= 0))) {
+      setError(copy.invalidFields);
+      return;
+    }
+    setSaving('promo-create');
+    setError(null);
     try {
-      const { error: e } = await supabase.from('promo_codes').insert({
-        code: newPromo.code.toUpperCase(),
-        description: newPromo.description || null,
-        discount_type: newPromo.discount_type,
-        discount_value: Number(newPromo.discount_value),
-        min_order_amount: Number(newPromo.min_order),
-        max_discount: newPromo.max_discount ? Number(newPromo.max_discount) : null,
-        valid_until: newPromo.valid_until || null,
+      const { data, error: e } = await callAdminAction<PromoCode>('create_promo_code', {
+        p_code: code,
+        p_description: newPromo.description || null,
+        p_discount_type: newPromo.discount_type,
+        p_discount_value: value,
+        p_min_order_amount: minimum,
+        p_max_discount: maximum,
+        p_valid_until: newPromo.valid_until ? new Date(`${newPromo.valid_until}T23:59:59`).toISOString() : null,
       });
       if (e) throw e;
+      if (!data) throw new Error('promo_create_returned_no_data');
       setShowForm(false);
       setNewPromo({ code: '', description: '', discount_type: 'percentage', discount_value: '10', min_order: '0', max_discount: '', valid_until: '' });
-      void load();
+      setPromos((previous) => [data, ...previous]);
     } catch (err) {
       console.error('[Kiyo] Create promo code error:', err);
       setError(adminErrorMessage(err, t('error.genericBody')));
+    } finally {
+      setSaving(null);
     }
   };
 
   const togglePromo = async (p: PromoCode) => {
+    if (!await confirmAction({
+      title: p.is_active ? copy.disable : copy.enable,
+      message: p.is_active ? copy.confirmDisablePromo : copy.confirmEnablePromo,
+      confirmLabel: p.is_active ? copy.disable : copy.enable,
+      tone: p.is_active ? 'danger' : 'default',
+    })) return;
+    setSaving(p.id);
+    setError(null);
     try {
-      const { error: e } = await supabase.from('promo_codes').update({ is_active: !p.is_active }).eq('id', p.id);
+      const { data, error: e } = await callAdminAction<PromoCode>('set_promo_code_active', {
+        p_promo_id: p.id,
+        p_active: !p.is_active,
+        p_expected_updated_at: p.updated_at,
+      });
       if (e) throw e;
-      setPromos((prev) => prev.map((x) => x.id === p.id ? { ...x, is_active: !x.is_active } : x));
+      if (!data) throw new Error('promo_update_returned_no_data');
+      setPromos((prev) => prev.map((x) => x.id === p.id ? data : x));
     } catch (err) {
       console.error('[Kiyo] Toggle promo code error:', err);
       setError(adminErrorMessage(err, t('error.genericBody')));
+    } finally {
+      setSaving(null);
     }
   };
 
   const createCampaign = async () => {
+    if (newCampaign.name.trim().length < 2 || newCampaign.content.trim().length < 2) {
+      setError(copy.invalidFields);
+      return;
+    }
+    setSaving('campaign-create');
+    setError(null);
     try {
-      const { error: e } = await supabase.from('marketing_campaigns').insert({
-        name: newCampaign.name,
-        campaign_type: newCampaign.type,
-        target_audience: newCampaign.audience,
-        content: { message: newCampaign.content },
+      const { data, error: e } = await callAdminAction<MarketingCampaign>('create_marketing_campaign', {
+        p_name: newCampaign.name,
+        p_campaign_type: newCampaign.type,
+        p_target_audience: newCampaign.audience,
+        p_message: newCampaign.content,
       });
       if (e) throw e;
+      if (!data) throw new Error('campaign_create_returned_no_data');
       setShowCampaignForm(false);
       setNewCampaign({ name: '', type: 'push', audience: 'all', content: '' });
-      void load();
+      setCampaigns((previous) => [data, ...previous]);
     } catch (err) {
       console.error('[Kiyo] Create campaign error:', err);
       setError(adminErrorMessage(err, t('error.genericBody')));
+    } finally {
+      setSaving(null);
     }
   };
 
   const toggleCampaign = async (c: MarketingCampaign) => {
+    if (!await confirmAction({
+      title: c.is_active ? copy.stop : copy.start,
+      message: c.is_active ? copy.confirmStopCampaign : copy.confirmStartCampaign,
+      confirmLabel: c.is_active ? copy.stop : copy.start,
+      tone: c.is_active ? 'danger' : 'default',
+    })) return;
+    setSaving(c.id);
+    setError(null);
     try {
-      const { error: e } = await supabase.from('marketing_campaigns').update({ is_active: !c.is_active }).eq('id', c.id);
+      const { data, error: e } = await callAdminAction<MarketingCampaign>('set_marketing_campaign_active', {
+        p_campaign_id: c.id,
+        p_active: !c.is_active,
+        p_expected_updated_at: c.updated_at,
+      });
       if (e) throw e;
-      setCampaigns((prev) => prev.map((x) => x.id === c.id ? { ...x, is_active: !x.is_active } : x));
+      if (!data) throw new Error('campaign_update_returned_no_data');
+      setCampaigns((prev) => prev.map((x) => x.id === c.id ? data : x));
     } catch (err) {
       console.error('[Kiyo] Toggle campaign error:', err);
       setError(adminErrorMessage(err, t('error.genericBody')));
+    } finally {
+      setSaving(null);
     }
   };
 
   const toggleFlag = async (f: FeatureFlag) => {
+    if (!await confirmAction({
+      title: f.is_enabled ? copy.disable : copy.enable,
+      message: f.is_enabled ? copy.confirmDisableFeature : copy.confirmEnableFeature,
+      confirmLabel: f.is_enabled ? copy.disable : copy.enable,
+      tone: f.is_enabled ? 'danger' : 'default',
+    })) return;
+    setSaving(f.id);
+    setError(null);
     try {
-      const { error: e } = await supabase.from('feature_flags').update({ is_enabled: !f.is_enabled }).eq('id', f.id);
+      const { data, error: e } = await callAdminAction<FeatureFlag>('set_feature_flag_enabled', {
+        p_flag_id: f.id,
+        p_enabled: !f.is_enabled,
+        p_expected_updated_at: f.updated_at,
+      });
       if (e) throw e;
-      setFlags((prev) => prev.map((x) => x.id === f.id ? { ...x, is_enabled: !x.is_enabled } : x));
+      if (!data) throw new Error('feature_update_returned_no_data');
+      setFlags((prev) => prev.map((x) => x.id === f.id ? data : x));
     } catch (err) {
       console.error('[Kiyo] Toggle feature flag error:', err);
       setError(adminErrorMessage(err, t('error.genericBody')));
+    } finally {
+      setSaving(null);
     }
   };
 
   const createPlan = async () => {
+    const price = Number(newPlan.price);
+    if (newPlan.name.trim().length < 2 || !Number.isFinite(price) || price < 0) {
+      setError(copy.invalidFields);
+      return;
+    }
+    setSaving('plan-create');
+    setError(null);
     try {
-      const { error: e } = await supabase.from('subscription_plans').insert({
-        name: newPlan.name,
-        plan_type: newPlan.type,
-        price_monthly: Number(newPlan.price),
-        features: { description: newPlan.features },
+      const { data, error: e } = await callAdminAction<SubscriptionPlan>('create_subscription_plan', {
+        p_name: newPlan.name,
+        p_plan_type: newPlan.type,
+        p_price_monthly: price,
+        p_features_description: newPlan.features,
       });
       if (e) throw e;
+      if (!data) throw new Error('plan_create_returned_no_data');
       setShowPlanForm(false);
       setNewPlan({ name: '', type: 'customer', price: '0', features: '' });
-      void load();
+      setPlans((previous) => [...previous, data].sort((a, b) => a.name.localeCompare(b.name)));
     } catch (err) {
       console.error('[Kiyo] Create subscription plan error:', err);
       setError(adminErrorMessage(err, t('error.genericBody')));
+    } finally {
+      setSaving(null);
     }
   };
 
   const togglePlan = async (p: SubscriptionPlan) => {
+    if (!await confirmAction({
+      title: p.is_active ? copy.disable : copy.enable,
+      message: p.is_active ? copy.confirmDisablePlan : copy.confirmEnablePlan,
+      confirmLabel: p.is_active ? copy.disable : copy.enable,
+      tone: p.is_active ? 'danger' : 'default',
+    })) return;
+    setSaving(p.id);
+    setError(null);
     try {
-      const { error: e } = await supabase.from('subscription_plans').update({ is_active: !p.is_active }).eq('id', p.id);
+      const { data, error: e } = await callAdminAction<SubscriptionPlan>('set_subscription_plan_active', {
+        p_plan_id: p.id,
+        p_active: !p.is_active,
+        p_expected_updated_at: p.updated_at,
+      });
       if (e) throw e;
-      setPlans((prev) => prev.map((x) => x.id === p.id ? { ...x, is_active: !x.is_active } : x));
+      if (!data) throw new Error('plan_update_returned_no_data');
+      setPlans((prev) => prev.map((x) => x.id === p.id ? data : x));
     } catch (err) {
       console.error('[Kiyo] Toggle subscription plan error:', err);
       setError(adminErrorMessage(err, t('error.genericBody')));
+    } finally {
+      setSaving(null);
     }
   };
 
@@ -2151,75 +2670,77 @@ function MarketingTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-display text-base font-bold text-ink-900">Promo Codes</h3>
+        <h3 className="font-display text-base font-bold text-ink-900">{copy.promoTitle}</h3>
         <button onClick={() => setShowForm((v) => !v)} className="kiyo-btn-primary">
           <Tag className="h-4 w-4" />
-          <span className="hidden sm:inline">New Code</span>
+          <span className="hidden sm:inline">{copy.newCode}</span>
         </button>
       </div>
 
       {showForm && (
         <div className="kiyo-card space-y-3 p-5">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-xs font-medium text-ink-500">Code</label>
+              <label className="mb-1 block text-xs font-medium text-ink-500">{copy.code}</label>
               <input value={newPromo.code} onChange={(e) => setNewPromo({ ...newPromo, code: e.target.value.toUpperCase() })}
                 placeholder="SUMMER10" className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm uppercase focus:border-ember-500 focus:outline-none" />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-ink-500">Description</label>
+              <label className="mb-1 block text-xs font-medium text-ink-500">{copy.description}</label>
               <input value={newPromo.description} onChange={(e) => setNewPromo({ ...newPromo, description: e.target.value })}
-                placeholder="Summer 10% off" className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
+                placeholder={copy.promoDescription} className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-ink-500">Type</label>
+              <label className="mb-1 block text-xs font-medium text-ink-500">{copy.type}</label>
               <select value={newPromo.discount_type} onChange={(e) => setNewPromo({ ...newPromo, discount_type: e.target.value })}
                 className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none">
-                <option value="percentage">Percentage (%)</option>
-                <option value="fixed">Fixed (DZD)</option>
+                <option value="percentage">{copy.percentage}</option>
+                <option value="fixed">{copy.fixed}</option>
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-ink-500">Value</label>
+              <label className="mb-1 block text-xs font-medium text-ink-500">{copy.value}</label>
               <input type="number" value={newPromo.discount_value} onChange={(e) => setNewPromo({ ...newPromo, discount_value: e.target.value })}
                 className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-ink-500">Min order (DZD)</label>
+              <label className="mb-1 block text-xs font-medium text-ink-500">{copy.minOrder}</label>
               <input type="number" value={newPromo.min_order} onChange={(e) => setNewPromo({ ...newPromo, min_order: e.target.value })}
                 className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-ink-500">Max discount (DZD)</label>
+              <label className="mb-1 block text-xs font-medium text-ink-500">{copy.maxDiscount}</label>
               <input type="number" value={newPromo.max_discount} onChange={(e) => setNewPromo({ ...newPromo, max_discount: e.target.value })}
-                placeholder="No limit" className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
+                placeholder={copy.noLimit} className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-ink-500">Valid until</label>
+              <label className="mb-1 block text-xs font-medium text-ink-500">{copy.validUntil}</label>
               <input type="date" value={newPromo.valid_until} onChange={(e) => setNewPromo({ ...newPromo, valid_until: e.target.value })}
                 className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
             </div>
           </div>
           <div className="flex gap-2">
-            <button onClick={createPromo} className="kiyo-btn-primary">Create</button>
-            <button onClick={() => setShowForm(false)} className="kiyo-btn-secondary">Cancel</button>
+            <button onClick={createPromo} disabled={saving === 'promo-create'} className="kiyo-btn-primary">
+              {saving === 'promo-create' ? <Spinner className="h-4 w-4" /> : copy.create}
+            </button>
+            <button onClick={() => setShowForm(false)} className="kiyo-btn-secondary">{copy.cancel}</button>
           </div>
         </div>
       )}
 
       {promos.length === 0 ? (
-        <div className="kiyo-card p-6 text-center text-sm text-ink-400">No promo codes yet</div>
+        <div className="kiyo-card p-6 text-center text-sm text-ink-400">{copy.noPromos}</div>
       ) : (
         <div className="kiyo-card overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-ink-100 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
-                <th className="px-4 py-3">Code</th>
-                <th className="px-4 py-3">Type</th>
-                <th className="px-4 py-3 text-right">Value</th>
-                <th className="px-4 py-3 text-right">Used</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 text-right">Action</th>
+              <tr className="border-b border-ink-100 text-start text-xs font-semibold uppercase tracking-wide text-ink-400">
+                <th className="px-4 py-3">{copy.code}</th>
+                <th className="px-4 py-3">{copy.type}</th>
+                <th className="px-4 py-3 text-end">{copy.value}</th>
+                <th className="px-4 py-3 text-end">{copy.used}</th>
+                <th className="px-4 py-3">{copy.status}</th>
+                <th className="px-4 py-3 text-end">{copy.action}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-50">
@@ -2229,21 +2750,21 @@ function MarketingTab() {
                     <div className="font-mono font-bold text-ink-900">{p.code}</div>
                     {p.description && <div className="text-xs text-ink-400">{p.description}</div>}
                   </td>
-                  <td className="px-4 py-3 capitalize text-ink-600">{p.discount_type}</td>
-                  <td className="px-4 py-3 text-right text-ink-700">
+                  <td className="px-4 py-3 text-ink-600">{discountTypeLabel(p.discount_type)}</td>
+                  <td className="px-4 py-3 text-end text-ink-700">
                     {p.discount_type === 'percentage' ? `${p.discount_value}%` : `${p.discount_value} DZD`}
                   </td>
-                  <td className="px-4 py-3 text-right text-ink-500">
+                  <td className="px-4 py-3 text-end text-ink-500">
                     {p.used_count}{p.usage_limit ? ` / ${p.usage_limit}` : ''}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                       p.is_active ? 'bg-sage-500/10 text-sage-600' : 'bg-ink-100 text-ink-500'
-                    }`}>{p.is_active ? 'Active' : 'Inactive'}</span>
+                    }`}>{p.is_active ? copy.active : copy.inactive}</span>
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <button onClick={() => togglePromo(p)} className="kiyo-btn-secondary text-xs">
-                      {p.is_active ? 'Disable' : 'Enable'}
+                  <td className="px-4 py-3 text-end">
+                    <button onClick={() => togglePromo(p)} disabled={saving === p.id} className="kiyo-btn-secondary min-h-11 text-xs">
+                      {p.is_active ? copy.disable : copy.enable}
                     </button>
                   </td>
                 </tr>
@@ -2256,84 +2777,86 @@ function MarketingTab() {
       {/* Marketing Campaigns */}
       <div className="mt-8">
         <div className="flex items-center justify-between">
-          <h3 className="font-display text-base font-bold text-ink-900">Marketing Campaigns</h3>
+          <h3 className="font-display text-base font-bold text-ink-900">{copy.campaignTitle}</h3>
           <button onClick={() => setShowCampaignForm((v) => !v)} className="kiyo-btn-primary">
             <Send className="h-4 w-4" />
-            <span className="hidden sm:inline">New Campaign</span>
+            <span className="hidden sm:inline">{copy.newCampaign}</span>
           </button>
         </div>
 
         {showCampaignForm && (
           <div className="kiyo-card mt-3 space-y-3 p-5">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label className="mb-1 block text-xs font-medium text-ink-500">Name</label>
+                <label className="mb-1 block text-xs font-medium text-ink-500">{copy.name}</label>
                 <input value={newCampaign.name} onChange={(e) => setNewCampaign({ ...newCampaign, name: e.target.value })}
-                  placeholder="Summer Sale" className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
+                  placeholder={copy.campaignName} className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-ink-500">Type</label>
+                <label className="mb-1 block text-xs font-medium text-ink-500">{copy.type}</label>
                 <select value={newCampaign.type} onChange={(e) => setNewCampaign({ ...newCampaign, type: e.target.value })}
                   className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none">
-                  <option value="push">Push Notification</option>
-                  <option value="email">Email</option>
-                  <option value="in_app">In-App Banner</option>
-                  <option value="loyalty">Loyalty Bonus</option>
+                  <option value="push">{copy.push}</option>
+                  <option value="email">{copy.email}</option>
+                  <option value="in_app">{copy.inApp}</option>
+                  <option value="loyalty">{copy.loyalty}</option>
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-ink-500">Audience</label>
+                <label className="mb-1 block text-xs font-medium text-ink-500">{copy.audience}</label>
                 <select value={newCampaign.audience} onChange={(e) => setNewCampaign({ ...newCampaign, audience: e.target.value })}
                   className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none">
-                  <option value="all">All Users</option>
-                  <option value="customers">Customers Only</option>
-                  <option value="owners">Restaurant Owners</option>
-                  <option value="inactive">Inactive Users</option>
+                  <option value="all">{copy.allUsers}</option>
+                  <option value="customers">{copy.customersOnly}</option>
+                  <option value="owners">{copy.ownersOnly}</option>
+                  <option value="inactive">{copy.inactiveUsers}</option>
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-ink-500">Message</label>
+                <label className="mb-1 block text-xs font-medium text-ink-500">{copy.message}</label>
                 <input value={newCampaign.content} onChange={(e) => setNewCampaign({ ...newCampaign, content: e.target.value })}
-                  placeholder="Get 20% off your next order!" className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
+                  placeholder={copy.campaignMessage} className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
               </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={createCampaign} className="kiyo-btn-primary">Create</button>
-              <button onClick={() => setShowCampaignForm(false)} className="kiyo-btn-secondary">Cancel</button>
+              <button onClick={createCampaign} disabled={saving === 'campaign-create'} className="kiyo-btn-primary">
+                {saving === 'campaign-create' ? <Spinner className="h-4 w-4" /> : copy.create}
+              </button>
+              <button onClick={() => setShowCampaignForm(false)} className="kiyo-btn-secondary">{copy.cancel}</button>
             </div>
           </div>
         )}
 
         {campaigns.length === 0 ? (
-          <div className="kiyo-card mt-3 p-6 text-center text-sm text-ink-400">No campaigns yet</div>
+          <div className="kiyo-card mt-3 p-6 text-center text-sm text-ink-400">{copy.noCampaigns}</div>
         ) : (
           <div className="kiyo-card mt-3 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-ink-100 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
-                  <th className="px-4 py-3">Name</th>
-                  <th className="px-4 py-3">Type</th>
-                  <th className="px-4 py-3">Audience</th>
-                  <th className="px-4 py-3 text-right">Sent</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Action</th>
+                <tr className="border-b border-ink-100 text-start text-xs font-semibold uppercase tracking-wide text-ink-400">
+                  <th className="px-4 py-3">{copy.name}</th>
+                  <th className="px-4 py-3">{copy.type}</th>
+                  <th className="px-4 py-3">{copy.audience}</th>
+                  <th className="px-4 py-3 text-end">{copy.sent}</th>
+                  <th className="px-4 py-3">{copy.status}</th>
+                  <th className="px-4 py-3 text-end">{copy.action}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-50">
                 {campaigns.map((c) => (
                   <tr key={c.id} className="hover:bg-ink-50/50">
                     <td className="px-4 py-3 font-medium text-ink-900">{c.name}</td>
-                    <td className="px-4 py-3 capitalize text-ink-600">{c.campaign_type.replace('_', ' ')}</td>
-                    <td className="px-4 py-3 text-ink-600">{c.target_audience}</td>
-                    <td className="px-4 py-3 text-right text-ink-500">{c.sent_count}</td>
+                    <td className="px-4 py-3 text-ink-600">{campaignTypeLabel(c.campaign_type)}</td>
+                    <td className="px-4 py-3 text-ink-600">{audienceLabel(c.target_audience)}</td>
+                    <td className="px-4 py-3 text-end text-ink-500">{c.sent_count}</td>
                     <td className="px-4 py-3">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                         c.is_active ? 'bg-sage-500/10 text-sage-600' : 'bg-ink-100 text-ink-500'
-                      }`}>{c.is_active ? 'Active' : 'Inactive'}</span>
+                      }`}>{c.is_active ? copy.active : copy.inactive}</span>
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      <button onClick={() => toggleCampaign(c)} className="kiyo-btn-secondary text-xs">
-                        {c.is_active ? 'Stop' : 'Start'}
+                    <td className="px-4 py-3 text-end">
+                      <button onClick={() => toggleCampaign(c)} disabled={saving === c.id} className="kiyo-btn-secondary min-h-11 text-xs">
+                        {c.is_active ? copy.stop : copy.start}
                       </button>
                     </td>
                   </tr>
@@ -2346,20 +2869,20 @@ function MarketingTab() {
 
       {/* Feature Flags */}
       <div className="mt-8">
-        <h3 className="font-display text-base font-bold text-ink-900">Feature Flags</h3>
-        <p className="mb-3 text-xs text-ink-500">Toggle platform features without code changes.</p>
+        <h3 className="font-display text-base font-bold text-ink-900">{copy.flagsTitle}</h3>
+        <p className="mb-3 text-xs text-ink-500">{copy.flagsHint}</p>
         {flags.length === 0 ? (
-          <div className="kiyo-card p-6 text-center text-sm text-ink-400">No feature flags configured</div>
+          <div className="kiyo-card p-6 text-center text-sm text-ink-400">{copy.noFlags}</div>
         ) : (
           <div className="kiyo-card overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-ink-100 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
-                  <th className="px-4 py-3">Feature</th>
-                  <th className="px-4 py-3">Description</th>
-                  <th className="px-4 py-3 text-right">Rollout</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Action</th>
+                <tr className="border-b border-ink-100 text-start text-xs font-semibold uppercase tracking-wide text-ink-400">
+                  <th className="px-4 py-3">{copy.feature}</th>
+                  <th className="px-4 py-3">{copy.description}</th>
+                  <th className="px-4 py-3 text-end">{copy.rollout}</th>
+                  <th className="px-4 py-3">{copy.status}</th>
+                  <th className="px-4 py-3 text-end">{copy.action}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-50">
@@ -2370,15 +2893,15 @@ function MarketingTab() {
                       <div className="text-xs text-ink-600">{f.name}</div>
                     </td>
                     <td className="px-4 py-3 text-xs text-ink-500">{f.description || '—'}</td>
-                    <td className="px-4 py-3 text-right text-ink-600">{f.rollout_percentage}%</td>
+                    <td className="px-4 py-3 text-end text-ink-600">{f.rollout_percentage}%</td>
                     <td className="px-4 py-3">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                         f.is_enabled ? 'bg-sage-500/10 text-sage-600' : 'bg-ink-100 text-ink-500'
-                      }`}>{f.is_enabled ? 'Enabled' : 'Disabled'}</span>
+                      }`}>{f.is_enabled ? copy.enabled : copy.disabled}</span>
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      <button onClick={() => toggleFlag(f)} className="kiyo-btn-secondary text-xs">
-                        {f.is_enabled ? 'Disable' : 'Enable'}
+                    <td className="px-4 py-3 text-end">
+                      <button onClick={() => toggleFlag(f)} disabled={saving === f.id} className="kiyo-btn-secondary min-h-11 text-xs">
+                        {f.is_enabled ? copy.disable : copy.enable}
                       </button>
                     </td>
                   </tr>
@@ -2392,80 +2915,82 @@ function MarketingTab() {
       {/* Subscription Plans */}
       <div className="mt-8">
         <div className="flex items-center justify-between">
-          <h3 className="font-display text-base font-bold text-ink-900">Subscription Plans</h3>
+          <h3 className="font-display text-base font-bold text-ink-900">{copy.plansTitle}</h3>
           <button onClick={() => setShowPlanForm((v) => !v)} className="kiyo-btn-primary">
             <Sparkles className="h-4 w-4" />
-            <span className="hidden sm:inline">New Plan</span>
+            <span className="hidden sm:inline">{copy.newPlan}</span>
           </button>
         </div>
 
         {showPlanForm && (
           <div className="kiyo-card mt-3 space-y-3 p-5">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label className="mb-1 block text-xs font-medium text-ink-500">Plan Name</label>
+                <label className="mb-1 block text-xs font-medium text-ink-500">{copy.planName}</label>
                 <input value={newPlan.name} onChange={(e) => setNewPlan({ ...newPlan, name: e.target.value })}
-                  placeholder="Premium" className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
+                  placeholder={copy.planPlaceholder} className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-ink-500">Plan Type</label>
+                <label className="mb-1 block text-xs font-medium text-ink-500">{copy.planType}</label>
                 <select value={newPlan.type} onChange={(e) => setNewPlan({ ...newPlan, type: e.target.value })}
                   className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none">
-                  <option value="customer">Customer</option>
-                  <option value="restaurant">Restaurant</option>
-                  <option value="driver">Driver</option>
+                  <option value="customer">{copy.customer}</option>
+                  <option value="restaurant">{copy.restaurant}</option>
+                  <option value="driver">{copy.driver}</option>
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-ink-500">Monthly Price (DZD)</label>
+                <label className="mb-1 block text-xs font-medium text-ink-500">{copy.monthlyPrice}</label>
                 <input type="number" value={newPlan.price} onChange={(e) => setNewPlan({ ...newPlan, price: e.target.value })}
                   placeholder="1000" className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-ink-500">Features</label>
+                <label className="mb-1 block text-xs font-medium text-ink-500">{copy.features}</label>
                 <input value={newPlan.features} onChange={(e) => setNewPlan({ ...newPlan, features: e.target.value })}
-                  placeholder="Free delivery, priority support" className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
+                  placeholder={copy.featuresPlaceholder} className="w-full rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none" />
               </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={createPlan} className="kiyo-btn-primary">Create</button>
-              <button onClick={() => setShowPlanForm(false)} className="kiyo-btn-secondary">Cancel</button>
+              <button onClick={createPlan} disabled={saving === 'plan-create'} className="kiyo-btn-primary">
+                {saving === 'plan-create' ? <Spinner className="h-4 w-4" /> : copy.create}
+              </button>
+              <button onClick={() => setShowPlanForm(false)} className="kiyo-btn-secondary">{copy.cancel}</button>
             </div>
           </div>
         )}
 
         {plans.length === 0 ? (
-          <div className="kiyo-card mt-3 p-6 text-center text-sm text-ink-400">No subscription plans yet</div>
+          <div className="kiyo-card mt-3 p-6 text-center text-sm text-ink-400">{copy.noPlans}</div>
         ) : (
           <div className="kiyo-card mt-3 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-ink-100 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
-                  <th className="px-4 py-3">Plan</th>
-                  <th className="px-4 py-3">Type</th>
-                  <th className="px-4 py-3 text-right">Price/mo</th>
-                  <th className="px-4 py-3">Features</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Action</th>
+                <tr className="border-b border-ink-100 text-start text-xs font-semibold uppercase tracking-wide text-ink-400">
+                  <th className="px-4 py-3">{copy.plan}</th>
+                  <th className="px-4 py-3">{copy.type}</th>
+                  <th className="px-4 py-3 text-end">{copy.priceMonth}</th>
+                  <th className="px-4 py-3">{copy.features}</th>
+                  <th className="px-4 py-3">{copy.status}</th>
+                  <th className="px-4 py-3 text-end">{copy.action}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-50">
                 {plans.map((p) => (
                   <tr key={p.id} className="hover:bg-ink-50/50">
                     <td className="px-4 py-3 font-medium text-ink-900">{p.name}</td>
-                    <td className="px-4 py-3 capitalize text-ink-600">{p.plan_type}</td>
-                    <td className="px-4 py-3 text-right text-ink-700">{p.price_monthly} DZD</td>
+                    <td className="px-4 py-3 text-ink-600">{planTypeLabel(p.plan_type)}</td>
+                    <td className="px-4 py-3 text-end text-ink-700">{p.price_monthly} DZD</td>
                     <td className="px-4 py-3 text-xs text-ink-500">
                       {(p.features as Record<string, string>)?.description || '—'}
                     </td>
                     <td className="px-4 py-3">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                         p.is_active ? 'bg-sage-500/10 text-sage-600' : 'bg-ink-100 text-ink-500'
-                      }`}>{p.is_active ? 'Active' : 'Inactive'}</span>
+                      }`}>{p.is_active ? copy.active : copy.inactive}</span>
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      <button onClick={() => togglePlan(p)} className="kiyo-btn-secondary text-xs">
-                        {p.is_active ? 'Disable' : 'Enable'}
+                    <td className="px-4 py-3 text-end">
+                      <button onClick={() => togglePlan(p)} disabled={saving === p.id} className="kiyo-btn-secondary min-h-11 text-xs">
+                        {p.is_active ? copy.disable : copy.enable}
                       </button>
                     </td>
                   </tr>
@@ -2482,7 +3007,7 @@ function MarketingTab() {
 // ===================== ALERTS =====================
 function AlertsTab() {
   const { t } = useT();
-  const { tx } = useAdminT();
+  const { tx, locale } = useAdminT();
   const [alerts, setAlerts] = useState<{
     failed_orders: Array<{ id: string; restaurant_id: string; total: string; status: string; created_at: string }>;
     high_cancellation_restaurants: Array<{ restaurant_id: string; name: string; cancelled: number; total: number; rate: number }>;
@@ -2496,9 +3021,8 @@ function AlertsTab() {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: e } = await callAdminAction('get_admin_alerts');
-      if (e) throw e;
-      setAlerts(data as typeof alerts);
+      const data = await readAdminActionWithRetry<NonNullable<typeof alerts>>('get_admin_alerts');
+      setAlerts(data);
     } catch (err) {
       setError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
@@ -2528,9 +3052,9 @@ function AlertsTab() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-ink-800">
-                    #{o.id.slice(0, 8)} / {o.status.replace(/_/g, ' ')}
+                    #{o.id.slice(0, 8)} / {orderStatusLabel(o.status, locale)}
                   </span>
-                  <span className="text-xs text-ink-400">{new Date(o.created_at).toLocaleString()}</span>
+                  <span className="text-xs text-ink-400">{new Date(o.created_at).toLocaleString(locale === 'ar' ? 'ar-DZ' : locale === 'fr' ? 'fr-DZ' : 'en-DZ')}</span>
                 </div>
                 <span className="text-sm font-medium text-ink-700">{o.total} DZD</span>
               </li>
@@ -2593,30 +3117,49 @@ function AlertsTab() {
 
 // ===================== ADMIN SUPPORT =====================
 function AdminSupportTab() {
-  const { t } = useT();
+  const { t, locale } = useT();
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'open' | 'in_progress' | 'resolved' | 'closed'>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const load = useCallback(async (foreground = true) => {
+    if (foreground) {
+      setLoading(true);
+      setError(null);
+    }
     try {
-      let q = supabase.from('support_tickets').select('*').order('created_at', { ascending: false });
-      if (filter !== 'all') q = q.eq('status', filter);
-      const { data, error: e } = await q;
-      if (e) throw e;
-      setTickets((data as SupportTicket[]) ?? []);
+      const data = await withExponentialBackoff(async () => {
+        let query = supabase.from('support_tickets').select('*').order('created_at', { ascending: false });
+        if (filter !== 'all') query = query.eq('status', filter);
+        const { data: ticketData, error: ticketError } = await query;
+        if (ticketError) throw ticketError;
+        return (ticketData as SupportTicket[]) ?? [];
+      }, { attempts: 3, baseDelayMs: 700, timeoutMs: 15000 });
+      setTickets(data);
+      setError(null);
     } catch (err) {
-      setError(adminErrorMessage(err, t('error.genericBody')));
+      if (foreground) setError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
-      setLoading(false);
+      if (foreground) setLoading(false);
     }
   }, [filter, t]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void load(false);
+    };
+    const interval = window.setInterval(refresh, 30000);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [load]);
 
   if (selectedId) {
     return <AdminTicketDetail ticketId={selectedId} onBack={() => setSelectedId(null)} />;
@@ -2625,8 +3168,8 @@ function AdminSupportTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-display text-base font-bold text-ink-900">Support Inbox</h3>
-        <div className="flex gap-1">
+        <h3 className="font-display text-base font-bold text-ink-900">{t('support.admin.inbox')}</h3>
+        <div className="flex max-w-full gap-1 overflow-x-auto no-scrollbar" role="group" aria-label={t('support.admin.inbox')}>
           {(['all','open','in_progress','resolved','closed'] as const).map((f) => (
             <button
               key={f}
@@ -2635,7 +3178,7 @@ function AdminSupportTab() {
                 filter === f ? 'bg-ember-500 text-white' : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
               }`}
             >
-              {f === 'all' ? 'All' : f.replace(/_/g, ' ')}
+              {t(`support.status.${f}` as TranslationKey)}
             </button>
           ))}
         </div>
@@ -2644,7 +3187,7 @@ function AdminSupportTab() {
       {loading ? <Skeleton count={4} /> : error ? (
         <ErrorState title={t('error.genericTitle')} message={error} onRetry={load} retryLabel={t('error.retry')} />
       ) : tickets.length === 0 ? (
-        <div className="kiyo-card p-8 text-center text-sm text-ink-400">No support tickets</div>
+        <div className="kiyo-card p-8 text-center text-sm text-ink-400">{t('support.noTickets')}</div>
       ) : (
         <ul className="space-y-2">
           {tickets.map((ticket) => (
@@ -2668,15 +3211,15 @@ function AdminSupportTab() {
                       ticket.status === 'in_progress' ? 'bg-blue-100 text-blue-600' :
                       ticket.status === 'resolved' ? 'bg-sage-500/10 text-sage-600' :
                       'bg-ink-100 text-ink-500'
-                    }`}>{ticket.status.replace(/_/g, ' ')}</span>
+                    }`}>{t(`support.status.${ticket.status}` as TranslationKey)}</span>
                   </div>
                   <p className="mt-0.5 truncate text-xs text-ink-500">{ticket.body}</p>
                   <div className="mt-1 flex items-center gap-2 text-[10px] text-ink-400">
-                    <span className="capitalize">{ticket.category}</span>
+                    <span>{t(`support.category.${ticket.category}` as TranslationKey)}</span>
                     <span>·</span>
-                    <span className="capitalize">{ticket.priority}</span>
+                    <span>{t(`support.priority.${ticket.priority}` as TranslationKey)}</span>
                     <span>·</span>
-                    <span>{new Date(ticket.created_at).toLocaleDateString()}</span>
+                    <span>{new Date(ticket.created_at).toLocaleDateString(locale === 'ar' ? 'ar-DZ' : locale === 'fr' ? 'fr-DZ' : 'en-DZ')}</span>
                   </div>
                 </div>
               </button>
@@ -2689,7 +3232,7 @@ function AdminSupportTab() {
 }
 
 function AdminTicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () => void }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const [ticket, setTicket] = useState<SupportTicket | null>(null);
   const [messages, setMessages] = useState<Array<{ id: string; ticket_id: string; sender_id: string; body: string; is_admin: boolean; created_at: string }>>([]);
   const [loading, setLoading] = useState(true);
@@ -2697,40 +3240,64 @@ function AdminTicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () 
   const [reply, setReply] = useState('');
   const [sending, setSending] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const load = useCallback(async (foreground = true) => {
+    if (foreground) {
+      setLoading(true);
+      setError(null);
+    }
     try {
-      const [ticketRes, msgRes] = await Promise.all([
-        supabase.from('support_tickets').select('*').eq('id', ticketId).single(),
-        supabase.from('support_messages').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: true }),
-      ]);
-      if (ticketRes.error) throw ticketRes.error;
-      if (msgRes.error) throw msgRes.error;
-      setTicket(ticketRes.data as SupportTicket);
-      setMessages(msgRes.data as typeof messages ?? []);
+      const result = await withExponentialBackoff(async () => {
+        const [ticketRes, msgRes] = await Promise.all([
+          supabase.from('support_tickets').select('*').eq('id', ticketId).single(),
+          supabase.from('support_messages').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: true }),
+        ]);
+        if (ticketRes.error) throw ticketRes.error;
+        if (msgRes.error) throw msgRes.error;
+        return {
+          ticket: ticketRes.data as SupportTicket,
+          messages: (msgRes.data as typeof messages) ?? [],
+        };
+      }, { attempts: 3, baseDelayMs: 700, timeoutMs: 15000 });
+      setTicket(result.ticket);
+      setMessages(result.messages);
+      setError(null);
     } catch (err) {
-      setError(adminErrorMessage(err, t('error.genericBody')));
+      if (foreground) setError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
-      setLoading(false);
+      if (foreground) setLoading(false);
     }
   }, [ticketId, t]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void load(false);
+    };
+    const interval = window.setInterval(refresh, 20000);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [load]);
 
   const sendReply = async () => {
     if (reply.trim().length < 1) return;
     setSending(true);
+    setActionError(null);
     try {
       const { error: e } = await callUserAction('reply_to_ticket', {
         p_ticket_id: ticketId, p_body: reply.trim(), p_is_admin: true,
       });
       if (e) throw e;
       setReply('');
-      void load();
+      await load(false);
     } catch (err) {
-      setError(adminErrorMessage(err, t('error.genericBody')));
+      setActionError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
       setSending(false);
     }
@@ -2738,14 +3305,15 @@ function AdminTicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () 
 
   const updateStatus = async (status: string) => {
     setUpdating(true);
+    setActionError(null);
     try {
       const { error: e } = await callAdminAction('update_ticket_status', {
         p_ticket_id: ticketId, p_status: status,
       });
       if (e) throw e;
-      void load();
+      await load(false);
     } catch (err) {
-      setError(adminErrorMessage(err, t('error.genericBody')));
+      setActionError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
       setUpdating(false);
     }
@@ -2758,8 +3326,15 @@ function AdminTicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () 
   return (
     <div className="space-y-4">
       <button onClick={onBack} className="inline-flex items-center gap-1 text-sm text-ink-500 hover:text-ink-900">
-        <ChevronLeft className="h-4 w-4" /> Back to inbox
+        <ChevronLeft className={`h-4 w-4 ${locale === 'ar' ? 'rotate-180' : ''}`} /> {t('support.admin.backToInbox')}
       </button>
+
+      {actionError && (
+        <div className="flex items-center gap-2 rounded-lg bg-error-500/10 px-3 py-2 text-sm text-error-700" role="alert">
+          <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+          <span>{actionError}</span>
+        </div>
+      )}
 
       <div className="kiyo-card p-5">
         <div className="flex items-start justify-between gap-2">
@@ -2768,33 +3343,33 @@ function AdminTicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () 
             {ticket.status !== 'resolved' && (
               <button onClick={() => updateStatus('resolved')} disabled={updating}
                 className="rounded-lg bg-sage-500/10 px-2.5 py-1 text-xs font-medium text-sage-600 hover:bg-sage-500/20">
-                {updating ? <Spinner className="h-3 w-3" /> : <CheckCircle className="h-3 w-3" />} Resolve
+                {updating ? <Spinner className="h-3 w-3" /> : <CheckCircle className="h-3 w-3" />} {t('support.admin.resolve')}
               </button>
             )}
             {ticket.status !== 'closed' && (
               <button onClick={() => updateStatus('closed')} disabled={updating}
                 className="rounded-lg bg-ink-100 px-2.5 py-1 text-xs font-medium text-ink-600 hover:bg-ink-200">
-                Close
+                {t('support.admin.close')}
               </button>
             )}
           </div>
         </div>
         <p className="mt-2 text-sm text-ink-600">{ticket.body}</p>
         <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-ink-400">
-          <span className="capitalize rounded bg-ink-100 px-1.5 py-0.5">{ticket.category}</span>
-          <span className="capitalize rounded bg-ink-100 px-1.5 py-0.5">{ticket.priority} priority</span>
+          <span className="rounded bg-ink-100 px-1.5 py-0.5">{t(`support.category.${ticket.category}` as TranslationKey)}</span>
+          <span className="rounded bg-ink-100 px-1.5 py-0.5">{t(`support.priority.${ticket.priority}` as TranslationKey)} {t('support.prioritySuffix')}</span>
           {ticket.order_id && <span className="flex items-center gap-1 rounded bg-ink-100 px-1.5 py-0.5"><Package className="h-3 w-3" /> {ticket.order_id.slice(0, 8)}</span>}
-          <span>{new Date(ticket.created_at).toLocaleString()}</span>
+          <span>{new Date(ticket.created_at).toLocaleString(locale === 'ar' ? 'ar-DZ' : locale === 'fr' ? 'fr-DZ' : 'en-DZ')}</span>
         </div>
       </div>
 
       <div className="kiyo-card">
         <div className="border-b border-ink-100 px-4 py-3">
-          <h3 className="text-sm font-semibold text-ink-900">Conversation</h3>
+          <h3 className="text-sm font-semibold text-ink-900">{t('support.conversation')}</h3>
         </div>
         <div className="max-h-96 space-y-3 overflow-y-auto p-4">
           {messages.length === 0 ? (
-            <p className="py-8 text-center text-sm text-ink-400">No messages yet. Reply below.</p>
+            <p className="py-8 text-center text-sm text-ink-400">{t('support.admin.noMessages')}</p>
           ) : (
             messages.map((m) => (
               <div key={m.id} className={`flex ${m.is_admin ? 'justify-end' : 'justify-start'}`}>
@@ -2803,7 +3378,7 @@ function AdminTicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () 
                 }`}>
                   <p className="whitespace-pre-wrap">{m.body}</p>
                   <p className={`mt-1 text-[10px] ${m.is_admin ? 'text-ember-100' : 'text-ink-400'}`}>
-                    {m.is_admin ? 'Admin' : 'User'} · {new Date(m.created_at).toLocaleString()}
+                    {m.is_admin ? t('support.admin.admin') : t('support.admin.user')} · {new Date(m.created_at).toLocaleString(locale === 'ar' ? 'ar-DZ' : locale === 'fr' ? 'fr-DZ' : 'en-DZ')}
                   </p>
                 </div>
               </div>
@@ -2818,11 +3393,12 @@ function AdminTicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () 
             value={reply}
             onChange={(e) => setReply(e.target.value)}
             rows={2}
-            placeholder="Type your reply..."
+            placeholder={t('support.admin.replyPlaceholder')}
+            aria-label={t('support.admin.replyPlaceholder')}
             className="flex-1 resize-none rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm focus:border-ember-500 focus:outline-none"
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void sendReply(); } }}
           />
-          <button onClick={sendReply} disabled={sending || reply.trim().length < 1} className="kiyo-btn-primary flex-shrink-0">
+          <button onClick={sendReply} disabled={sending || reply.trim().length < 1} className="kiyo-btn-primary min-h-11 min-w-11 flex-shrink-0" aria-label={t('support.form.submit')}>
             {sending ? <Spinner className="h-4 w-4" /> : <Send className="h-4 w-4" />}
           </button>
         </div>
@@ -2833,7 +3409,8 @@ function AdminTicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () 
 
 // ===================== MONITORING =====================
 function MonitoringTab() {
-  const { t } = useT();
+  const { t, locale } = useT();
+  const copy = adminCopy(locale).monitoring;
   const [audit, setAudit] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -2869,13 +3446,13 @@ function MonitoringTab() {
       {/* Audit log */}
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="font-display text-base font-bold text-ink-900">Audit Logs</h3>
+          <h3 className="font-display text-base font-bold text-ink-900">{copy.auditLogs}</h3>
           <Link to="/admin/audit" className="inline-flex items-center gap-1 text-xs font-semibold text-ember-600 hover:text-ember-700">
-            View all <ChevronRight className="h-3 w-3" />
+            {copy.viewAll} <ChevronRight className={`h-3 w-3 ${locale === 'ar' ? 'rotate-180' : ''}`} />
           </Link>
         </div>
         {audit.length === 0 ? (
-          <div className="kiyo-card p-6 text-center text-sm text-ink-400">No audit entries</div>
+          <div className="kiyo-card p-6 text-center text-sm text-ink-400">{copy.noEntries}</div>
         ) : (
           <ul className="kiyo-card divide-y divide-ink-100">
             {audit.map((log) => (
@@ -2885,14 +3462,14 @@ function MonitoringTab() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-ink-800">
-                    {log.action.replace(/_/g, ' ')}
+                    {auditActionLabel(log.action, locale)}
                   </span>
                   {log.target_type && (
                     <span className="text-xs text-ink-400">{log.target_type}</span>
                   )}
                 </div>
                 <span className="flex-shrink-0 text-xs text-ink-400">
-                  {new Date(log.created_at).toLocaleString()}
+                  {new Date(log.created_at).toLocaleString(locale === 'ar' ? 'ar-DZ' : locale === 'fr' ? 'fr-DZ' : 'en-DZ')}
                 </span>
               </li>
             ))}
@@ -2913,6 +3490,7 @@ type DeliveryZone = {
   per_km_fee: string;
   min_fee: string;
   is_active: boolean;
+  updated_at: string;
 };
 
 type WilayaStats = {
@@ -2922,14 +3500,16 @@ type WilayaStats = {
   name_ar: string;
   code: string;
   is_active: boolean;
+  updated_at: string;
   restaurant_count: number;
   customer_count: number;
   order_count: number;
 };
 
-function GeographyTab() {
+function GeographyTab({ onOpenRules }: { onOpenRules: () => void }) {
   const { currentLocale, t } = useT();
   const { tx } = useAdminT();
+  const { confirmAction } = useActionDialog();
   const [wilayaStats, setWilayaStats] = useState<WilayaStats[]>([]);
   const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2937,7 +3517,7 @@ function GeographyTab() {
   const [showZoneForm, setShowZoneForm] = useState(false);
   const [savingZone, setSavingZone] = useState(false);
   const [mutatingId, setMutatingId] = useState<string | number | null>(null);
-  const [newZone, setNewZone] = useState({ name: '', base_fee: '50', per_km_fee: '10', min_fee: '50' });
+  const [newZone, setNewZone] = useState({ name: '', wilaya_id: '' });
 
   const loadStats = useCallback(async () => {
     setLoading(true);
@@ -2980,6 +3560,7 @@ function GeographyTab() {
         name_ar: w.name_ar,
         code: w.code,
         is_active: Boolean(w.is_active),
+        updated_at: w.updated_at,
         restaurant_count: restaurantWilayaMap[w.id] || 0,
         customer_count: profileWilayaMap[w.id] || 0,
         order_count: 0,
@@ -3001,34 +3582,30 @@ function GeographyTab() {
 
   const createZone = async () => {
     const name = newZone.name.trim();
-    const baseFee = Number(newZone.base_fee);
-    const perKmFee = Number(newZone.per_km_fee);
-    const minFee = Number(newZone.min_fee);
+    const wilayaId = Number(newZone.wilaya_id);
 
     if (!name) {
       setError(tx('geography.zoneNameRequired', 'Enter a delivery zone name before saving.'));
       return;
     }
 
-    if (![baseFee, perKmFee, minFee].every((value) => Number.isFinite(value) && value >= 0)) {
-      setError(tx('geography.zoneFeesInvalid', 'Delivery zone fees must be valid positive numbers.'));
+    if (!Number.isInteger(wilayaId) || wilayaId < 1 || wilayaId > 58) {
+      setError(tx('geography.wilayaRequired', 'Select the Wilaya covered by this service zone.'));
       return;
     }
 
     setSavingZone(true);
     setError(null);
     try {
-      const { data, error: e } = await supabase.from('delivery_zones').insert({
-        name,
-        base_fee: baseFee,
-        per_km_fee: perKmFee,
-        min_fee: minFee,
-        is_active: true,
-      }).select('*').single();
+      const { data, error: e } = await callAdminAction<DeliveryZone>('create_delivery_zone', {
+        p_name: name,
+        p_wilaya_id: wilayaId,
+      });
       if (e) throw e;
+      if (!data) throw new Error('delivery_zone_create_returned_no_data');
       setShowZoneForm(false);
-      setNewZone({ name: '', base_fee: '50', per_km_fee: '10', min_fee: '50' });
-      setDeliveryZones((prev) => [...prev, data as DeliveryZone].sort((a, b) => a.name.localeCompare(b.name)));
+      setNewZone({ name: '', wilaya_id: '' });
+      setDeliveryZones((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
     } catch (err) {
       console.error('[Kiyo] Create delivery zone error:', err);
       setError(adminErrorMessage(err, tx('geography.createFailed', 'Delivery zone could not be created. Retry after checking the values.')));
@@ -3038,13 +3615,27 @@ function GeographyTab() {
   };
 
   const toggleZone = async (z: DeliveryZone) => {
+    const nextActive = !z.is_active;
+    const confirmed = await confirmAction({
+      title: nextActive ? tx('geography.enable', 'Enable') : tx('geography.disable', 'Disable'),
+      message: nextActive
+        ? tx('geography.confirmEnableZone', 'Enable this service zone for new customer discovery?')
+        : tx('geography.confirmDisableZone', 'Disable this service zone for new customer discovery? Existing orders remain available.'),
+      confirmLabel: nextActive ? tx('geography.enable', 'Enable') : tx('geography.disable', 'Disable'),
+      tone: nextActive ? 'default' : 'danger',
+    });
+    if (!confirmed) return;
     setMutatingId(z.id);
     setError(null);
     try {
-      const nextActive = !z.is_active;
-      const { error: e } = await supabase.from('delivery_zones').update({ is_active: nextActive }).eq('id', z.id);
+      const { data, error: e } = await callAdminAction<DeliveryZone>('set_delivery_zone_active', {
+        p_zone_id: z.id,
+        p_active: nextActive,
+        p_expected_updated_at: z.updated_at,
+      });
       if (e) throw e;
-      setDeliveryZones((prev) => prev.map((x) => x.id === z.id ? { ...x, is_active: nextActive } : x));
+      if (!data) throw new Error('delivery_zone_update_returned_no_data');
+      setDeliveryZones((prev) => prev.map((x) => x.id === z.id ? data : x));
     } catch (err) {
       console.error('[Kiyo] Toggle delivery zone error:', err);
       setError(adminErrorMessage(err, tx('geography.zoneUpdateFailed', 'Delivery zone status could not be updated. Retry in a moment.')));
@@ -3054,13 +3645,31 @@ function GeographyTab() {
   };
 
   const toggleWilaya = async (w: WilayaStats) => {
+    const nextActive = !w.is_active;
+    const confirmed = await confirmAction({
+      title: nextActive ? tx('geography.enable', 'Enable') : tx('geography.disable', 'Disable'),
+      message: nextActive
+        ? tx('geography.confirmEnableWilaya', 'Enable this Wilaya for customer browsing and new service configuration?')
+        : tx('geography.confirmDisableWilaya', 'Disable this Wilaya for new browsing? Existing orders remain manageable.'),
+      confirmLabel: nextActive ? tx('geography.enable', 'Enable') : tx('geography.disable', 'Disable'),
+      tone: nextActive ? 'default' : 'danger',
+    });
+    if (!confirmed) return;
     setMutatingId(w.id);
     setError(null);
     try {
-      const nextActive = !w.is_active;
-      const { error: e } = await supabase.from('wilayas').update({ is_active: nextActive }).eq('id', w.id);
+      const { data, error: e } = await callAdminAction<WilayaStats>('set_wilaya_active', {
+        p_wilaya_id: w.id,
+        p_active: nextActive,
+        p_expected_updated_at: w.updated_at,
+      });
       if (e) throw e;
-      setWilayaStats((prev) => prev.map((x) => x.id === w.id ? { ...x, is_active: nextActive } : x));
+      if (!data) throw new Error('wilaya_update_returned_no_data');
+      setWilayaStats((prev) => prev.map((x) => x.id === w.id ? {
+        ...x,
+        is_active: data.is_active,
+        updated_at: data.updated_at,
+      } : x));
     } catch (err) {
       console.error('[Kiyo] Toggle Wilaya error:', err);
       setError(adminErrorMessage(err, tx('geography.wilayaUpdateFailed', 'Wilaya status could not be updated. Retry in a moment.')));
@@ -3085,7 +3694,7 @@ function GeographyTab() {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <span>{error}</span>
             <button onClick={loadStats} className="self-start text-xs font-semibold underline sm:self-auto">
-              Retry
+              {t('error.retry')}
             </button>
           </div>
         </div>
@@ -3137,7 +3746,7 @@ function GeographyTab() {
                         onClick={() => toggleWilaya(w)}
                         disabled={mutatingId === w.id}
                         className="focus:outline-none transition-transform active:scale-95"
-                        title="Click to toggle active/inactive"
+                        aria-label={w.is_active ? tx('geography.disable', 'Disable') : tx('geography.enable', 'Enable')}
                       >
                         {w.is_active ? (
                           <span className="inline-flex items-center gap-1 rounded-full bg-sage-100 px-2 py-0.5 text-xs font-semibold text-sage-700 hover:bg-sage-200">
@@ -3167,25 +3776,37 @@ function GeographyTab() {
             <MapPin className="h-4 w-4 text-ember-500" />
             <h3 className="font-display text-sm font-bold text-ink-900">{tx('geography.deliveryZones', 'Delivery Zones')}</h3>
           </div>
-          <button onClick={() => { setError(null); setShowZoneForm((v) => !v); }} className="kiyo-btn-primary text-xs">
-            {tx('geography.addZone', 'Add Zone')}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button onClick={onOpenRules} className="kiyo-btn-secondary text-xs">
+              {tx('geography.managePricing', 'Manage pricing rules')}
+            </button>
+            <button onClick={() => { setError(null); setShowZoneForm((v) => !v); }} className="kiyo-btn-primary text-xs">
+              {tx('geography.addZone', 'Add Zone')}
+            </button>
+          </div>
         </div>
         <p className="mb-3 text-xs text-ink-500">
-          {tx('geography.zonesDesc', 'Configure delivery pricing for different zones.')}
+          {tx('geography.zonesDesc', 'Manage operational service areas. Checkout pricing is controlled only by versioned Business Rules.')}
         </p>
 
         {showZoneForm && (
           <div className="mb-3 rounded-lg border border-ink-200 bg-ink-50 p-3">
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <select
+                value={newZone.wilaya_id}
+                onChange={(event) => setNewZone({ ...newZone, wilaya_id: event.target.value })}
+                className="min-h-11 rounded border border-ink-200 bg-white px-2 py-1 text-xs text-ink-900 focus:border-ember-500 focus:outline-none"
+                aria-label={tx('geography.selectWilaya', 'Select Wilaya')}
+              >
+                <option value="">{tx('geography.selectWilaya', 'Select Wilaya')}</option>
+                {wilayaStats.map((wilaya) => (
+                  <option key={wilaya.id} value={wilaya.id}>
+                    {currentLocale === 'ar' ? wilaya.name_ar : currentLocale === 'fr' ? wilaya.name_fr : wilaya.name_en}
+                  </option>
+                ))}
+              </select>
               <input value={newZone.name} onChange={(e) => setNewZone({ ...newZone, name: e.target.value })}
-                placeholder={tx('geography.zoneName', 'Zone name')} className="rounded border border-ink-200 bg-white px-2 py-1 text-xs text-ink-900 focus:border-ember-500 focus:outline-none" />
-              <input type="number" value={newZone.base_fee} onChange={(e) => setNewZone({ ...newZone, base_fee: e.target.value })}
-                placeholder={tx('geography.baseFee', 'Base fee')} className="rounded border border-ink-200 bg-white px-2 py-1 text-xs text-ink-900 focus:border-ember-500 focus:outline-none" />
-              <input type="number" value={newZone.per_km_fee} onChange={(e) => setNewZone({ ...newZone, per_km_fee: e.target.value })}
-                placeholder={tx('geography.perKm', 'Per km')} className="rounded border border-ink-200 bg-white px-2 py-1 text-xs text-ink-900 focus:border-ember-500 focus:outline-none" />
-              <input type="number" value={newZone.min_fee} onChange={(e) => setNewZone({ ...newZone, min_fee: e.target.value })}
-                placeholder={tx('geography.minFee', 'Min fee')} className="rounded border border-ink-200 bg-white px-2 py-1 text-xs text-ink-900 focus:border-ember-500 focus:outline-none" />
+                placeholder={tx('geography.zoneName', 'Zone name')} className="min-h-11 rounded border border-ink-200 bg-white px-2 py-1 text-xs text-ink-900 focus:border-ember-500 focus:outline-none" />
             </div>
             <div className="mt-2 flex gap-2">
               <button onClick={createZone} disabled={savingZone} className="kiyo-btn-primary text-xs">
@@ -3204,32 +3825,38 @@ function GeographyTab() {
               <thead>
                 <tr className="border-b border-ink-100 text-left text-xs font-semibold text-ink-500">
                   <th className="px-3 py-2">{tx('geography.tbl.zone', 'Zone')}</th>
-                  <th className="px-3 py-2 text-right">{tx('geography.tbl.baseFee', 'Base Fee')}</th>
-                  <th className="px-3 py-2 text-right">{tx('geography.tbl.perKm', 'Per Km')}</th>
-                  <th className="px-3 py-2 text-right">{tx('geography.tbl.minFee', 'Min Fee')}</th>
+                  <th className="px-3 py-2">{tx('geography.tbl.wilaya', 'Wilaya')}</th>
                   <th className="px-3 py-2 text-center">{tx('geography.tbl.status', 'Status')}</th>
                   <th className="px-3 py-2"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-50">
-                {deliveryZones.map((z) => (
-                  <tr key={z.id} className="hover:bg-ink-50/50">
-                    <td className="px-3 py-2 font-medium text-ink-900">{z.name}</td>
-                    <td className="px-3 py-2 text-right text-ink-600">{z.base_fee} DZD</td>
-                    <td className="px-3 py-2 text-right text-ink-600">{z.per_km_fee} DZD</td>
-                    <td className="px-3 py-2 text-right text-ink-600">{z.min_fee} DZD</td>
-                    <td className="px-3 py-2 text-center">
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                        z.is_active ? 'bg-sage-100 text-sage-700' : 'bg-ink-100 text-ink-500'
-                      }`}>{z.is_active ? tx('geography.active', 'Active') : tx('geography.inactive', 'Inactive')}</span>
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <button onClick={() => toggleZone(z)} disabled={mutatingId === z.id} className="text-xs text-ink-500 hover:text-ink-700 disabled:cursor-not-allowed disabled:opacity-50">
-                        {z.is_active ? tx('geography.disable', 'Disable') : tx('geography.enable', 'Enable')}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {deliveryZones.map((z) => {
+                  const wilaya = wilayaStats.find((item) => item.id === z.wilaya_id);
+                  const wilayaName = wilaya
+                    ? currentLocale === 'ar' ? wilaya.name_ar : currentLocale === 'fr' ? wilaya.name_fr : wilaya.name_en
+                    : tx('geography.unassigned', 'Unassigned');
+                  return (
+                    <tr key={z.id} className="hover:bg-ink-50/50">
+                      <td className="px-3 py-2 font-medium text-ink-900">{z.name}</td>
+                      <td className="px-3 py-2 text-ink-600">{wilayaName}</td>
+                      <td className="px-3 py-2 text-center">
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                          z.is_active ? 'bg-sage-100 text-sage-700' : 'bg-ink-100 text-ink-500'
+                        }`}>{z.is_active ? tx('geography.active', 'Active') : tx('geography.inactive', 'Inactive')}</span>
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <button
+                          onClick={() => toggleZone(z)}
+                          disabled={mutatingId === z.id}
+                          className="min-h-11 text-xs text-ink-500 hover:text-ink-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {z.is_active ? tx('geography.disable', 'Disable') : tx('geography.enable', 'Enable')}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -254,6 +254,51 @@ export type MenuItem = {
   updated_at: string;
 };
 
+export type MenuItemModifier = {
+  id: string;
+  menu_item_id: string;
+  name: string;
+  is_required: boolean;
+  is_multiple: boolean;
+  min_select: number;
+  max_select: number | null;
+  position: number;
+  is_active: boolean;
+  created_at: string;
+};
+
+export type ModifierOption = {
+  id: string;
+  modifier_id: string;
+  name: string;
+  price_adjustion: string;
+  is_default: boolean;
+  is_available: boolean;
+  position: number;
+  created_at: string;
+};
+
+export type SelectedModifierOption = {
+  groupId: string;
+  groupName: string;
+  optionId: string;
+  optionName: string;
+  priceAdjustment: number;
+};
+
+export type RestaurantSpecialHours = {
+  id: string;
+  restaurant_id: string;
+  date: string;
+  is_closed: boolean;
+  open_time: string | null;
+  close_time: string | null;
+  reason: string | null;
+  created_at: string;
+  updated_at: string;
+  updated_by: string | null;
+};
+
 export type OrderStatus =
   | 'pending' | 'accepted' | 'preparing'
   | 'out_for_delivery' | 'delivered' | 'cancelled'
@@ -299,6 +344,21 @@ export type OrderItemRow = {
   unit_price: string;
   notes: string | null;
   item_snapshot: Record<string, unknown> | null;
+  modifier_snapshot: Array<Record<string, unknown>>;
+};
+
+export type ReviewRow = {
+  id: string;
+  restaurant_id: string;
+  customer_id: string;
+  order_id: string;
+  rating: number;
+  comment: string | null;
+  owner_reply: string | null;
+  replied_at: string | null;
+  is_hidden: boolean;
+  created_at: string;
+  updated_at: string;
 };
 
 export type AuditLog = {
@@ -459,4 +519,5 @@ export type PromoCode = {
   is_active: boolean;
   created_by: string | null;
   created_at: string;
+  updated_at: string;
 };
