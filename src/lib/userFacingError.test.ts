@@ -21,4 +21,14 @@ describe('userFacingError', () => {
     expect(userFacingError(new Error('unexpected vendor failure'), 'en', 'Order could not be placed.'))
       .toBe('Order could not be placed.');
   });
+
+  it('turns database serialization conflicts into safe refresh guidance', () => {
+    const message = userFacingError(
+      { code: '40001', message: 'Restaurant availability changed in another session.' },
+      'en',
+      'Please try again.',
+    );
+    expect(message).toContain('changed in another session');
+    expect(message).not.toContain('40001');
+  });
 });

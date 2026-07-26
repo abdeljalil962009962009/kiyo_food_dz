@@ -59,7 +59,7 @@ export function userFacingError(error: unknown, locale: Locale, fallback: string
   if (/timeout|timed out|aborterror|57014/.test(text)) return copy.timeout;
   if (/rate.?limit|too many|429/.test(text)) return copy.rateLimited;
   if (/permission denied|row-level security|rls|forbidden|unauthorized|401|403|42501/.test(text)) return copy.forbidden;
-  if (/conflict|stale|already changed|version mismatch|409|23505/.test(text)) return copy.conflict;
+  if (/conflict|stale|already changed|changed in another|version mismatch|40001|409|23505/.test(text)) return copy.conflict;
   if (/unavailable|over.?quota|quota|502|503|504|pgrst/.test(text)) return copy.unavailable;
   return fallback;
 }

@@ -130,6 +130,7 @@ export default function RestaurantSettingsPage() {
     reason: '',
   });
   const [scheduleSaving, setScheduleSaving] = useState(false);
+  const [operationalSaving, setOperationalSaving] = useState<string | null>(null);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [pendingSpecialDelete, setPendingSpecialDelete] = useState<string | null>(null);
 
@@ -270,7 +271,6 @@ export default function RestaurantSettingsPage() {
           cuisine: cuisineList,
           image_url: nextImageUrl,
           opening_hours: hours,
-          is_vacation_mode: vacationMode,
           max_delivery_km: Number(deliveryRadius),
           min_order_amount: Number(minOrder),
           estimated_delivery_min: Number(estimatedDeliveryMin),
@@ -308,7 +308,6 @@ export default function RestaurantSettingsPage() {
         cuisine: cuisineList,
         image_url: nextImageUrl,
         opening_hours: hours as Restaurant['opening_hours'],
-        is_vacation_mode: vacationMode,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -358,22 +357,60 @@ export default function RestaurantSettingsPage() {
   };
 
   const toggleVacationMode = async () => {
-    if (!restaurant || scheduleSaving) return;
+    if (!restaurant || scheduleSaving || operationalSaving) return;
     const next = !vacationMode;
     setScheduleSaving(true);
+    setOperationalSaving('vacation');
     setScheduleError(null);
     try {
-      const { error: updateError } = await supabase
-        .from('restaurants')
-        .update({ is_vacation_mode: next, updated_at: new Date().toISOString() })
-        .eq('id', restaurant.id);
+      const { data, error: updateError } = await callUserAction<Restaurant>(
+        'update_restaurant_operational_state',
+        {
+          p_restaurant_id: restaurant.id,
+          p_vacation_mode: next,
+          p_expected_updated_at: restaurant.updated_at,
+        },
+      );
       if (updateError) throw updateError;
-      setVacationMode(next);
-      setRestaurant({ ...restaurant, is_vacation_mode: next });
+      if (!data) throw new Error('restaurant_operational_update_returned_no_data');
+      setVacationMode(data.is_vacation_mode);
+      setRestaurant(data);
     } catch (updateError) {
       setScheduleError(userFacingError(updateError, locale, t('error.genericBody')));
+      if ((updateError as { code?: string } | null)?.code === '40001') {
+        await load();
+      }
     } finally {
       setScheduleSaving(false);
+      setOperationalSaving(null);
+    }
+  };
+
+  const setOperationalStatus = async (status: Restaurant['operational_status']) => {
+    if (!restaurant || operationalSaving || restaurant.operational_status === status) return;
+    setOperationalSaving(status);
+    setSaveError(null);
+    try {
+      const { data, error: updateError } = await callUserAction<Restaurant>(
+        'update_restaurant_operational_state',
+        {
+          p_restaurant_id: restaurant.id,
+          p_operational_status: status,
+          p_expected_updated_at: restaurant.updated_at,
+        },
+      );
+      if (updateError) throw updateError;
+      if (!data) throw new Error('restaurant_operational_update_returned_no_data');
+      setVacationMode(data.is_vacation_mode);
+      setRestaurant(data);
+    } catch (updateError) {
+      const message = userFacingError(updateError, locale, t('error.genericBody'));
+      if ((updateError as { code?: string } | null)?.code === '40001') {
+        await load();
+      }
+      setSaveError(message);
+    } finally {
+      setOperationalSaving(null);
     }
   };
 
@@ -546,7 +583,7 @@ export default function RestaurantSettingsPage() {
                 type="button"
                 role="switch"
                 aria-checked={vacationMode}
-                disabled={scheduleSaving}
+                disabled={scheduleSaving || Boolean(operationalSaving)}
                 onClick={toggleVacationMode}
                 className="flex min-h-11 w-full items-center justify-between gap-4 rounded-lg border border-ink-100 bg-ink-50 px-3 py-2 text-start transition-colors hover:border-ink-200 disabled:opacity-60"
               >
@@ -787,21 +824,11 @@ export default function RestaurantSettingsPage() {
               {['open', 'busy', 'closed'].map((status) => (
                 <button
                   key={status}
-                  onClick={async () => {
-                    if (!restaurant) return;
-                    setSaveError(null);
-                    const { error: e } = await supabase
-                      .from('restaurants')
-                      .update({ operational_status: status })
-                      .eq('id', restaurant.id);
-                    if (e) {
-                      console.error('[Kiyo] Restaurant operational status update failed:', e);
-                      setSaveError(userFacingError(e, locale, t('error.genericBody')));
-                      return;
-                    }
-                    setRestaurant({ ...restaurant, operational_status: status as Restaurant['operational_status'] });
-                  }}
-                  className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
+                  type="button"
+                  aria-pressed={restaurant.operational_status === status}
+                  disabled={Boolean(operationalSaving)}
+                  onClick={() => void setOperationalStatus(status as Restaurant['operational_status'])}
+                  className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:cursor-wait disabled:opacity-60 ${
                     restaurant.operational_status === status
                       ? status === 'open'
                         ? 'bg-sage-500 text-white'
@@ -811,6 +838,7 @@ export default function RestaurantSettingsPage() {
                       : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
                   }`}
                 >
+                  {operationalSaving === status && <Spinner className="h-4 w-4" />}
                   {status === 'open' ? t('restaurant.open') : status === 'busy' ? t('restaurant.busy') : t('restaurant.closed')}
                 </button>
               ))}

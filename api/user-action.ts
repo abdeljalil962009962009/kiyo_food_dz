@@ -37,6 +37,7 @@ const ALLOWED_ACTIONS = new Set([
   'transition_delivery_status',
   'transition_order_status',
   'update_driver_live_location',
+  'update_restaurant_operational_state',
 ]);
 
 export default async function handler(request: RequestLike, response: ResponseLike) {
@@ -99,6 +100,14 @@ export default async function handler(request: RequestLike, response: ResponseLi
         p_category: args.p_category ?? 'general',
         p_priority: args.p_priority ?? 'normal',
         p_order_id: args.p_order_id ?? null,
+      })
+    : action === 'update_restaurant_operational_state'
+    ? await serviceClient.rpc('update_restaurant_operational_state', {
+        p_actor_id: authData.user.id,
+        p_restaurant_id: args.p_restaurant_id,
+        p_operational_status: args.p_operational_status ?? null,
+        p_vacation_mode: args.p_vacation_mode ?? null,
+        p_expected_updated_at: args.p_expected_updated_at,
       })
     : action === 'submit_driver_application'
     ? await serviceClient.rpc('submit_driver_application', {
