@@ -25,6 +25,11 @@ import { matchWilayaFromAddress } from '../lib/algeriaLocation';
 import { FALLBACK_WILAYAS } from '../context/WilayaContext';
 import { userFacingError } from '../lib/userFacingError';
 import { algeriaAvailabilityDateRange } from '../lib/restaurantAvailability';
+import {
+  deliveryRuleNumber,
+  type DeliveryRuleSource,
+  type EffectiveDeliveryRules,
+} from '../lib/deliveryRules';
 
 type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 const DAYS: { key: DayOfWeek; labelKey: 'day.0' | 'day.1' | 'day.2' | 'day.3' | 'day.4' | 'day.5' | 'day.6' }[] = [
@@ -135,8 +140,7 @@ export default function RestaurantSettingsPage() {
   const [pendingSpecialDelete, setPendingSpecialDelete] = useState<string | null>(null);
 
   // Delivery settings
-  const [deliveryRadius, setDeliveryRadius] = useState('10');
-  const [minOrder, setMinOrder] = useState('0');
+  const [effectiveDeliveryRules, setEffectiveDeliveryRules] = useState<EffectiveDeliveryRules | null>(null);
   const [estimatedDeliveryMin, setEstimatedDeliveryMin] = useState('45');
   const [commercialTerm, setCommercialTerm] = useState<RestaurantCommercialTerm | null>(null);
   const [readiness, setReadiness] = useState<PublicationReadiness | null>(null);
@@ -178,10 +182,13 @@ export default function RestaurantSettingsPage() {
       setImageUrl(activeRes.image_url ?? '');
       setHours(activeRes.opening_hours as OpeningHours || {});
       setVacationMode(Boolean(activeRes.is_vacation_mode));
-      setDeliveryRadius(String(activeRes.max_delivery_km || 10));
-      setMinOrder(String(activeRes.min_order_amount || 0));
       setEstimatedDeliveryMin(String(activeRes.estimated_delivery_min || 45));
-      const [{ data: term, error: termError }, { data: readinessData, error: readinessError }, specialResult] = await Promise.all([
+      const [
+        { data: term, error: termError },
+        { data: readinessData, error: readinessError },
+        specialResult,
+        { data: deliveryRulesData, error: deliveryRulesError },
+      ] = await Promise.all([
         supabase.from('restaurant_commercial_terms').select('*')
           .eq('restaurant_id', activeRes.id).eq('status', 'active').maybeSingle(),
         callUserAction<PublicationReadiness>('get_restaurant_publication_readiness', { p_restaurant_id: activeRes.id }),
@@ -190,13 +197,18 @@ export default function RestaurantSettingsPage() {
           .gte('date', algeriaAvailabilityDateRange().to)
           .order('date')
           .limit(30),
+        callUserAction<EffectiveDeliveryRules>('get_restaurant_effective_delivery_rules', {
+          p_restaurant_id: activeRes.id,
+        }),
       ]);
       if (termError) throw termError;
       if (readinessError) throw readinessError;
       if (specialResult.error) throw specialResult.error;
+      if (deliveryRulesError) throw deliveryRulesError;
       setCommercialTerm((term as RestaurantCommercialTerm | null) ?? null);
       setReadiness((readinessData as PublicationReadiness | null) ?? null);
       setSpecialHours((specialResult.data as RestaurantSpecialHours[] | null) ?? []);
+      setEffectiveDeliveryRules((deliveryRulesData as EffectiveDeliveryRules | null) ?? null);
       if (activeRes.latitude != null && activeRes.longitude != null) {
         setLocation({
           lat: activeRes.latitude,
@@ -231,6 +243,12 @@ export default function RestaurantSettingsPage() {
   }, [locale, profile, t]);
 
   useEffect(() => { void load(); }, [load]);
+
+  const deliverySourceLabel = (source: DeliveryRuleSource) => {
+    if (source === 'restaurant') return t('restaurant.settings.ruleSourceRestaurant');
+    if (source === 'wilaya') return t('restaurant.settings.ruleSourceWilaya');
+    return t('restaurant.settings.ruleSourceGlobal');
+  };
 
   const saveSettings = async () => {
     if (!restaurant || saving) return;
@@ -271,8 +289,6 @@ export default function RestaurantSettingsPage() {
           cuisine: cuisineList,
           image_url: nextImageUrl,
           opening_hours: hours,
-          max_delivery_km: Number(deliveryRadius),
-          min_order_amount: Number(minOrder),
           estimated_delivery_min: Number(estimatedDeliveryMin),
           address: location.address,
           latitude: location.lat,
@@ -737,33 +753,37 @@ export default function RestaurantSettingsPage() {
               <Truck className="h-5 w-5 text-sage-600" />
               <h2 className="font-display text-base font-bold text-ink-900">{t('restaurant.settings.deliveryConfig')}</h2>
             </div>
+            <p className="mb-4 rounded-lg border border-sage-200 bg-sage-50 p-3 text-sm leading-6 text-sage-900">
+              {t('restaurant.settings.deliveryControlled')}
+            </p>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="kiyo-label">{t('restaurant.settings.maxRadius')}</label>
-                <input
-                  type="number"
-                  value={deliveryRadius}
-                  onChange={(e) => setDeliveryRadius(e.target.value)}
-                  min="1"
-                  max="100"
-                  className="kiyo-input"
-                />
+              <div className="rounded-lg border border-ink-100 bg-white p-4">
+                <p className="kiyo-label">{t('restaurant.settings.maxRadius')}</p>
+                <p className="font-display text-2xl font-bold text-ink-900">
+                  {deliveryRuleNumber(effectiveDeliveryRules, 'max_delivery_km', 10).toLocaleString(locale)} {locale === 'ar' ? 'كم' : 'km'}
+                </p>
                 <p className="mt-1 text-xs text-ink-400">
                   {t('restaurant.settings.maxRadiusDesc')}
                 </p>
+                {effectiveDeliveryRules && (
+                  <p className="mt-3 text-xs font-semibold text-sage-700">
+                    {t('restaurant.settings.ruleSource')}: {deliverySourceLabel(effectiveDeliveryRules.sources.max_delivery_km)}
+                  </p>
+                )}
               </div>
-              <div>
-                <label className="kiyo-label">{t('restaurant.settings.minOrder')}</label>
-                <input
-                  type="number"
-                  value={minOrder}
-                  onChange={(e) => setMinOrder(e.target.value)}
-                  min="0"
-                  className="kiyo-input"
-                />
+              <div className="rounded-lg border border-ink-100 bg-white p-4">
+                <p className="kiyo-label">{t('restaurant.settings.minOrder')}</p>
+                <p className="font-display text-2xl font-bold text-ink-900">
+                  {deliveryRuleNumber(effectiveDeliveryRules, 'minimum_order', 0).toLocaleString(locale)} {locale === 'ar' ? 'دج' : 'DZD'}
+                </p>
                 <p className="mt-1 text-xs text-ink-400">
                   {t('restaurant.settings.minOrderDesc')}
                 </p>
+                {effectiveDeliveryRules && (
+                  <p className="mt-3 text-xs font-semibold text-sage-700">
+                    {t('restaurant.settings.ruleSource')}: {deliverySourceLabel(effectiveDeliveryRules.sources.minimum_order)}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="kiyo-label">{t('restaurant.settings.estTime')}</label>

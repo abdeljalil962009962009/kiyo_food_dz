@@ -20,6 +20,7 @@ type ResponseLike = {
 const ALLOWED_ACTIONS = new Set([
   'create_support_ticket',
   'create_order_with_items',
+  'get_restaurant_effective_delivery_rules',
   'get_restaurant_analytics_summary',
   'get_restaurant_financials',
   'get_restaurant_publication_readiness',
@@ -100,6 +101,11 @@ export default async function handler(request: RequestLike, response: ResponseLi
         p_category: args.p_category ?? 'general',
         p_priority: args.p_priority ?? 'normal',
         p_order_id: args.p_order_id ?? null,
+      })
+    : action === 'get_restaurant_effective_delivery_rules'
+    ? await serviceClient.rpc('get_restaurant_effective_delivery_rules', {
+        p_actor_id: authData.user.id,
+        p_restaurant_id: args.p_restaurant_id,
       })
     : action === 'update_restaurant_operational_state'
     ? await serviceClient.rpc('update_restaurant_operational_state', {

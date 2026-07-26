@@ -1712,6 +1712,7 @@ const DEFAULT_SETTINGS: Record<string, Record<string, unknown>> = {
     max_fee: 500,
     free_delivery_threshold: 1500,
     default_max_delivery_km: 10,
+    minimum_order: 0,
   },
   commission: {
     default_rate: 0.07,
@@ -1877,6 +1878,8 @@ function RulesTab() {
           onChange={(v) => updateField('delivery', 'free_delivery_threshold', Number(v))} />
         <RuleField label={tx('rules.delivery.defaultMaxKm', 'Default max delivery km')} value={settings.delivery?.default_max_delivery_km as number ?? 10}
           onChange={(v) => updateField('delivery', 'default_max_delivery_km', Number(v))} />
+        <RuleField label={tx('rules.delivery.minimumOrder', 'Default minimum order (DZD)')} value={settings.delivery?.minimum_order as number ?? 0}
+          onChange={(v) => updateField('delivery', 'minimum_order', Number(v))} />
       </RulesCard>
 
       {/* Commission Rules */}

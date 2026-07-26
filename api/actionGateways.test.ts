@@ -210,6 +210,28 @@ describe('user action gateway', () => {
     });
   });
 
+  it('reads effective delivery rules only through the verified server identity', async () => {
+    const { rpc } = queueClients({ id: ACTOR_ID, is_suspended: false });
+    const { response, state } = makeResponse();
+    const restaurantId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+
+    await userHandler({
+      method: 'POST',
+      headers: { authorization: 'Bearer customer-token' },
+      body: {
+        action: 'get_restaurant_effective_delivery_rules',
+        requestId: REQUEST_ID,
+        args: { p_restaurant_id: restaurantId },
+      },
+    }, response);
+
+    expect(state.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith('get_restaurant_effective_delivery_rules', {
+      p_actor_id: ACTOR_ID,
+      p_restaurant_id: restaurantId,
+    });
+  });
+
   it('submits reviews only through the verified customer identity', async () => {
     const { rpc } = queueClients({ id: ACTOR_ID, is_suspended: false });
     const { response, state } = makeResponse();

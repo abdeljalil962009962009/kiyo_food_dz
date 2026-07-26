@@ -565,6 +565,11 @@ export type TranslationKey =
   | 'restaurant.settings.maxRadiusDesc'
   | 'restaurant.settings.minOrder'
   | 'restaurant.settings.minOrderDesc'
+  | 'restaurant.settings.deliveryControlled'
+  | 'restaurant.settings.ruleSource'
+  | 'restaurant.settings.ruleSourceRestaurant'
+  | 'restaurant.settings.ruleSourceWilaya'
+  | 'restaurant.settings.ruleSourceGlobal'
   | 'restaurant.settings.estTime'
   | 'restaurant.settings.estTimeDesc'
   | 'restaurant.settings.opStatus'
@@ -1242,6 +1247,11 @@ const en: Dict = {
   'restaurant.settings.maxRadiusDesc': 'Customers outside this radius cannot order from your restaurant.',
   'restaurant.settings.minOrder': 'Minimum Order Amount (DZD)',
   'restaurant.settings.minOrderDesc': 'Orders below this amount will be rejected.',
+  'restaurant.settings.deliveryControlled': 'These effective delivery rules come from the Kiyo Food Control Center. Approved restaurant exceptions take priority, followed by the Wilaya rule and then the global default.',
+  'restaurant.settings.ruleSource': 'Source',
+  'restaurant.settings.ruleSourceRestaurant': 'Restaurant exception',
+  'restaurant.settings.ruleSourceWilaya': 'Wilaya rule',
+  'restaurant.settings.ruleSourceGlobal': 'Global default',
   'restaurant.settings.estTime': 'Estimated Delivery Time (minutes)',
   'restaurant.settings.estTimeDesc': 'This is shown to customers before they order.',
   'restaurant.settings.opStatus': 'Operational Status',
@@ -1933,6 +1943,11 @@ const fr: Dict = {
   'restaurant.settings.maxRadiusDesc': 'Les clients en dehors de ce rayon ne peuvent pas commander.',
   'restaurant.settings.minOrder': 'Montant minimum de commande (DZD)',
   'restaurant.settings.minOrderDesc': 'Les commandes inférieures à ce montant seront rejetées.',
+  'restaurant.settings.deliveryControlled': 'Ces règles de livraison effectives proviennent du Centre de contrôle Kiyo Food. Une exception approuvée pour le restaurant est prioritaire, puis la règle de Wilaya, puis la valeur globale.',
+  'restaurant.settings.ruleSource': 'Source',
+  'restaurant.settings.ruleSourceRestaurant': 'Exception du restaurant',
+  'restaurant.settings.ruleSourceWilaya': 'Règle de Wilaya',
+  'restaurant.settings.ruleSourceGlobal': 'Valeur globale',
   'restaurant.settings.estTime': 'Temps de livraison estimé (minutes)',
   'restaurant.settings.estTimeDesc': 'Ceci est affiché aux clients avant qu\'ils ne commandent.',
   'restaurant.settings.opStatus': 'Statut opérationnel',
@@ -2624,6 +2639,11 @@ const ar: Dict = {
   'restaurant.settings.maxRadiusDesc': 'لن يتمكن العملاء خارج هذا النطاق من الطلب من مطعمك.',
   'restaurant.settings.minOrder': 'الحد الأدنى لقيمة الطلب (دج)',
   'restaurant.settings.minOrderDesc': 'سيتم رفض الطلبات التي تقل قيمتها عن هذا المبلغ.',
+  'restaurant.settings.deliveryControlled': 'تأتي قواعد التوصيل الفعلية من مركز تحكم Kiyo Food. تكون الأولوية لاستثناء المطعم المعتمد، ثم قاعدة الولاية، ثم الإعداد العام.',
+  'restaurant.settings.ruleSource': 'المصدر',
+  'restaurant.settings.ruleSourceRestaurant': 'استثناء المطعم',
+  'restaurant.settings.ruleSourceWilaya': 'قاعدة الولاية',
+  'restaurant.settings.ruleSourceGlobal': 'الإعداد العام',
   'restaurant.settings.estTime': 'وقت التوصيل المقدر (بالدقائق)',
   'restaurant.settings.estTimeDesc': 'يتم عرض هذا للعملاء قبل تقديم الطلب.',
   'restaurant.settings.opStatus': 'الحالة التشغيلية',

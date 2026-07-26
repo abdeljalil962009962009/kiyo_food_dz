@@ -20,6 +20,7 @@ import { checkoutEtaWindow } from '../lib/deliveryEta';
 import { userFacingError } from '../lib/userFacingError';
 import { algeriaAvailabilityDateRange, restaurantAcceptsOrders } from '../lib/restaurantAvailability';
 import { checkoutRecovery, deliveryQuoteNeedsRefresh, type CheckoutRecoveryKind } from '../lib/checkoutRecovery';
+import { deliveryRuleNumber, type EffectiveDeliveryRules } from '../lib/deliveryRules';
 
 type Step = 'details' | 'review' | 'success';
 type ContactPhoneMode = 'account' | 'alternate';
@@ -97,11 +98,18 @@ export default function CheckoutPage() {
       const data = await withExponentialBackoff(async () => {
         const restaurantResult = await supabase
           .from('restaurants')
-          .select('latitude, longitude, max_delivery_km, status, operational_status, is_vacation_mode, opening_hours, timezone, estimated_delivery_min')
+          .select('latitude, longitude, status, operational_status, is_vacation_mode, opening_hours, timezone, estimated_delivery_min')
           .eq('id', cart.restaurantId)
           .maybeSingle();
         if (restaurantResult.error) throw restaurantResult.error;
         if (!restaurantResult.data) return null;
+
+        const deliveryRulesResult = await callUserAction<EffectiveDeliveryRules>(
+          'get_restaurant_effective_delivery_rules',
+          { p_restaurant_id: cart.restaurantId },
+        );
+        if (deliveryRulesResult.error) throw deliveryRulesResult.error;
+        if (!deliveryRulesResult.data) throw new Error('Effective delivery rules are unavailable.');
 
         const range = algeriaAvailabilityDateRange();
         const specialResult = await supabase
@@ -114,6 +122,7 @@ export default function CheckoutPage() {
         return {
           restaurant: restaurantResult.data,
           specialHours: (specialResult.data as RestaurantSpecialHours[] | null) ?? [],
+          deliveryRules: deliveryRulesResult.data as EffectiveDeliveryRules,
         };
       }, { attempts: 3, timeoutMs: 12_000 });
 
@@ -131,7 +140,7 @@ export default function CheckoutPage() {
       setRestaurantGeo({
         lat: data.restaurant.latitude,
         lng: data.restaurant.longitude,
-        max_km: data.restaurant.max_delivery_km ?? 10,
+        max_km: deliveryRuleNumber(data.deliveryRules, 'max_delivery_km', 10),
         operationalStatus,
         preparationMinutes: data.restaurant.estimated_delivery_min ?? 20,
       });
