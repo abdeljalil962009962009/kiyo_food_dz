@@ -106,6 +106,18 @@ const adminErrorMessage = (err: unknown, fallback: string) => {
 
 const isTechnicalDatabaseError = (message: string) => /(?:function\s+public\.|column\s+["\w.]+\s+does not exist|relation\s+["\w.]+\s+does not exist|schema cache|SQL statement|PL\/pgSQL|PGRST|violates row-level security|permission denied for (?:table|schema|function)|invalid input syntax)/i.test(message);
 
+async function readAdminActionWithRetry<T>(
+  action: string,
+  args: Record<string, unknown> = {},
+): Promise<T> {
+  return withExponentialBackoff(async () => {
+    const result = await callAdminAction<T>(action, args);
+    if (result.error) throw result.error;
+    if (result.data === null) throw new Error('admin_read_returned_no_data');
+    return result.data;
+  }, { attempts: 3, baseDelayMs: 700, timeoutMs: 15000 });
+}
+
 const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
   en: {
     'overview': 'Overview',
@@ -805,12 +817,15 @@ function OverviewTab() {
     setError(null);
     try {
       const [a, al] = await Promise.all([
-        callAdminAction('get_platform_analytics'),
-        supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(10),
+        readAdminActionWithRetry<Analytics>('get_platform_analytics'),
+        withExponentialBackoff(async () => {
+          const result = await supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(10);
+          if (result.error) throw result.error;
+          return result.data;
+        }, { attempts: 3, baseDelayMs: 700, timeoutMs: 15000 }),
       ]);
-      const fetchedAnalytics = a.data as Analytics;
-      const fetchedAudit = (al.data as AuditLog[]) ?? [];
-      setAnalytics(fetchedAnalytics || ZERO_ANALYTICS);
+      const fetchedAudit = (al as AuditLog[]) ?? [];
+      setAnalytics(a);
       setAudit(fetchedAudit);
     } catch (err: unknown) {
       console.error(err);
@@ -1048,15 +1063,26 @@ function FinancialsTab() {
     setError(null);
     try {
       const [a, l] = await Promise.all([
-        callAdminAction('get_platform_analytics'),
-        supabase.from('financial_ledger').select('restaurant_id, platform_commission, restaurant_payout, order_total').order('created_at', { ascending: false }).limit(100),
+        readAdminActionWithRetry<Analytics>('get_platform_analytics'),
+        withExponentialBackoff(async () => {
+          const result = await supabase
+            .from('financial_ledger')
+            .select('restaurant_id, platform_commission, restaurant_payout, order_total')
+            .order('created_at', { ascending: false })
+            .limit(100);
+          if (result.error) throw result.error;
+          return result.data;
+        }, { attempts: 3, baseDelayMs: 700, timeoutMs: 15000 }),
       ]);
-      if (a.error) throw a.error;
-      setAnalytics(a.data as Analytics);
-      const r = await supabase.from('restaurants').select('id, name');
-      const rMap = new Map((r.data ?? []).map((x: { id: string; name: string }) => [x.id, x.name]));
+      setAnalytics(a);
+      const restaurantRows = await withExponentialBackoff(async () => {
+        const result = await supabase.from('restaurants').select('id, name');
+        if (result.error) throw result.error;
+        return result.data ?? [];
+      }, { attempts: 3, baseDelayMs: 700, timeoutMs: 15000 });
+      const rMap = new Map(restaurantRows.map((x: { id: string; name: string }) => [x.id, x.name]));
       const agg = new Map<string, { restaurant_name: string; total: number; commission: number; payout: number }>();
-      for (const row of (l.data ?? []) as Array<{ restaurant_id: string; platform_commission: string; restaurant_payout: string; order_total: string }>) {
+      for (const row of (l ?? []) as Array<{ restaurant_id: string; platform_commission: string; restaurant_payout: string; order_total: string }>) {
         const existing = agg.get(row.restaurant_id) ?? { restaurant_name: rMap.get(row.restaurant_id) ?? 'Unknown', total: 0, commission: 0, payout: 0 };
         existing.total += parseFloat(row.order_total);
         existing.commission += parseFloat(row.platform_commission);
@@ -2040,9 +2066,8 @@ function AnalyticsTab() {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: e } = await callAdminAction('get_platform_analytics');
-      if (e) throw e;
-      setAnalytics(data as Analytics);
+      const data = await readAdminActionWithRetry<Analytics>('get_platform_analytics');
+      setAnalytics(data);
     } catch (err) {
       setError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
@@ -2125,9 +2150,8 @@ function SettlementsTab() {
     setLoading(true);
     setLoadError(null);
     try {
-      const { data, error: e } = await callAdminAction('get_settlement_overview');
-      if (e) throw e;
-      setOverview(data as typeof overview);
+      const data = await readAdminActionWithRetry<NonNullable<typeof overview>>('get_settlement_overview');
+      setOverview(data);
     } catch (err) {
       setLoadError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
@@ -2863,9 +2887,8 @@ function AlertsTab() {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: e } = await callAdminAction('get_admin_alerts');
-      if (e) throw e;
-      setAlerts(data as typeof alerts);
+      const data = await readAdminActionWithRetry<NonNullable<typeof alerts>>('get_admin_alerts');
+      setAlerts(data);
     } catch (err) {
       setError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
