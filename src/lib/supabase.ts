@@ -345,6 +345,20 @@ export type OrderItemRow = {
   modifier_snapshot: Array<Record<string, unknown>>;
 };
 
+export type ReviewRow = {
+  id: string;
+  restaurant_id: string;
+  customer_id: string;
+  order_id: string;
+  rating: number;
+  comment: string | null;
+  owner_reply: string | null;
+  replied_at: string | null;
+  is_hidden: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type AuditLog = {
   id: string;
   actor_id: string | null;

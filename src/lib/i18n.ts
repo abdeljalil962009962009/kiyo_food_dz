@@ -587,6 +587,10 @@ export type TranslationKey =
   | 'restaurant.dash.newOrderAlert'
   | 'restaurant.dash.awaitingApproval'
   | 'restaurant.dash.financialsError'
+  | 'restaurant.dash.reviews'
+  | 'restaurant.dash.reviewReply'
+  | 'restaurant.dash.reviewEditReply'
+  | 'restaurant.dash.reviewReplyLabel'
   | 'restaurant.dash.statusReasonPrompt'
   | 'restaurant.dash.live'
   | 'restaurant.dash.reconnecting'
@@ -1260,6 +1264,10 @@ const en: Dict = {
   'restaurant.dash.newOrderAlert': 'New order received!',
   'restaurant.dash.awaitingApproval': 'Awaiting approval',
   'restaurant.dash.financialsError': 'Financial data could not be refreshed',
+  'restaurant.dash.reviews': 'Customer reviews',
+  'restaurant.dash.reviewReply': 'Reply to customer',
+  'restaurant.dash.reviewEditReply': 'Edit restaurant reply',
+  'restaurant.dash.reviewReplyLabel': 'Public restaurant response',
   'restaurant.dash.statusReasonPrompt': 'Enter a clear reason for this status change:',
   'restaurant.dash.live': 'Live',
   'restaurant.dash.reconnecting': 'Reconnecting...',
@@ -1947,6 +1955,10 @@ const fr: Dict = {
   'restaurant.dash.newOrderAlert': 'Nouvelle commande reçue !',
   'restaurant.dash.awaitingApproval': 'En attente d’approbation',
   'restaurant.dash.financialsError': 'Les données financières n’ont pas pu être actualisées',
+  'restaurant.dash.reviews': 'Avis clients',
+  'restaurant.dash.reviewReply': 'Répondre au client',
+  'restaurant.dash.reviewEditReply': 'Modifier la réponse du restaurant',
+  'restaurant.dash.reviewReplyLabel': 'Réponse publique du restaurant',
   'restaurant.dash.statusReasonPrompt': 'Saisissez un motif clair pour ce changement de statut :',
   'restaurant.dash.live': 'En direct',
   'restaurant.dash.reconnecting': 'Reconnexion...',
@@ -2634,6 +2646,10 @@ const ar: Dict = {
   'restaurant.dash.newOrderAlert': 'تم استقبال طلب جديد!',
   'restaurant.dash.awaitingApproval': 'بانتظار الموافقة',
   'restaurant.dash.financialsError': 'تعذر تحديث البيانات المالية',
+  'restaurant.dash.reviews': 'تقييمات العملاء',
+  'restaurant.dash.reviewReply': 'الرد على العميل',
+  'restaurant.dash.reviewEditReply': 'تعديل رد المطعم',
+  'restaurant.dash.reviewReplyLabel': 'رد المطعم العلني',
   'restaurant.dash.statusReasonPrompt': 'أدخل سبباً واضحاً لتغيير الحالة:',
   'restaurant.dash.live': 'مباشر',
   'restaurant.dash.reconnecting': 'جارٍ إعادة الاتصال...',

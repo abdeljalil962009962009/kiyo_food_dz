@@ -234,6 +234,31 @@ describe('user action gateway', () => {
     });
   });
 
+  it('routes restaurant review replies through the verified account', async () => {
+    const { rpc } = queueClients({ id: ACTOR_ID, is_suspended: false });
+    const { response, state } = makeResponse();
+
+    await userHandler({
+      method: 'POST',
+      headers: { authorization: 'Bearer restaurant-token' },
+      body: {
+        action: 'reply_to_restaurant_review',
+        requestId: REQUEST_ID,
+        args: {
+          p_review_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+          p_reply: 'Thank you for your feedback.',
+        },
+      },
+    }, response);
+
+    expect(state.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith('reply_to_restaurant_review', {
+      p_actor_id: ACTOR_ID,
+      p_review_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      p_reply: 'Thank you for your feedback.',
+    });
+  });
+
   it('does not allow a customer to route an owner action through the user endpoint', async () => {
     const { response, state } = makeResponse();
     await userHandler({

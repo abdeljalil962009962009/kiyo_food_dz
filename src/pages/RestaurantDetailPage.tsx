@@ -11,9 +11,11 @@ import {
   type MenuItemModifier,
   type ModifierOption,
   type RestaurantSpecialHours,
+  type ReviewRow,
 } from '../lib/supabase';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import { useSettings } from '../context/SettingsContext';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Skeleton, ErrorState, PremiumEmptyState } from '../components/feedback';
@@ -31,6 +33,8 @@ import {
   validateModifierSelection,
   type ModifierGroup,
 } from '../lib/menuCustomization';
+import { RestaurantReviews } from '../components/RestaurantReviews';
+import { applyReviewChange } from '../lib/reviews';
 
 const OpenStreetMapDisplay = lazy(() => import('../components/OpenStreetMapDisplay'));
 
@@ -73,6 +77,7 @@ export default function RestaurantDetailPage() {
   const navigate = useNavigate();
   const { addItem, state: cart, setRestaurantName } = useCart();
   const { user, locale } = useAuth();
+  const { features } = useSettings();
   const tx = detailCopy[locale];
 
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
@@ -88,6 +93,7 @@ export default function RestaurantDetailPage() {
   const [modifierGroupsByItem, setModifierGroupsByItem] = useState<Record<string, ModifierGroup[]>>({});
   const [customizingItem, setCustomizingItem] = useState<MenuItem | null>(null);
   const [availabilityClock, setAvailabilityClock] = useState(() => new Date());
+  const [reviews, setReviews] = useState<ReviewRow[]>([]);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -141,6 +147,20 @@ export default function RestaurantDetailPage() {
         } else {
           setModifierGroupsByItem({});
         }
+
+        if (features.reviews) {
+          const reviewsResult = await supabase
+            .from('reviews')
+            .select('id,restaurant_id,customer_id,order_id,rating,comment,owner_reply,replied_at,is_hidden,created_at,updated_at')
+            .eq('restaurant_id', foundRes.id)
+            .eq('is_hidden', false)
+            .order('created_at', { ascending: false })
+            .limit(20);
+          if (reviewsResult.error) throw reviewsResult.error;
+          setReviews((reviewsResult.data as ReviewRow[]) ?? []);
+        } else {
+          setReviews([]);
+        }
       }
 
       // Check if favorite
@@ -159,7 +179,7 @@ export default function RestaurantDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [id, setRestaurantName, user]);
+  }, [features.reviews, id, setRestaurantName, user]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -177,6 +197,12 @@ export default function RestaurantDetailPage() {
   useRealtime('modifier_options', () => {
     void load();
   }, { enabled: Boolean(id) });
+  useRealtime('reviews', (payload) => {
+    setReviews((current) => applyReviewChange(current, payload));
+  }, {
+    enabled: Boolean(id) && features.reviews,
+    filter: id ? { restaurant_id: `eq.${id}` } : undefined,
+  });
 
   useEffect(() => {
     const timer = window.setInterval(() => setAvailabilityClock(new Date()), 60_000);
@@ -384,6 +410,8 @@ export default function RestaurantDetailPage() {
           )}
         </div>
       </ErrorBoundary>
+
+      {features.reviews && <RestaurantReviews reviews={reviews} locale={locale} />}
 
       {cart.restaurantId === restaurant.id && cart.lines.length > 0 && (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-ink-100 bg-white/90 px-4 py-3 backdrop-blur-xl sm:px-6"

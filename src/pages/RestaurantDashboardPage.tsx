@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Store, Utensils, Clock, RefreshCw, Bell, DollarSign, TrendingUp, X, Settings } from 'lucide-react';
+import { Store, Utensils, Clock, RefreshCw, Bell, DollarSign, TrendingUp, X, Settings, Star } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
-import { supabase, type Restaurant, type OrderRow, type OrderItemRow, type OrderStatus } from '../lib/supabase';
+import { supabase, type Restaurant, type OrderRow, type OrderItemRow, type OrderStatus, type ReviewRow } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useRealtime } from '../lib/useRealtime';
 import { canTransition, nextStatuses } from '../lib/orderStateMachine';
@@ -14,10 +14,14 @@ import { RestaurantAnalyticsPanel } from '../components/RestaurantAnalytics';
 import { callUserAction } from '../lib/userApi';
 import { userFacingError } from '../lib/userFacingError';
 import { useActionDialog } from '../context/ActionDialogContext';
+import { useSettings } from '../context/SettingsContext';
+import { RestaurantReviews } from '../components/RestaurantReviews';
+import { applyReviewChange } from '../lib/reviews';
 
 export default function RestaurantDashboardPage() {
   const { t, locale } = useT();
   const { profile } = useAuth();
+  const { features } = useSettings();
   const navigate = useNavigate();
   const { requestText } = useActionDialog();
 
@@ -35,6 +39,8 @@ export default function RestaurantDashboardPage() {
     commission_owed: number; payout_pending: number; orders_count: number;
   } | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [reviews, setReviews] = useState<ReviewRow[]>([]);
+  const [replyingReviewId, setReplyingReviewId] = useState<string | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
   const load = useCallback(async () => {
@@ -57,13 +63,27 @@ export default function RestaurantDashboardPage() {
       const activeRestaurant = r as Restaurant;
       setRestaurant(activeRestaurant);
 
-      const { data: o, error: oe } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('restaurant_id', activeRestaurant.id)
-        .order('created_at', { ascending: false })
-        .limit(100);
+      const [ordersResult, reviewsResult] = await Promise.all([
+        supabase
+          .from('orders')
+          .select('*')
+          .eq('restaurant_id', activeRestaurant.id)
+          .order('created_at', { ascending: false })
+          .limit(100),
+        features.reviews
+          ? supabase
+              .from('reviews')
+              .select('id,restaurant_id,customer_id,order_id,rating,comment,owner_reply,replied_at,is_hidden,created_at,updated_at')
+              .eq('restaurant_id', activeRestaurant.id)
+              .eq('is_hidden', false)
+              .order('created_at', { ascending: false })
+              .limit(50)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+      const { data: o, error: oe } = ordersResult;
       if (oe) throw oe;
+      if (reviewsResult.error) throw reviewsResult.error;
+      setReviews((reviewsResult.data as ReviewRow[]) ?? []);
       const list = (o as OrderRow[]) ?? [];
       
       setOrders(list);
@@ -96,7 +116,7 @@ export default function RestaurantDashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [locale, profile, t]);
+  }, [features.reviews, locale, profile, t]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -203,6 +223,48 @@ export default function RestaurantDashboardPage() {
       setNewOrderAlert(null);
     }
   }, [newOrderAlert, orders]);
+
+  useRealtime('reviews', (payload) => {
+    setReviews((current) => applyReviewChange(current, payload));
+  }, {
+    enabled: Boolean(restaurant) && features.reviews,
+    filter: restaurant ? { restaurant_id: `eq.${restaurant.id}` } : undefined,
+  });
+
+  const replyToReview = async (review: ReviewRow) => {
+    const reply = await requestText({
+      title: review.owner_reply
+        ? t('restaurant.dash.reviewEditReply')
+        : t('restaurant.dash.reviewReply'),
+      inputLabel: t('restaurant.dash.reviewReplyLabel'),
+      initialValue: review.owner_reply ?? '',
+      confirmLabel: t('common.save'),
+      required: true,
+    });
+    if (!reply || reply.trim().length < 2) return;
+
+    setReplyingReviewId(review.id);
+    setActionError(null);
+    try {
+      const { data, error: replyError } = await callUserAction<{
+        owner_reply: string;
+        replied_at: string;
+      }>('reply_to_restaurant_review', {
+        p_review_id: review.id,
+        p_reply: reply.trim(),
+      });
+      if (replyError || !data) throw replyError ?? new Error(t('error.genericBody'));
+      setReviews((current) => current.map((item) => (
+        item.id === review.id
+          ? { ...item, owner_reply: data.owner_reply, replied_at: data.replied_at }
+          : item
+      )));
+    } catch (err) {
+      setActionError(userFacingError(err, locale, t('error.genericBody')));
+    } finally {
+      setReplyingReviewId(null);
+    }
+  };
 
   const updateStatus = async (orderId: string, to: OrderStatus) => {
     const order = orders.find((item) => item.id === orderId);
@@ -366,6 +428,18 @@ export default function RestaurantDashboardPage() {
       {restaurant && <RestaurantAnalyticsPanel restaurantId={restaurant.id} />}
 
       <ErrorBoundary variant="inline">
+        {features.reviews && (
+          <Section title={t('restaurant.dash.reviews')} icon={Star} badge={reviews.length}>
+            <RestaurantReviews
+              reviews={reviews}
+              locale={locale}
+              ownerMode
+              pendingReviewId={replyingReviewId}
+              onReply={(review) => void replyToReview(review)}
+            />
+          </Section>
+        )}
+
         {pending.length > 0 && (
           <Section title={t('restaurant.waitingOrders')} icon={Bell} badge={pending.length}>
             <OrdersList

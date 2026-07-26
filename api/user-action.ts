@@ -28,6 +28,7 @@ const ALLOWED_ACTIONS = new Set([
   'reply_to_ticket',
   'request_account_deletion',
   'request_personal_data_export',
+  'reply_to_restaurant_review',
   'send_restaurant_application_message',
   'submit_driver_application',
   'submit_order_review',
@@ -94,6 +95,12 @@ export default async function handler(request: RequestLike, response: ResponseLi
         p_payload: args.p_payload,
         p_submission_key: args.p_submission_key,
       })
+    : action === 'reply_to_restaurant_review'
+      ? await serviceClient.rpc('reply_to_restaurant_review', {
+          p_actor_id: authData.user.id,
+          p_review_id: args.p_review_id,
+          p_reply: args.p_reply,
+        })
     : action === 'submit_order_review'
       ? await serviceClient.rpc('submit_order_review', {
           p_actor_id: authData.user.id,
