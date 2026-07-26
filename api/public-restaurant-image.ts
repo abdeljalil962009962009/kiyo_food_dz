@@ -48,7 +48,28 @@ export default async function handler(request: RequestLike, response: ResponseLi
     .or(`image_url.eq.${path},image_url.like.%${publicMarker}%`)
     .limit(1)
     .maybeSingle();
-  if (!restaurant) {
+
+  let isPublic = Boolean(restaurant);
+  if (!isPublic) {
+    const { data: menuItem } = await client
+      .from('menu_items')
+      .select('restaurant_id')
+      .eq('is_available', true)
+      .or(`image_url.eq.${path},image_url.like.%${publicMarker}%`)
+      .limit(1)
+      .maybeSingle();
+    if (menuItem?.restaurant_id) {
+      const { data: menuRestaurant } = await client
+        .from('restaurants')
+        .select('id')
+        .eq('id', menuItem.restaurant_id)
+        .eq('status', 'published')
+        .maybeSingle();
+      isPublic = Boolean(menuRestaurant);
+    }
+  }
+
+  if (!isPublic) {
     response.status(404).json({ code: 'image_not_public' });
     return;
   }

@@ -7,7 +7,7 @@ const IMAGE_EXTENSIONS: Record<string, string> = {
   'image/png': 'png',
   'image/webp': 'webp',
 };
-type RestaurantImageKind = 'public-profile' | 'logo' | 'cover';
+type RestaurantImageKind = 'public-profile' | 'logo' | 'cover' | 'menu-item';
 
 export function validateRestaurantImage(file: File): 'type' | 'size' | null {
   if (!IMAGE_EXTENSIONS[file.type]) return 'type';

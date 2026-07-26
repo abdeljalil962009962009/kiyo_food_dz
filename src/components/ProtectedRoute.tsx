@@ -15,6 +15,7 @@ import type { UserRole } from '../lib/supabase';
 export function ProtectedRoute({ children }: { children: ReactNode }) {
   const { state, profile, profileError, refreshProfile } = useAuth();
   const { t } = useT();
+  const location = useLocation();
 
   if (state === 'restoring') {
     return <FullScreenLoader label={t('auth.sessionRestoring')} />;
@@ -32,7 +33,7 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
     );
   }
   if (state === 'unauthenticated' || !profile) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" replace state={{ from: location }} />;
   }
   return <>{children}</>;
 }
@@ -56,7 +57,12 @@ export function RoleRoute({ role, children }: { role: UserRole | UserRole[]; chi
 export function PublicOnlyRoute({ children }: { children: ReactNode }) {
   const { state } = useAuth();
   const location = useLocation();
-  const dest = (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? '/dashboard';
+  const from = (location.state as {
+    from?: { pathname?: string; search?: string; hash?: string };
+  } | null)?.from;
+  const dest = from?.pathname?.startsWith('/')
+    ? `${from.pathname}${from.search ?? ''}${from.hash ?? ''}`
+    : '/dashboard';
   if (state === 'authenticated') return <Navigate to={dest} replace />;
   if (state === 'restoring') return <FullScreenLoader />;
   return <>{children}</>;

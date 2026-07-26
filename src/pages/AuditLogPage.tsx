@@ -6,11 +6,20 @@ import { supabase, type AuditLog } from '../lib/supabase';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Skeleton, ErrorState, InlineLoader } from '../components/feedback';
+import { userFacingError } from '../lib/userFacingError';
+import { auditActionLabel } from '../lib/domainStatus';
 
 const PAGE_SIZE = 20;
 
+const AUDIT_COPY = {
+  en: { subtitle: 'Platform owner · read-only', system: 'System' },
+  fr: { subtitle: 'Propriétaire de la plateforme · lecture seule', system: 'Système' },
+  ar: { subtitle: 'مالك المنصة · للقراءة فقط', system: 'النظام' },
+} as const;
+
 export default function AuditLogPage() {
-  const { t } = useT();
+  const { t, locale } = useT();
+  const copy = AUDIT_COPY[locale] ?? AUDIT_COPY.fr;
   const [rows, setRows] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,11 +40,11 @@ export default function AuditLogPage() {
       setHasMore(fetched.length === PAGE_SIZE);
     } catch (err: unknown) {
       console.error(err);
-      setError(err instanceof Error ? err.message : t('error.genericBody'));
+      setError(userFacingError(err, locale, t('error.genericBody')));
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [locale, t]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -57,7 +66,7 @@ export default function AuditLogPage() {
           <h1 className="font-display text-xl font-extrabold tracking-tight text-ink-900">
             {t('audit.title')}
           </h1>
-          <p className="text-xs text-ink-400">Super Admin · read-only</p>
+          <p className="text-xs text-ink-400">{copy.subtitle}</p>
         </div>
       </div>
 
@@ -93,7 +102,7 @@ export default function AuditLogPage() {
                   <div className="font-semibold text-ink-900">
                     <span className="inline-flex items-center gap-2">
                       <span className="h-1.5 w-1.5 rounded-full bg-ember-500" />
-                      {log.action.replace(/_/g, ' ')}
+                      {auditActionLabel(log.action, locale)}
                     </span>
                   </div>
                   <div className="text-xs text-ink-500">
@@ -101,10 +110,10 @@ export default function AuditLogPage() {
                     {log.target_id ? ` · ${log.target_id.slice(0, 8)}` : ''}
                   </div>
                   <div className="text-xs text-ink-500">
-                    {log.actor_id ? log.actor_id.slice(0, 8) : 'system'}
+                    {log.actor_id ? log.actor_id.slice(0, 8) : copy.system}
                   </div>
                   <div className="text-xs text-ink-400 sm:text-right">
-                    {new Date(log.created_at).toLocaleString()}
+                    {new Date(log.created_at).toLocaleString(locale === 'ar' ? 'ar-DZ' : locale === 'fr' ? 'fr-DZ' : 'en-DZ')}
                   </div>
                 </li>
               ))}

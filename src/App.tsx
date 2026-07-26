@@ -14,6 +14,7 @@ import { CookieConsentBanner } from './components/CookieConsentBanner';
 import { ProtectedRoute, PublicOnlyRoute, RoleRoute } from './components/ProtectedRoute';
 import { isSupabaseConfigured } from './lib/supabase';
 import { SupabaseConfigMissing } from './components/SupabaseConfigMissing';
+import { ActionDialogProvider } from './context/ActionDialogContext';
 
 const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })));
 const NotFoundPage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.NotFoundPage })));
@@ -81,8 +82,8 @@ const router = createBrowserRouter([
   { path: '/legal/account-deletion', element: withSuspense(<AccountDeletionPage />) },
   { path: '/dashboard', element: withSuspense(<ProtectedRoute><DashboardPage /></ProtectedRoute>) },
   { path: '/profile', element: withSuspense(<ProtectedRoute><ProfilePage /></ProtectedRoute>) },
-  { path: '/restaurants', element: withSuspense(<ProtectedRoute><RestaurantsPage /></ProtectedRoute>) },
-  { path: '/restaurant/:id', element: withSuspense(<ProtectedRoute><RestaurantDetailPage /></ProtectedRoute>) },
+  { path: '/restaurants', element: withSuspense(<RestaurantsPage />) },
+  { path: '/restaurant/:id', element: withSuspense(<RestaurantDetailPage />) },
   { path: '/cart', element: withSuspense(<ProtectedRoute><CartPage /></ProtectedRoute>) },
   { path: '/checkout', element: withSuspense(<ProtectedRoute><CheckoutPage /></ProtectedRoute>) },
   { path: '/orders', element: withSuspense(<ProtectedRoute><OrdersPage /></ProtectedRoute>) },
@@ -97,7 +98,7 @@ const router = createBrowserRouter([
   { path: '/admin/restaurants', element: withSuspense(<ProtectedRoute><RoleRoute role="super_admin"><AdminRestaurantsPage /></RoleRoute></ProtectedRoute>) },
   { path: '/admin/audit', element: withSuspense(<ProtectedRoute><RoleRoute role="super_admin"><AuditLogPage /></RoleRoute></ProtectedRoute>) },
   { path: '/driver', element: withSuspense(<ProtectedRoute><RoleRoute role="driver"><DriverDashboardPage /></RoleRoute></ProtectedRoute>) },
-  { path: '/driver/onboarding', element: withSuspense(<ProtectedRoute><RoleRoute role="driver"><DriverOnboardingPage /></RoleRoute></ProtectedRoute>) },
+  { path: '/driver/onboarding', element: withSuspense(<ProtectedRoute><RoleRoute role={['customer','driver']}><DriverOnboardingPage /></RoleRoute></ProtectedRoute>) },
   { path: '*', element: withSuspense(<NotFoundPage />) },
 ]);
 
@@ -112,8 +113,10 @@ export default function App() {
         <SettingsProvider>
           <WilayaProviderBridge>
             <CartProvider>
-              <RouterProvider router={router} />
-              <CookieConsentBanner />
+              <ActionDialogProvider>
+                <RouterProvider router={router} />
+                <CookieConsentBanner />
+              </ActionDialogProvider>
             </CartProvider>
           </WilayaProviderBridge>
         </SettingsProvider>

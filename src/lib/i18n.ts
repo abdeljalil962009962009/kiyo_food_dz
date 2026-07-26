@@ -180,6 +180,7 @@ export type TranslationKey =
   | 'restaurant.category'
   | 'restaurant.categoryName'
   | 'restaurant.deleteCategoryConfirm'
+  | 'restaurant.deleteItemConfirm'
   | 'restaurant.itemName'
   | 'restaurant.description'
   | 'restaurant.delete'
@@ -411,6 +412,8 @@ export type TranslationKey =
   | 'admin.reject'
   | 'admin.pendingApproval'
   | 'admin.noPending'
+  | 'admin.liveRestaurants'
+  | 'admin.applicationRequired'
   // wilaya
   | 'wilaya.select'
   | 'wilaya.searchPlaceholder'
@@ -430,6 +433,8 @@ export type TranslationKey =
   | 'role.driver'
   | 'sys.underMaintenance'
   | 'sys.maintenanceDesc'
+  | 'network.weak'
+  | 'network.offline'
   | 'admin.controlCenter'
   | 'admin.fullVisibility'
   | 'admin.financialsDesc'
@@ -466,6 +471,19 @@ export type TranslationKey =
   | 'support.priority.urgent'
   | 'support.you'
   | 'support.staff'
+  | 'support.status.all'
+  | 'support.status.open'
+  | 'support.status.in_progress'
+  | 'support.status.resolved'
+  | 'support.status.closed'
+  | 'support.admin.inbox'
+  | 'support.admin.backToInbox'
+  | 'support.admin.resolve'
+  | 'support.admin.close'
+  | 'support.admin.noMessages'
+  | 'support.admin.replyPlaceholder'
+  | 'support.admin.admin'
+  | 'support.admin.user'
   // profile & privacy
   | 'profile.loyalty.title'
   | 'profile.loyalty.subtitle'
@@ -547,6 +565,17 @@ export type TranslationKey =
   | 'restaurant.settings.maxRadiusDesc'
   | 'restaurant.settings.minOrder'
   | 'restaurant.settings.minOrderDesc'
+  | 'restaurant.settings.deliveryControlled'
+  | 'restaurant.settings.ruleSource'
+  | 'restaurant.settings.ruleSourceRestaurant'
+  | 'restaurant.settings.ruleSourceWilaya'
+  | 'restaurant.settings.ruleSourceGlobal'
+  | 'restaurant.settings.locationManaged'
+  | 'restaurant.settings.locationManagedAction'
+  | 'restaurant.settings.locationWilayaRequired'
+  | 'restaurant.settings.locationInvalid'
+  | 'restaurant.settings.locationAddressUnavailable'
+  | 'restaurant.settings.notAssigned'
   | 'restaurant.settings.estTime'
   | 'restaurant.settings.estTimeDesc'
   | 'restaurant.settings.opStatus'
@@ -569,6 +598,10 @@ export type TranslationKey =
   | 'restaurant.dash.newOrderAlert'
   | 'restaurant.dash.awaitingApproval'
   | 'restaurant.dash.financialsError'
+  | 'restaurant.dash.reviews'
+  | 'restaurant.dash.reviewReply'
+  | 'restaurant.dash.reviewEditReply'
+  | 'restaurant.dash.reviewReplyLabel'
   | 'restaurant.dash.statusReasonPrompt'
   | 'restaurant.dash.live'
   | 'restaurant.dash.reconnecting'
@@ -594,6 +627,8 @@ export type TranslationKey =
   | 'driver.onboard.success.title'
   | 'driver.onboard.success.body'
   | 'driver.onboard.success.redirect'
+  | 'driver.onboard.success.dashboard'
+  | 'driver.onboard.progress'
   | 'driver.onboard.step.vehicle'
   | 'driver.onboard.step.details'
   | 'driver.onboard.licensePlate'
@@ -602,6 +637,24 @@ export type TranslationKey =
   | 'driver.onboard.uploadDocuments'
   | 'driver.onboard.uploadPrompt'
   | 'driver.onboard.uploadFormat'
+  | 'driver.onboard.document.license'
+  | 'driver.onboard.document.idCard'
+  | 'driver.onboard.document.registration'
+  | 'driver.onboard.document.insurance'
+  | 'driver.onboard.required'
+  | 'driver.onboard.optional'
+  | 'driver.onboard.chooseFile'
+  | 'driver.onboard.removeDocument'
+  | 'driver.onboard.platePlaceholder'
+  | 'driver.onboard.reviewNotice'
+  | 'driver.onboard.uploading'
+  | 'driver.onboard.error.fileType'
+  | 'driver.onboard.error.fileSize'
+  | 'driver.onboard.error.fileEmpty'
+  | 'driver.onboard.error.identity'
+  | 'driver.onboard.error.vehicleDetails'
+  | 'driver.onboard.error.documents'
+  | 'driver.onboard.error.submit'
   | 'driver.onboard.contactTitle'
   | 'driver.onboard.phone'
   | 'driver.onboard.phoneHelp'
@@ -631,6 +684,10 @@ export type TranslationKey =
   | 'day.5'
   | 'day.6'
   | 'driver.dash.pendingVerification'
+  | 'driver.dash.applicationUnderReview'
+  | 'driver.dash.applicationRejected'
+  | 'driver.dash.applicationSuspended'
+  | 'driver.dash.reviewReason'
   | 'driver.dash.failedLoad'
   | 'driver.dash.onlineAccepting'
   | 'driver.dash.offline'
@@ -653,7 +710,8 @@ export type TranslationKey =
   | 'driver.dash.title'
   | 'driver.dash.activeDelivery'
   | 'driver.dash.waiting'
-  | 'driver.dash.goOnlineHelp';
+  | 'driver.dash.goOnlineHelp'
+  | 'driver.dash.failureReasonPrompt';
 
 type Dict = Record<TranslationKey, string>;
 
@@ -829,6 +887,7 @@ const en: Dict = {
   'restaurant.category': 'Category',
   'restaurant.categoryName': 'Category name',
   'restaurant.deleteCategoryConfirm': 'Delete category "{name}"? Its items will stay in your menu without a category.',
+  'restaurant.deleteItemConfirm': 'Delete "{name}" from the menu? This action cannot be undone.',
   'restaurant.itemName': 'Item name',
   'restaurant.description': 'Description',
   'restaurant.delete': 'Delete',
@@ -1058,6 +1117,8 @@ const en: Dict = {
   'admin.reject': 'Reject',
   'admin.pendingApproval': 'Pending approval',
   'admin.noPending': 'No restaurants awaiting approval.',
+  'admin.liveRestaurants': 'published',
+  'admin.applicationRequired': 'A merchant application is required before publication.',
   'wilaya.select': 'Select wilaya',
   'wilaya.searchPlaceholder': 'Search wilayas…',
   'wilaya.detectLocation': 'Detect my location',
@@ -1192,6 +1253,17 @@ const en: Dict = {
   'restaurant.settings.maxRadiusDesc': 'Customers outside this radius cannot order from your restaurant.',
   'restaurant.settings.minOrder': 'Minimum Order Amount (DZD)',
   'restaurant.settings.minOrderDesc': 'Orders below this amount will be rejected.',
+  'restaurant.settings.deliveryControlled': 'These effective delivery rules come from the Kiyo Food Control Center. Approved restaurant exceptions take priority, followed by the Wilaya rule and then the global default.',
+  'restaurant.settings.ruleSource': 'Source',
+  'restaurant.settings.ruleSourceRestaurant': 'Restaurant exception',
+  'restaurant.settings.ruleSourceWilaya': 'Wilaya rule',
+  'restaurant.settings.ruleSourceGlobal': 'Global default',
+  'restaurant.settings.locationManaged': 'This published location is protected because it determines customer serviceability and delivery pricing. Contact Kiyo Food to review a relocation.',
+  'restaurant.settings.locationManagedAction': 'Request a location change',
+  'restaurant.settings.locationWilayaRequired': 'Choose an address whose Wilaya can be verified before saving.',
+  'restaurant.settings.locationInvalid': 'Confirm the restaurant entrance on the map with an accurate pin before saving.',
+  'restaurant.settings.locationAddressUnavailable': 'No verified address is available yet.',
+  'restaurant.settings.notAssigned': 'No restaurant is assigned to this account. Contact Kiyo Food to complete the assignment.',
   'restaurant.settings.estTime': 'Estimated Delivery Time (minutes)',
   'restaurant.settings.estTimeDesc': 'This is shown to customers before they order.',
   'restaurant.settings.opStatus': 'Operational Status',
@@ -1214,6 +1286,10 @@ const en: Dict = {
   'restaurant.dash.newOrderAlert': 'New order received!',
   'restaurant.dash.awaitingApproval': 'Awaiting approval',
   'restaurant.dash.financialsError': 'Financial data could not be refreshed',
+  'restaurant.dash.reviews': 'Customer reviews',
+  'restaurant.dash.reviewReply': 'Reply to customer',
+  'restaurant.dash.reviewEditReply': 'Edit restaurant reply',
+  'restaurant.dash.reviewReplyLabel': 'Public restaurant response',
   'restaurant.dash.statusReasonPrompt': 'Enter a clear reason for this status change:',
   'restaurant.dash.live': 'Live',
   'restaurant.dash.reconnecting': 'Reconnecting...',
@@ -1239,6 +1315,8 @@ const en: Dict = {
   'driver.onboard.success.title': 'Application Submitted!',
   'driver.onboard.success.body': 'Your driver application is being reviewed. You will be notified once approved.',
   'driver.onboard.success.redirect': 'Redirecting to dashboard...',
+  'driver.onboard.success.dashboard': 'View application status',
+  'driver.onboard.progress': 'Driver application progress',
   'driver.onboard.step.vehicle': 'Select Your Vehicle',
   'driver.onboard.step.details': 'Vehicle Details',
   'driver.onboard.licensePlate': 'License Plate Number',
@@ -1246,7 +1324,25 @@ const en: Dict = {
   'driver.onboard.idNumber': 'National ID Number',
   'driver.onboard.uploadDocuments': 'Upload Documents',
   'driver.onboard.uploadPrompt': 'Upload license, ID, and vehicle registration',
-  'driver.onboard.uploadFormat': 'PNG, JPG, or PDF',
+  'driver.onboard.uploadFormat': 'PDF, JPG, PNG, or WebP. Maximum 8 MB per file.',
+  'driver.onboard.document.license': "Driver's license",
+  'driver.onboard.document.idCard': 'National identity card',
+  'driver.onboard.document.registration': 'Vehicle registration',
+  'driver.onboard.document.insurance': 'Vehicle insurance',
+  'driver.onboard.required': 'Required',
+  'driver.onboard.optional': 'Optional',
+  'driver.onboard.chooseFile': 'Choose a private file',
+  'driver.onboard.removeDocument': 'Remove document',
+  'driver.onboard.platePlaceholder': 'Example: 12345-678-90',
+  'driver.onboard.reviewNotice': 'Your documents remain private. Kiyo Food must review and approve your application before you can accept deliveries.',
+  'driver.onboard.uploading': 'Uploading securely...',
+  'driver.onboard.error.fileType': 'Use a PDF, JPG, PNG, or WebP file.',
+  'driver.onboard.error.fileSize': 'Each document must be 8 MB or smaller.',
+  'driver.onboard.error.fileEmpty': 'This file is empty. Choose another document.',
+  'driver.onboard.error.identity': 'Enter a valid national identity number.',
+  'driver.onboard.error.vehicleDetails': 'Enter a valid registration and driving-license number.',
+  'driver.onboard.error.documents': 'Add every required document before continuing.',
+  'driver.onboard.error.submit': 'The application could not be submitted. Your account was not activated. Check your connection and try again.',
   'driver.onboard.contactTitle': 'Contact Information',
   'driver.onboard.phone': 'Phone Number',
   'driver.onboard.phoneHelp': "We'll use this number to contact you about deliveries",
@@ -1276,6 +1372,10 @@ const en: Dict = {
   'day.5': 'Friday',
   'day.6': 'Saturday',
   'driver.dash.pendingVerification': 'Your account is pending verification. You will be notified once approved.',
+  'driver.dash.applicationUnderReview': 'Kiyo Food is reviewing your driver application.',
+  'driver.dash.applicationRejected': 'Your driver application was not approved.',
+  'driver.dash.applicationSuspended': 'Your driver access is suspended.',
+  'driver.dash.reviewReason': 'Reason',
   'driver.dash.failedLoad': 'Failed to load driver profile',
   'driver.dash.onlineAccepting': 'Online - Accepting deliveries',
   'driver.dash.offline': 'Offline',
@@ -1299,6 +1399,22 @@ const en: Dict = {
   'driver.dash.activeDelivery': 'Active Delivery',
   'driver.dash.waiting': 'Waiting for new delivery requests...',
   'driver.dash.goOnlineHelp': 'Go online to start receiving deliveries',
+  'driver.dash.failureReasonPrompt': 'Briefly explain why this delivery could not be completed:',
+  'network.weak': 'Weak connection: some information may take longer to load.',
+  'network.offline': 'You are offline. Reconnect to continue.',
+  'support.status.all': 'All',
+  'support.status.open': 'Open',
+  'support.status.in_progress': 'In progress',
+  'support.status.resolved': 'Resolved',
+  'support.status.closed': 'Closed',
+  'support.admin.inbox': 'Support inbox',
+  'support.admin.backToInbox': 'Back to inbox',
+  'support.admin.resolve': 'Resolve',
+  'support.admin.close': 'Close',
+  'support.admin.noMessages': 'No messages yet. Reply below.',
+  'support.admin.replyPlaceholder': 'Type your reply...',
+  'support.admin.admin': 'Admin',
+  'support.admin.user': 'User',
 };
 
 const fr: Dict = {
@@ -1473,6 +1589,7 @@ const fr: Dict = {
   'restaurant.category': 'Catégorie',
   'restaurant.categoryName': 'Nom de catégorie',
   'restaurant.deleteCategoryConfirm': 'Supprimer la catégorie « {name} » ? Ses plats resteront dans votre menu sans catégorie.',
+  'restaurant.deleteItemConfirm': 'Supprimer « {name} » du menu ? Cette action est irréversible.',
   'restaurant.itemName': 'Nom du plat',
   'restaurant.description': 'Description',
   'restaurant.delete': 'Supprimer',
@@ -1702,6 +1819,8 @@ const fr: Dict = {
   'admin.reject': 'Rejeter',
   'admin.pendingApproval': 'En attente',
   'admin.noPending': 'Aucune demande en attente.',
+  'admin.liveRestaurants': 'publiés',
+  'admin.applicationRequired': 'Une demande marchand est requise avant la publication.',
   'wilaya.select': 'Sélectionner wilaya',
   'wilaya.searchPlaceholder': 'Rechercher une wilaya…',
   'wilaya.detectLocation': 'Détecter ma position',
@@ -1836,6 +1955,17 @@ const fr: Dict = {
   'restaurant.settings.maxRadiusDesc': 'Les clients en dehors de ce rayon ne peuvent pas commander.',
   'restaurant.settings.minOrder': 'Montant minimum de commande (DZD)',
   'restaurant.settings.minOrderDesc': 'Les commandes inférieures à ce montant seront rejetées.',
+  'restaurant.settings.deliveryControlled': 'Ces règles de livraison effectives proviennent du Centre de contrôle Kiyo Food. Une exception approuvée pour le restaurant est prioritaire, puis la règle de Wilaya, puis la valeur globale.',
+  'restaurant.settings.ruleSource': 'Source',
+  'restaurant.settings.ruleSourceRestaurant': 'Exception du restaurant',
+  'restaurant.settings.ruleSourceWilaya': 'Règle de Wilaya',
+  'restaurant.settings.ruleSourceGlobal': 'Valeur globale',
+  'restaurant.settings.locationManaged': 'Cette adresse publiée est protégée car elle détermine la zone desservie et le prix de livraison. Contactez Kiyo Food pour faire vérifier un déménagement.',
+  'restaurant.settings.locationManagedAction': 'Demander un changement d’adresse',
+  'restaurant.settings.locationWilayaRequired': 'Choisissez une adresse dont la Wilaya peut être vérifiée avant l’enregistrement.',
+  'restaurant.settings.locationInvalid': 'Confirmez l’entrée du restaurant sur la carte avec un repère précis avant d’enregistrer.',
+  'restaurant.settings.locationAddressUnavailable': 'Aucune adresse vérifiée n’est encore disponible.',
+  'restaurant.settings.notAssigned': 'Aucun restaurant n’est attribué à ce compte. Contactez Kiyo Food pour terminer l’attribution.',
   'restaurant.settings.estTime': 'Temps de livraison estimé (minutes)',
   'restaurant.settings.estTimeDesc': 'Ceci est affiché aux clients avant qu\'ils ne commandent.',
   'restaurant.settings.opStatus': 'Statut opérationnel',
@@ -1858,6 +1988,10 @@ const fr: Dict = {
   'restaurant.dash.newOrderAlert': 'Nouvelle commande reçue !',
   'restaurant.dash.awaitingApproval': 'En attente d’approbation',
   'restaurant.dash.financialsError': 'Les données financières n’ont pas pu être actualisées',
+  'restaurant.dash.reviews': 'Avis clients',
+  'restaurant.dash.reviewReply': 'Répondre au client',
+  'restaurant.dash.reviewEditReply': 'Modifier la réponse du restaurant',
+  'restaurant.dash.reviewReplyLabel': 'Réponse publique du restaurant',
   'restaurant.dash.statusReasonPrompt': 'Saisissez un motif clair pour ce changement de statut :',
   'restaurant.dash.live': 'En direct',
   'restaurant.dash.reconnecting': 'Reconnexion...',
@@ -1883,6 +2017,8 @@ const fr: Dict = {
   'driver.onboard.success.title': 'Candidature soumise !',
   'driver.onboard.success.body': 'Votre candidature de chauffeur est en cours d\'examen. Vous serez averti une fois approuvé.',
   'driver.onboard.success.redirect': 'Redirection vers le tableau de bord...',
+  'driver.onboard.success.dashboard': 'Voir le statut de la candidature',
+  'driver.onboard.progress': 'Progression de la candidature de livreur',
   'driver.onboard.step.vehicle': 'Sélectionnez votre véhicule',
   'driver.onboard.step.details': 'Détails du véhicule',
   'driver.onboard.licensePlate': 'Numéro de plaque d\'immatriculation',
@@ -1890,7 +2026,25 @@ const fr: Dict = {
   'driver.onboard.idNumber': 'Numéro de carte d\'identité nationale',
   'driver.onboard.uploadDocuments': 'Télécharger des documents',
   'driver.onboard.uploadPrompt': 'Téléchargez le permis, la pièce d\'identité et l\'immatriculation du véhicule',
-  'driver.onboard.uploadFormat': 'PNG, JPG ou PDF',
+  'driver.onboard.uploadFormat': 'PDF, JPG, PNG ou WebP. 8 Mo maximum par fichier.',
+  'driver.onboard.document.license': 'Permis de conduire',
+  'driver.onboard.document.idCard': 'Carte d’identité nationale',
+  'driver.onboard.document.registration': 'Carte d’immatriculation du véhicule',
+  'driver.onboard.document.insurance': 'Assurance du véhicule',
+  'driver.onboard.required': 'Obligatoire',
+  'driver.onboard.optional': 'Facultatif',
+  'driver.onboard.chooseFile': 'Choisir un fichier privé',
+  'driver.onboard.removeDocument': 'Retirer le document',
+  'driver.onboard.platePlaceholder': 'Exemple : 12345-678-90',
+  'driver.onboard.reviewNotice': 'Vos documents restent privés. Kiyo Food doit examiner et approuver votre candidature avant que vous puissiez accepter des livraisons.',
+  'driver.onboard.uploading': 'Téléversement sécurisé...',
+  'driver.onboard.error.fileType': 'Utilisez un fichier PDF, JPG, PNG ou WebP.',
+  'driver.onboard.error.fileSize': 'Chaque document doit faire 8 Mo maximum.',
+  'driver.onboard.error.fileEmpty': 'Ce fichier est vide. Choisissez un autre document.',
+  'driver.onboard.error.identity': 'Saisissez un numéro d’identité nationale valide.',
+  'driver.onboard.error.vehicleDetails': 'Saisissez une immatriculation et un numéro de permis valides.',
+  'driver.onboard.error.documents': 'Ajoutez tous les documents obligatoires avant de continuer.',
+  'driver.onboard.error.submit': 'La candidature n’a pas pu être envoyée. Votre compte n’a pas été activé. Vérifiez votre connexion puis réessayez.',
   'driver.onboard.contactTitle': 'Informations de contact',
   'driver.onboard.phone': 'Numéro de téléphone',
   'driver.onboard.phoneHelp': 'Nous utiliserons ce numéro pour vous contacter concernant les livraisons',
@@ -1920,6 +2074,10 @@ const fr: Dict = {
   'day.5': 'Vendredi',
   'day.6': 'Samedi',
   'driver.dash.pendingVerification': 'Votre compte est en attente de vérification. Vous serez informé dès son approbation.',
+  'driver.dash.applicationUnderReview': 'Kiyo Food examine votre candidature de livreur.',
+  'driver.dash.applicationRejected': 'Votre candidature de livreur n’a pas été approuvée.',
+  'driver.dash.applicationSuspended': 'Votre accès livreur est suspendu.',
+  'driver.dash.reviewReason': 'Motif',
   'driver.dash.failedLoad': 'Échec du chargement du profil de livreur',
   'driver.dash.onlineAccepting': 'En ligne - Accepte les livraisons',
   'driver.dash.offline': 'Hors ligne',
@@ -1943,6 +2101,22 @@ const fr: Dict = {
   'driver.dash.activeDelivery': 'Livraison active',
   'driver.dash.waiting': 'En attente de nouvelles demandes de livraison...',
   'driver.dash.goOnlineHelp': 'Passez en ligne pour commencer à recevoir des livraisons',
+  'driver.dash.failureReasonPrompt': 'Expliquez brièvement pourquoi cette livraison n’a pas pu être effectuée :',
+  'network.weak': 'Connexion faible : certaines informations peuvent prendre plus de temps.',
+  'network.offline': 'Vous êtes hors ligne. Reconnectez-vous pour continuer.',
+  'support.status.all': 'Tous',
+  'support.status.open': 'Ouvert',
+  'support.status.in_progress': 'En cours',
+  'support.status.resolved': 'Résolu',
+  'support.status.closed': 'Fermé',
+  'support.admin.inbox': 'Boîte de réception du support',
+  'support.admin.backToInbox': 'Retour à la boîte de réception',
+  'support.admin.resolve': 'Résoudre',
+  'support.admin.close': 'Fermer',
+  'support.admin.noMessages': 'Aucun message. Répondez ci-dessous.',
+  'support.admin.replyPlaceholder': 'Écrivez votre réponse...',
+  'support.admin.admin': 'Administration',
+  'support.admin.user': 'Utilisateur',
 };
 
 const ar: Dict = {
@@ -2117,6 +2291,7 @@ const ar: Dict = {
   'restaurant.category': 'الفئة',
   'restaurant.categoryName': 'اسم الفئة',
   'restaurant.deleteCategoryConfirm': 'هل تريد حذف فئة "{name}"؟ ستبقى أطباقها في قائمتك بدون فئة.',
+  'restaurant.deleteItemConfirm': 'هل تريد حذف "{name}" من القائمة؟ لا يمكن التراجع عن هذا الإجراء.',
   'restaurant.itemName': 'اسم الطبق',
   'restaurant.description': 'الوصف',
   'restaurant.delete': 'حذف',
@@ -2346,6 +2521,8 @@ const ar: Dict = {
   'admin.reject': 'رفض',
   'admin.pendingApproval': 'بانتظار الموافقة',
   'admin.noPending': 'لا توجد مطاعم بانتظار الموافقة.',
+  'admin.liveRestaurants': 'منشورة',
+  'admin.applicationRequired': 'يلزم تقديم طلب تاجر قبل نشر المطعم.',
   'wilaya.select': 'اختر الولاية',
   'wilaya.searchPlaceholder': 'ابحث عن ولاية…',
   'wilaya.detectLocation': 'تحديد موقعي',
@@ -2480,6 +2657,17 @@ const ar: Dict = {
   'restaurant.settings.maxRadiusDesc': 'لن يتمكن العملاء خارج هذا النطاق من الطلب من مطعمك.',
   'restaurant.settings.minOrder': 'الحد الأدنى لقيمة الطلب (دج)',
   'restaurant.settings.minOrderDesc': 'سيتم رفض الطلبات التي تقل قيمتها عن هذا المبلغ.',
+  'restaurant.settings.deliveryControlled': 'تأتي قواعد التوصيل الفعلية من مركز تحكم Kiyo Food. تكون الأولوية لاستثناء المطعم المعتمد، ثم قاعدة الولاية، ثم الإعداد العام.',
+  'restaurant.settings.ruleSource': 'المصدر',
+  'restaurant.settings.ruleSourceRestaurant': 'استثناء المطعم',
+  'restaurant.settings.ruleSourceWilaya': 'قاعدة الولاية',
+  'restaurant.settings.ruleSourceGlobal': 'الإعداد العام',
+  'restaurant.settings.locationManaged': 'عنوان المطعم المنشور محمي لأنه يحدد نطاق الخدمة وتسعير التوصيل. تواصل مع Kiyo Food لمراجعة طلب تغيير الموقع.',
+  'restaurant.settings.locationManagedAction': 'طلب تغيير الموقع',
+  'restaurant.settings.locationWilayaRequired': 'اختر عنواناً يمكن التحقق من ولايته قبل الحفظ.',
+  'restaurant.settings.locationInvalid': 'أكد مدخل المطعم على الخريطة بعلامة دقيقة قبل الحفظ.',
+  'restaurant.settings.locationAddressUnavailable': 'لا يوجد عنوان موثّق بعد.',
+  'restaurant.settings.notAssigned': 'لا يوجد مطعم مرتبط بهذا الحساب. تواصل مع Kiyo Food لإكمال الربط.',
   'restaurant.settings.estTime': 'وقت التوصيل المقدر (بالدقائق)',
   'restaurant.settings.estTimeDesc': 'يتم عرض هذا للعملاء قبل تقديم الطلب.',
   'restaurant.settings.opStatus': 'الحالة التشغيلية',
@@ -2502,6 +2690,10 @@ const ar: Dict = {
   'restaurant.dash.newOrderAlert': 'تم استقبال طلب جديد!',
   'restaurant.dash.awaitingApproval': 'بانتظار الموافقة',
   'restaurant.dash.financialsError': 'تعذر تحديث البيانات المالية',
+  'restaurant.dash.reviews': 'تقييمات العملاء',
+  'restaurant.dash.reviewReply': 'الرد على العميل',
+  'restaurant.dash.reviewEditReply': 'تعديل رد المطعم',
+  'restaurant.dash.reviewReplyLabel': 'رد المطعم العلني',
   'restaurant.dash.statusReasonPrompt': 'أدخل سبباً واضحاً لتغيير الحالة:',
   'restaurant.dash.live': 'مباشر',
   'restaurant.dash.reconnecting': 'جارٍ إعادة الاتصال...',
@@ -2527,6 +2719,8 @@ const ar: Dict = {
   'driver.onboard.success.title': 'تم تقديم الطلب!',
   'driver.onboard.success.body': 'جاري مراجعة طلب السائق الخاص بك. سيتم إعلامك بمجرد الموافقة.',
   'driver.onboard.success.redirect': 'جاري إعادة التوجيه إلى لوحة التحكم...',
+  'driver.onboard.success.dashboard': 'عرض حالة الطلب',
+  'driver.onboard.progress': 'مراحل طلب الانضمام كسائق',
   'driver.onboard.step.vehicle': 'اختر مركبتك',
   'driver.onboard.step.details': 'تفاصيل المركبة',
   'driver.onboard.licensePlate': 'رقم لوحة المركبة',
@@ -2534,7 +2728,25 @@ const ar: Dict = {
   'driver.onboard.idNumber': 'رقم الهوية الوطنية',
   'driver.onboard.uploadDocuments': 'تحميل الوثائق',
   'driver.onboard.uploadPrompt': 'تحميل الرخصة والهوية ووثائق المركبة',
-  'driver.onboard.uploadFormat': 'PNG، JPG أو PDF',
+  'driver.onboard.uploadFormat': 'PDF أو JPG أو PNG أو WebP. الحد الأقصى 8 ميغابايت لكل ملف.',
+  'driver.onboard.document.license': 'رخصة القيادة',
+  'driver.onboard.document.idCard': 'بطاقة التعريف الوطنية',
+  'driver.onboard.document.registration': 'بطاقة تسجيل المركبة',
+  'driver.onboard.document.insurance': 'تأمين المركبة',
+  'driver.onboard.required': 'إجباري',
+  'driver.onboard.optional': 'اختياري',
+  'driver.onboard.chooseFile': 'اختر ملفا خاصا',
+  'driver.onboard.removeDocument': 'حذف الوثيقة',
+  'driver.onboard.platePlaceholder': 'مثال: 12345-678-90',
+  'driver.onboard.reviewNotice': 'تبقى وثائقك خاصة. يجب أن تراجع كيو فود طلبك وتوافق عليه قبل أن تتمكن من قبول عمليات التوصيل.',
+  'driver.onboard.uploading': 'جار الرفع بشكل آمن...',
+  'driver.onboard.error.fileType': 'استخدم ملف PDF أو JPG أو PNG أو WebP.',
+  'driver.onboard.error.fileSize': 'يجب ألا يتجاوز حجم كل وثيقة 8 ميغابايت.',
+  'driver.onboard.error.fileEmpty': 'هذا الملف فارغ. اختر وثيقة أخرى.',
+  'driver.onboard.error.identity': 'أدخل رقم تعريف وطني صالحا.',
+  'driver.onboard.error.vehicleDetails': 'أدخل رقم تسجيل ورقم رخصة قيادة صالحين.',
+  'driver.onboard.error.documents': 'أضف كل الوثائق الإجبارية قبل المتابعة.',
+  'driver.onboard.error.submit': 'تعذر إرسال الطلب ولم يتم تفعيل حسابك. تحقق من الاتصال ثم حاول مرة أخرى.',
   'driver.onboard.contactTitle': 'معلومات الاتصال',
   'driver.onboard.phone': 'رقم الهاتف',
   'driver.onboard.phoneHelp': 'سنستخدم هذا الرقم للاتصال بك بشأن عمليات التوصيل',
@@ -2564,6 +2776,10 @@ const ar: Dict = {
   'day.5': 'الجمعة',
   'day.6': 'السبت',
   'driver.dash.pendingVerification': 'حسابك قيد المراجعة والتحقق. سيتم إشعارك فور الموافقة عليه.',
+  'driver.dash.applicationUnderReview': 'تراجع كيو فود طلب انضمامك كسائق.',
+  'driver.dash.applicationRejected': 'لم تتم الموافقة على طلب انضمامك كسائق.',
+  'driver.dash.applicationSuspended': 'تم تعليق وصولك كسائق.',
+  'driver.dash.reviewReason': 'السبب',
   'driver.dash.failedLoad': 'فشل تحميل ملف السائق',
   'driver.dash.onlineAccepting': 'نشط - استقبال طلبات التوصيل',
   'driver.dash.offline': 'غير نشط',
@@ -2587,6 +2803,22 @@ const ar: Dict = {
   'driver.dash.activeDelivery': 'التوصيل النشط',
   'driver.dash.waiting': 'بانتظار طلبات توصيل جديدة...',
   'driver.dash.goOnlineHelp': 'قم بتفعيل الاتصال لبدء استقبال طلبات التوصيل',
+  'driver.dash.failureReasonPrompt': 'اشرح باختصار سبب تعذر إتمام عملية التوصيل:',
+  'network.weak': 'الاتصال ضعيف: قد تستغرق بعض المعلومات وقتاً أطول للظهور.',
+  'network.offline': 'أنت غير متصل بالإنترنت. أعد الاتصال للمتابعة.',
+  'support.status.all': 'الكل',
+  'support.status.open': 'مفتوحة',
+  'support.status.in_progress': 'قيد المعالجة',
+  'support.status.resolved': 'تم حلها',
+  'support.status.closed': 'مغلقة',
+  'support.admin.inbox': 'صندوق رسائل الدعم',
+  'support.admin.backToInbox': 'العودة إلى صندوق الرسائل',
+  'support.admin.resolve': 'تسجيل الحل',
+  'support.admin.close': 'إغلاق',
+  'support.admin.noMessages': 'لا توجد رسائل بعد. اكتب الرد أدناه.',
+  'support.admin.replyPlaceholder': 'اكتب ردك هنا...',
+  'support.admin.admin': 'الإدارة',
+  'support.admin.user': 'المستخدم',
 };
 
 const dicts: Record<Locale, Dict> = { en, fr, ar };

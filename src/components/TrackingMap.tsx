@@ -126,14 +126,14 @@ function TrackingMapInner({
 
       {mapLoading && (
         <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-ink-50/80 text-xs font-semibold text-ink-500 backdrop-blur-[1px]" data-testid="tracking-map-initial-loader">
-          <span className="mr-2 h-2.5 w-2.5 animate-pulse rounded-full bg-ember-500" />
+          <span className="me-2 h-2.5 w-2.5 animate-pulse rounded-full bg-ember-500" />
           {t('map.loading')}
         </div>
       )}
 
       {mapSlow && (
-        <div className="pointer-events-none absolute left-3 top-3 z-20 max-w-[calc(100%-5rem)] rounded-lg border border-warning-200 bg-white/95 px-3 py-2 text-[11px] font-semibold leading-4 text-warning-800 shadow-card backdrop-blur" role="status">
-          <span className="mr-2 inline-block h-2 w-2 animate-pulse rounded-full bg-ember-500" />
+        <div className="pointer-events-none absolute start-3 top-3 z-20 max-w-[calc(100%-5rem)] rounded-lg border border-warning-200 bg-white/95 px-3 py-2 text-[11px] font-semibold leading-4 text-warning-800 shadow-card backdrop-blur" role="status">
+          <span className="me-2 inline-block h-2 w-2 animate-pulse rounded-full bg-ember-500" />
           {t('map.tilesSlow')}
         </div>
       )}

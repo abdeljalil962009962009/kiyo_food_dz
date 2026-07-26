@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronLeft, Check, ShieldCheck, AlertCircle, ShoppingCart, Truck, Home, Building2, Phone } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
-import { supabase } from '../lib/supabase';
+import { supabase, type Restaurant, type RestaurantSpecialHours } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useWilaya } from '../context/WilayaContext';
@@ -17,6 +17,10 @@ import { callUserAction, fetchLocationInsights } from '../lib/userApi';
 import { clearCachedDeliveryQuotes, getAuthoritativeDeliveryQuote, type AuthoritativeDeliveryQuote } from '../lib/deliveryQuote';
 import { useRealtime } from '../lib/useRealtime';
 import { checkoutEtaWindow } from '../lib/deliveryEta';
+import { userFacingError } from '../lib/userFacingError';
+import { algeriaAvailabilityDateRange, restaurantAcceptsOrders } from '../lib/restaurantAvailability';
+import { checkoutRecovery, deliveryQuoteNeedsRefresh, type CheckoutRecoveryKind } from '../lib/checkoutRecovery';
+import { deliveryRuleNumber, type EffectiveDeliveryRules } from '../lib/deliveryRules';
 
 type Step = 'details' | 'review' | 'success';
 type ContactPhoneMode = 'account' | 'alternate';
@@ -63,12 +67,24 @@ export default function CheckoutPage() {
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitRecovery, setSubmitRecovery] = useState<CheckoutRecoveryKind>('generic');
+  const [quoteClock, setQuoteClock] = useState(() => Date.now());
   const [placedOrderId, setPlacedOrderId] = useState<string | null>(null);
   const [saveAddressPrompt, setSaveAddressPrompt] = useState<LocationInsights | null>(null);
   const [savingRepeatedAddress, setSavingRepeatedAddress] = useState(false);
 
   // Restaurant coords for delivery zone + map
-  type RestaurantGeo = { lat: number; lng: number; max_km: number; operationalStatus: 'open' | 'busy' | 'closed'; preparationMinutes: number };
+  type RestaurantAvailability = Pick<
+    Restaurant,
+    'status' | 'operational_status' | 'is_vacation_mode' | 'opening_hours' | 'timezone'
+  >;
+  type RestaurantGeo = {
+    lat: number;
+    lng: number;
+    max_km: number;
+    operationalStatus: 'open' | 'busy' | 'closed';
+    preparationMinutes: number;
+  };
   const [restaurantGeo, setRestaurantGeo] = useState<RestaurantGeo | null>(null);
   // Customer-chosen delivery location from the map
   const [mapLocation, setMapLocation] = useState<DeliveryMapLocation | null>(deliveryLocation);
@@ -76,50 +92,98 @@ export default function CheckoutPage() {
   const accountPhoneAvailable = isValidAlgerianPhone(accountPhone);
   const selectedPhone = contactPhoneMode === 'account' ? accountPhone : alternatePhone;
 
-  // Load restaurant coordinates + delivery zone (for the map + distance check).
-  useEffect(() => {
+  const refreshRestaurantAvailability = useCallback(async (closedMessage: string = availability.closed) => {
     if (!cart.restaurantId) return;
-    void (async () => {
-      try {
-        const { data, error } = await supabase
+    try {
+      const data = await withExponentialBackoff(async () => {
+        const restaurantResult = await supabase
           .from('restaurants')
-          .select('latitude, longitude, max_delivery_km, operational_status, estimated_delivery_min')
+          .select('latitude, longitude, status, operational_status, is_vacation_mode, opening_hours, timezone, estimated_delivery_min')
           .eq('id', cart.restaurantId)
           .maybeSingle();
-        if (error) throw error;
-        if (data && data.latitude != null && data.longitude != null) {
-          setRestaurantGeo({
-            lat: data.latitude,
-            lng: data.longitude,
-            max_km: data.max_delivery_km ?? 10,
-            operationalStatus: data.operational_status,
-            preparationMinutes: data.estimated_delivery_min ?? 20,
-          });
-          if (data.operational_status === 'closed') {
-            setCalcError(availability.closed);
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load restaurant delivery geography', err);
-        setCalcError(formatWorkflowError(err, t('checkout.errorCalc')));
-      }
-    })();
-  }, [availability.closed, cart.restaurantId, t]);
+        if (restaurantResult.error) throw restaurantResult.error;
+        if (!restaurantResult.data) return null;
 
-  useRealtime('restaurants', (payload) => {
-    if (!payload.new?.id || payload.new.id !== cart.restaurantId) return;
-    const operationalStatus = payload.new.operational_status as RestaurantGeo['operationalStatus'];
-    setRestaurantGeo((current) => current ? { ...current, operationalStatus } : current);
-    if (operationalStatus === 'closed') {
+        const deliveryRulesResult = await callUserAction<EffectiveDeliveryRules>(
+          'get_restaurant_effective_delivery_rules',
+          { p_restaurant_id: cart.restaurantId },
+        );
+        if (deliveryRulesResult.error) throw deliveryRulesResult.error;
+        if (!deliveryRulesResult.data) throw new Error('Effective delivery rules are unavailable.');
+
+        const range = algeriaAvailabilityDateRange();
+        const specialResult = await supabase
+          .from('restaurant_special_hours')
+          .select('*')
+          .eq('restaurant_id', cart.restaurantId)
+          .gte('date', range.from)
+          .lte('date', range.to);
+        if (specialResult.error) throw specialResult.error;
+        return {
+          restaurant: restaurantResult.data,
+          specialHours: (specialResult.data as RestaurantSpecialHours[] | null) ?? [],
+          deliveryRules: deliveryRulesResult.data as EffectiveDeliveryRules,
+        };
+      }, { attempts: 3, timeoutMs: 12_000 });
+
+      if (!data?.restaurant || data.restaurant.latitude == null || data.restaurant.longitude == null) {
+        setRestaurantGeo(null);
+        setFinance(null);
+        setCalcError(t('checkout.errorCalc'));
+        return;
+      }
+
+      const source = data.restaurant as RestaurantAvailability;
+      const operationalStatus = restaurantAcceptsOrders(source, data.specialHours)
+        ? source.operational_status
+        : 'closed';
+      setRestaurantGeo({
+        lat: data.restaurant.latitude,
+        lng: data.restaurant.longitude,
+        max_km: deliveryRuleNumber(data.deliveryRules, 'max_delivery_km', 10),
+        operationalStatus,
+        preparationMinutes: data.restaurant.estimated_delivery_min ?? 20,
+      });
+      if (operationalStatus === 'closed') {
+        setFinance(null);
+        setCalcError(closedMessage);
+      } else {
+        setCalcError((current) => current === availability.closed || current === availability.changed ? null : current);
+      }
+    } catch (err) {
+      console.error('[Kiyo] Checkout restaurant availability refresh failed:', err);
+      setRestaurantGeo(null);
       setFinance(null);
-      setCalcError(availability.changed);
-    } else {
-      setCalcError(null);
+      setCalcError(userFacingError(err, locale, t('checkout.errorCalc')));
     }
+  }, [availability.changed, availability.closed, cart.restaurantId, locale, t]);
+
+  // Load restaurant coordinates, delivery zone, and the complete acceptance rule.
+  useEffect(() => {
+    void refreshRestaurantAvailability();
+  }, [refreshRestaurantAvailability]);
+
+  useRealtime('restaurants', () => {
+    void refreshRestaurantAvailability(availability.changed);
   }, {
     enabled: Boolean(cart.restaurantId),
     filter: cart.restaurantId ? { id: `eq.${cart.restaurantId}` } : undefined,
   });
+
+  useRealtime('restaurant_special_hours', () => {
+    void refreshRestaurantAvailability(availability.changed);
+  }, {
+    enabled: Boolean(cart.restaurantId),
+    filter: cart.restaurantId ? { restaurant_id: `eq.${cart.restaurantId}` } : undefined,
+  });
+
+  useEffect(() => {
+    const timer = window.setInterval(
+      () => void refreshRestaurantAvailability(availability.changed),
+      60_000,
+    );
+    return () => window.clearInterval(timer);
+  }, [availability.changed, refreshRestaurantAvailability]);
 
   // Sync profile into form once on mount.
   useEffect(() => {
@@ -142,11 +206,11 @@ export default function CheckoutPage() {
       setFinance(data);
     } catch (err) {
       console.error('Failed to calculate checkout financials', err);
-      setCalcError(formatWorkflowError(err, t('checkout.errorCalc')));
+      setCalcError(userFacingError(err, locale, t('checkout.errorCalc')));
     } finally {
       setCalcLoading(false);
     }
-  }, [cart.lines, cart.restaurantId, t, mapLocation, restaurantGeo?.operationalStatus]);
+  }, [cart.lines, cart.restaurantId, locale, t, mapLocation, restaurantGeo?.operationalStatus]);
 
   useEffect(() => {
     if (!mapLocation?.confirmed || !restaurantGeo) {
@@ -156,6 +220,17 @@ export default function CheckoutPage() {
     const timer = window.setTimeout(() => void recalcFinancials(), 350);
     return () => window.clearTimeout(timer);
   }, [mapLocation?.confirmed, mapLocation?.lat, mapLocation?.lng, recalcFinancials, restaurantGeo]);
+
+  useEffect(() => {
+    if (step !== 'review' || !finance?.route_expires_at) return;
+    setQuoteClock(Date.now());
+    const timer = window.setInterval(() => setQuoteClock(Date.now()), 15_000);
+    return () => window.clearInterval(timer);
+  }, [finance?.route_expires_at, step]);
+
+  const quoteNeedsRefresh = finance
+    ? deliveryQuoteNeedsRefresh(finance.route_expires_at, quoteClock)
+    : false;
 
   useEffect(() => {
     if (step !== 'success' || !profile || !mapLocation?.confirmed) return;
@@ -244,6 +319,17 @@ export default function CheckoutPage() {
       setSubmitError(t('checkout.errorCalc'));
       return;
     }
+    if (deliveryQuoteNeedsRefresh(finance.route_expires_at)) {
+      clearCachedDeliveryQuotes();
+      setFinance(null);
+      setCalcError(checkoutRecovery(
+        new Error('Delivery route quote expired.'),
+        locale,
+        t('checkout.errorCalc'),
+      ).message);
+      setStep('details');
+      return;
+    }
     const contactPhone = normalizeAlgerianPhone(selectedPhone);
     if (!contactPhone) {
       setSubmitError(t('checkout.invalidPhone'));
@@ -251,6 +337,7 @@ export default function CheckoutPage() {
     }
     setSubmitting(true);
     setSubmitError(null);
+    setSubmitRecovery('generic');
 
     const controller = new AbortController();
     const t0 = setTimeout(() => controller.abort(), SUBMIT_TIMEOUT_MS);
@@ -259,7 +346,12 @@ export default function CheckoutPage() {
       const idempotencyKey = await makeIdempotencyKey([
         profile.id,
         cart.restaurantId,
-        cart.lines.map((l) => `${l.item.id}:${l.quantity}`).join(','),
+        cart.lines.map((line) => [
+          line.item.id,
+          line.quantity,
+          line.selectedOptions.map((option) => option.optionId).sort().join('.'),
+          line.notes?.trim() ?? '',
+        ].join(':')).join(','),
         Math.floor(Date.now() / (5 * 60 * 1000)).toString(),
       ]);
 
@@ -269,6 +361,7 @@ export default function CheckoutPage() {
           menu_item_id: l.item.id,
           quantity: l.quantity,
           notes: l.notes ?? null,
+          selected_option_ids: l.selectedOptions.map((option) => option.optionId),
         })),
         delivery_address: address.trim(),
         delivery_phone: contactPhone,
@@ -314,13 +407,28 @@ export default function CheckoutPage() {
       if (err instanceof DOMException && err.name === 'AbortError') {
         setSubmitError(t('checkout.error'));
       } else {
-        setSubmitError(formatWorkflowError(err, t('checkout.error')));
+        const fallback = userFacingError(err, locale, t('checkout.error'));
+        const recovery = checkoutRecovery(err, locale, fallback);
+        setSubmitRecovery(recovery.kind);
+        if (
+          recovery.kind === 'refresh_quote'
+          || recovery.kind === 'restaurant_closed'
+          || recovery.kind === 'outside_zone'
+          || recovery.kind === 'minimum_order'
+        ) {
+          clearCachedDeliveryQuotes();
+          setFinance(null);
+          setCalcError(recovery.message);
+          setStep('details');
+        } else {
+          setSubmitError(recovery.message);
+        }
       }
     } finally {
       clearTimeout(t0);
       setSubmitting(false);
     }
-  }, [submitting, profile, cart, address, selectedPhone, notes, t, clear, mapLocation, finance?.route_quote_id]);
+  }, [submitting, profile, cart, address, selectedPhone, notes, t, clear, locale, mapLocation, finance?.route_quote_id, finance?.route_expires_at]);
 
   // Cart empty states for /checkout accessed without items.
   if (cart.lines.length === 0 && step !== 'success') {
@@ -511,7 +619,7 @@ export default function CheckoutPage() {
               </div>
 
               <div className="rounded-xl bg-ink-50 p-3 text-xs text-ink-500">
-                <Check className="mr-1 inline h-3.5 w-3.5 text-sage-500" />
+                <Check className="me-1 inline h-3.5 w-3.5 text-sage-500" />
                 {t('checkout.placeOrderSummary')}
               </div>
 
@@ -547,9 +655,14 @@ export default function CheckoutPage() {
                   {t('common.loading')}
                 </div>
               </div>
-            ) : calcError ? (
+            ) : calcError || quoteNeedsRefresh ? (
               <ErrorState
-                title={t('error.genericTitle')} message={calcError}
+                title={t('error.genericTitle')}
+                message={calcError ?? checkoutRecovery(
+                  new Error('Delivery route quote expired.'),
+                  locale,
+                  t('checkout.errorCalc'),
+                ).message}
                 onRetry={recalcFinancials} retryLabel={t('error.retry')}
               />
             ) : finance ? (
@@ -559,6 +672,11 @@ export default function CheckoutPage() {
                     <div key={i} className="flex items-center justify-between px-4 py-3 text-sm">
                       <span className="text-ink-700">
                         <span className="font-semibold">{it.quantity}×</span> {it.name}
+                        {it.modifiers && it.modifiers.length > 0 && (
+                          <span className="mt-0.5 block text-xs text-ink-400">
+                            {it.modifiers.map((modifier) => modifier.option_name).join(' · ')}
+                          </span>
+                        )}
                       </span>
                       <PriceTag value={Number(it.unit_price) * it.quantity} />
                     </div>
@@ -594,15 +712,27 @@ export default function CheckoutPage() {
                 </div>
 
                 {submitError && (
-                  <div className="mb-3 flex items-start gap-2 rounded-lg bg-error-500/10 px-3 py-2.5 text-xs text-error-600">
-                    <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-                    <span className="font-medium">{submitError}</span>
-                  </div>
+                  <>
+                    <div className="mb-3 flex items-start gap-2 rounded-lg bg-error-500/10 px-3 py-2.5 text-xs text-error-600">
+                      <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                      <span className="font-medium">{submitError}</span>
+                    </div>
+                    {submitRecovery === 'review_cart' && (
+                      <button
+                        type="button"
+                        onClick={() => navigate('/cart')}
+                        className="kiyo-btn-secondary mb-3 w-full"
+                      >
+                        <ShoppingCart className="h-4 w-4" />
+                        {t('checkout.backToCart')}
+                      </button>
+                    )}
+                  </>
                 )}
 
                 <button
                   onClick={submitOrder}
-                  disabled={submitting}
+                  disabled={submitting || quoteNeedsRefresh || restaurantGeo?.operationalStatus === 'closed'}
                   className="kiyo-btn-primary w-full"
                 >
                   {submitting ? (
@@ -694,15 +824,6 @@ async function makeIdempotencyKey(parts: string[]): Promise<string> {
   }
   const bucket = Math.floor(Date.now() / (5 * 60 * 1000));
   return `fallback-${h.toString(16)}-${bucket.toString(16)}`;
-}
-
-function formatWorkflowError(err: unknown, fallback: string): string {
-  if (err instanceof Error && err.message) return err.message;
-  if (typeof err === 'object' && err && 'message' in err) {
-    const message = (err as { message?: unknown }).message;
-    if (typeof message === 'string' && message.trim()) return message;
-  }
-  return fallback;
 }
 
 function formatEtaRange(durationMinutes: number, preparationMinutes: number | undefined, unit: string): string {

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, User, LogOut, Menu, X, ShoppingBag, Store, Utensils, ShieldCheck, MessageCircle, Heart, Bike, WifiOff } from 'lucide-react';
+import { LayoutDashboard, User, LogOut, LogIn, Menu, X, ShoppingBag, Store, Utensils, ShieldCheck, MessageCircle, Heart, Bike, WifiOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { useCart } from '../context/CartContext';
@@ -20,6 +20,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [cartPulse, setCartPulse] = useState(false);
   const previousTotal = useRef(totalItems);
   const network = useNetworkStatus();
+  const authenticated = Boolean(profile);
   const menuLabel = locale === 'ar' ? 'فتح القائمة' : locale === 'fr' ? 'Ouvrir le menu' : 'Open menu';
 
   useEffect(() => {
@@ -47,27 +48,30 @@ export function AppShell({ children }: { children: ReactNode }) {
   // Role-adaptive primary nav.
   const role = profile?.role ?? 'customer';
   const navItems = [
-    { to: '/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard },
-    ...(role === 'customer' ? [
+    ...(authenticated ? [{ to: '/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard }] : []),
+    ...(!authenticated ? [
+      { to: '/restaurants', label: t('market.browse'), icon: ShoppingBag },
+    ] : []),
+    ...(authenticated && role === 'customer' ? [
       { to: '/restaurants', label: t('market.browse'), icon: ShoppingBag },
       { to: '/favorites', label: t('nav.favorites'), icon: Heart },
       { to: '/orders', label: t('orders.title'), icon: Utensils },
       { to: '/support', label: t('nav.support'), icon: MessageCircle },
     ] : []),
-    ...(role === 'restaurant_owner' ? [
+    ...(authenticated && role === 'restaurant_owner' ? [
       { to: '/restaurant', label: t('restaurant.dashboard'), icon: Store, end: true },
       { to: '/restaurant/menu', label: t('restaurant.manageMenu'), icon: Utensils },
     ] : []),
-    ...(role === 'driver' ? [
+    ...(authenticated && role === 'driver' ? [
       { to: '/driver', label: t('nav.driverDashboard'), icon: Bike },
     ] : []),
-    ...(role === 'super_admin' ? [
+    ...(authenticated && role === 'super_admin' ? [
       { to: '/restaurants', label: t('market.browse'), icon: ShoppingBag },
       { to: '/admin', label: t('nav.controlCenter'), icon: ShieldCheck, end: true },
       { to: '/admin/restaurants', label: t('admin.restaurantsManagement'), icon: Store },
       { to: '/admin/audit', label: t('audit.title'), icon: ShieldCheck },
     ] : []),
-    { to: '/profile', label: t('nav.profile'), icon: User },
+    ...(authenticated ? [{ to: '/profile', label: t('nav.profile'), icon: User }] : []),
   ];
 
   const { isMaintenance } = useSettings();
@@ -104,11 +108,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
-            <Link to="/dashboard" className="flex items-center">
+            <Link to={authenticated ? '/dashboard' : '/'} className="flex items-center">
               <Logo size={32} />
             </Link>
             {role === 'customer' && (
-              <div className="ml-2 hidden md:block">
+              <div className="ms-2 hidden md:block">
                 <WilayaSelector />
               </div>
             )}
@@ -133,7 +137,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </nav>
 
           <div className="flex items-center gap-2">
-            <NotificationBell />
+            {authenticated && <NotificationBell />}
             <LocaleSwitcher locale={locale} onChange={setLocale} />
             {role === 'customer' && totalItems > 0 && (
               <Link
@@ -143,12 +147,12 @@ export function AppShell({ children }: { children: ReactNode }) {
               >
                 <ShoppingBag className="h-4 w-4" />
                 <span className="hidden sm:inline">{t('cart.title')}</span>
-                <span className="ml-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-ember-500 px-1 text-[10px] font-bold text-white">
+                <span className="ms-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-ember-500 px-1 text-[10px] font-bold text-white">
                   {totalItems}
                 </span>
               </Link>
             )}
-            <div className="hidden items-center gap-2 sm:flex">
+            {authenticated && <div className="hidden items-center gap-2 sm:flex">
               <div className="flex items-center gap-2 rounded-xl border border-ink-100 bg-ink-50 px-3 py-1.5">
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-ember-500 text-xs font-bold text-white">
                   {(profile?.full_name ?? profile?.email ?? '?').charAt(0).toUpperCase()}
@@ -162,16 +166,27 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </div>
                 </div>
               </div>
-            </div>
-            <button
-              onClick={handleSignOut}
-              className="kiyo-btn-secondary px-3 py-2"
-              aria-label={t('auth.logout')}
-              title={t('auth.logout')}
-            >
-              <LogOut className="h-4 w-4" />
-              <span className="hidden sm:inline">{t('auth.logout')}</span>
-            </button>
+            </div>}
+            {authenticated ? (
+              <button
+                onClick={handleSignOut}
+                className="kiyo-btn-secondary px-3 py-2"
+                aria-label={t('auth.logout')}
+                title={t('auth.logout')}
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="hidden sm:inline">{t('auth.logout')}</span>
+              </button>
+            ) : (
+              <Link
+                to="/login"
+                state={{ from: { pathname: window.location.pathname, search: window.location.search } }}
+                className="kiyo-btn-secondary px-3 py-2"
+              >
+                <LogIn className="h-4 w-4" />
+                <span className="hidden sm:inline">{t('auth.login')}</span>
+              </Link>
+            )}
           </div>
         </div>
 
@@ -205,12 +220,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {(!network.online || network.slow) && (
         <div className={`border-b px-4 py-2 text-center text-xs font-semibold ${network.online ? 'border-warning-200 bg-warning-50 text-warning-800' : 'border-error-200 bg-error-50 text-error-700'}`} role="status">
-          <WifiOff className="mr-1 inline h-3.5 w-3.5" />
-          {locale === 'fr'
-            ? (network.online ? 'Connexion faible : certaines informations peuvent prendre plus de temps.' : 'Vous \u00eates hors ligne. Reconnectez-vous pour continuer.')
-            : locale === 'ar'
-              ? (network.online ? '\u0627\u0644\u0627\u062a\u0635\u0627\u0644 \u0636\u0639\u064a\u0641: \u0642\u062f \u062a\u0633\u062a\u063a\u0631\u0642 \u0628\u0639\u0636 \u0627\u0644\u0645\u0639\u0644\u0648\u0645\u0627\u062a \u0648\u0642\u062a\u0627 \u0623\u0637\u0648\u0644.' : '\u0623\u0646\u062a \u063a\u064a\u0631 \u0645\u062a\u0635\u0644. \u0623\u0639\u062f \u0627\u0644\u0627\u062a\u0635\u0627\u0644 \u0644\u0644\u0645\u062a\u0627\u0628\u0639\u0629.')
-              : (network.online ? 'Weak connection: some information may take longer to load.' : 'You are offline. Reconnect to continue.')}
+          <WifiOff className="me-1 inline h-3.5 w-3.5" />
+          {t(network.online ? 'network.weak' : 'network.offline')}
         </div>
       )}
       <main className="mx-auto max-w-6xl px-4 pb-24 pt-6 sm:px-6 sm:pt-8">

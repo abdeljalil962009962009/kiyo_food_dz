@@ -5,7 +5,12 @@ import { withExponentialBackoff } from './locationNetwork';
 
 export type AuthoritativeDeliveryQuote = {
   route_quote_id: string;
-  items: { name: string; quantity: number; unit_price: string }[];
+  items: {
+    name: string;
+    quantity: number;
+    unit_price: string;
+    modifiers?: Array<{ group_name: string; option_name: string; price_adjustment: number }>;
+  }[];
   subtotal: number;
   delivery_fee: number;
   service_fee: number;
@@ -22,7 +27,10 @@ const CACHE_PREFIX = 'kiyo-route-quote:';
 
 function cacheKey(restaurantId: string, location: QuoteLocation, lines: CartLine[]) {
   const items = lines
-    .map((line) => `${line.item.id}:${line.quantity}`)
+    .map((line) => {
+      const options = line.selectedOptions.map((option) => option.optionId).sort().join('.');
+      return `${line.item.id}:${line.quantity}:${options}:${line.notes?.trim() ?? ''}`;
+    })
     .sort()
     .join('|');
   return `${CACHE_PREFIX}${restaurantId}:${location.lat.toFixed(5)}:${location.lng.toFixed(5)}:${items}`;
@@ -77,6 +85,8 @@ export async function getAuthoritativeDeliveryQuote(
   const items = lines.map((line) => ({
     menu_item_id: line.item.id,
     quantity: line.quantity,
+    notes: line.notes ?? null,
+    selected_option_ids: line.selectedOptions.map((option) => option.optionId),
   }));
 
   const quote = await withExponentialBackoff(async () => {

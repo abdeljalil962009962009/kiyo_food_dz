@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState, type FormEvent } from 'react';
 import { Mail, Lock, User as UserIcon, AlertCircle, Store, CheckCircle2, Phone } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -14,6 +14,7 @@ export default function SignupPage() {
   const { t } = useT();
   const { signUp, error } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -69,7 +70,7 @@ export default function SignupPage() {
           </h2>
           <p className="mt-1 text-sm text-ink-600">{t('auth.signupCheckEmailBody')}</p>
           <button
-            onClick={() => navigate('/login', { replace: true })}
+            onClick={() => navigate('/login', { replace: true, state: location.state })}
             className="kiyo-btn-primary mt-5 w-full"
           >
             {t('auth.backToLogin')}
@@ -187,7 +188,7 @@ export default function SignupPage() {
 
       <p className="mt-6 text-center text-sm text-ink-500">
         {t('auth.haveAccount')}{' '}
-        <Link to="/login" className="font-semibold text-ember-600 hover:text-ember-700">
+        <Link to="/login" state={location.state} className="font-semibold text-ember-600 hover:text-ember-700">
           {t('auth.login')}
         </Link>
       </p>

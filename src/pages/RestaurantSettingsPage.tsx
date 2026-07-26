@@ -2,10 +2,16 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Clock, Truck, Settings, ChevronLeft, ImagePlus,
-  AlertCircle, Save, Wallet, MapPin, Store,
+  AlertCircle, Save, Wallet, MapPin, Store, CalendarDays, Plus, Trash2,
 } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
-import { supabase, type PublicationReadiness, type Restaurant, type RestaurantCommercialTerm } from '../lib/supabase';
+import {
+  supabase,
+  type PublicationReadiness,
+  type Restaurant,
+  type RestaurantCommercialTerm,
+  type RestaurantSpecialHours,
+} from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -17,6 +23,13 @@ import { PrivateRestaurantImage } from '../components/PrivateRestaurantImage';
 import { callUserAction } from '../lib/userApi';
 import { matchWilayaFromAddress } from '../lib/algeriaLocation';
 import { FALLBACK_WILAYAS } from '../context/WilayaContext';
+import { userFacingError } from '../lib/userFacingError';
+import { algeriaAvailabilityDateRange } from '../lib/restaurantAvailability';
+import {
+  deliveryRuleNumber,
+  type DeliveryRuleSource,
+  type EffectiveDeliveryRules,
+} from '../lib/deliveryRules';
 
 type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 const DAYS: { key: DayOfWeek; labelKey: 'day.0' | 'day.1' | 'day.2' | 'day.3' | 'day.4' | 'day.5' | 'day.6' }[] = [
@@ -62,12 +75,46 @@ const profileLabels = {
   },
 } as const;
 
+const scheduleLabels = {
+  en: {
+    vacation: 'Vacation mode', vacationBody: 'Stop all new orders until you switch this off. Your restaurant and existing orders stay visible to you.',
+    vacationOn: 'Vacation mode is active', vacationOff: 'Accept orders according to the schedule',
+    exceptions: 'Exceptional hours', exceptionsBody: 'Plan a holiday closure or different opening hours for a specific date.',
+    date: 'Date', allDayClosed: 'Closed all day', opens: 'Opens', closes: 'Closes', reason: 'Reason (optional)',
+    reasonPlaceholder: 'Public holiday, maintenance...', add: 'Save exceptional hours', none: 'No upcoming exceptions.',
+    remove: 'Remove', removeConfirm: 'Remove these exceptional hours?', confirmRemove: 'Yes, remove', cancel: 'Cancel',
+    invalid: 'Choose a future date and two different opening times, or mark the restaurant closed all day.',
+    saveFailed: 'Exceptional hours could not be saved. Try again.', deleteFailed: 'Exceptional hours could not be removed. Try again.',
+  },
+  fr: {
+    vacation: 'Mode vacances', vacationBody: 'Suspendez toutes les nouvelles commandes jusqu’à sa désactivation. Votre restaurant et les commandes existantes restent accessibles.',
+    vacationOn: 'Le mode vacances est actif', vacationOff: 'Accepter les commandes selon les horaires',
+    exceptions: 'Horaires exceptionnels', exceptionsBody: 'Planifiez une fermeture ou des horaires différents pour une date précise.',
+    date: 'Date', allDayClosed: 'Fermé toute la journée', opens: 'Ouverture', closes: 'Fermeture', reason: 'Motif (facultatif)',
+    reasonPlaceholder: 'Jour férié, maintenance...', add: 'Enregistrer cet horaire', none: 'Aucun horaire exceptionnel à venir.',
+    remove: 'Supprimer', removeConfirm: 'Supprimer cet horaire exceptionnel ?', confirmRemove: 'Oui, supprimer', cancel: 'Annuler',
+    invalid: 'Choisissez une date à venir et deux heures différentes, ou indiquez une fermeture toute la journée.',
+    saveFailed: 'Impossible d’enregistrer cet horaire. Réessayez.', deleteFailed: 'Impossible de supprimer cet horaire. Réessayez.',
+  },
+  ar: {
+    vacation: 'وضع العطلة', vacationBody: 'أوقف جميع الطلبات الجديدة حتى تعطّل هذا الوضع. يبقى المطعم والطلبات الحالية ظاهرين لك.',
+    vacationOn: 'وضع العطلة مفعّل', vacationOff: 'قبول الطلبات حسب أوقات العمل',
+    exceptions: 'أوقات العمل الاستثنائية', exceptionsBody: 'حدّد إغلاقا أو أوقات عمل مختلفة ليوم معيّن.',
+    date: 'التاريخ', allDayClosed: 'مغلق طوال اليوم', opens: 'يفتح', closes: 'يغلق', reason: 'السبب (اختياري)',
+    reasonPlaceholder: 'عطلة رسمية، صيانة...', add: 'حفظ الوقت الاستثنائي', none: 'لا توجد أوقات استثنائية قادمة.',
+    remove: 'حذف', removeConfirm: 'هل تريد حذف هذا الوقت الاستثنائي؟', confirmRemove: 'نعم، حذف', cancel: 'إلغاء',
+    invalid: 'اختر تاريخا قادما ووقتَي فتح وإغلاق مختلفين، أو حدّد أن المطعم مغلق طوال اليوم.',
+    saveFailed: 'تعذر حفظ الوقت الاستثنائي. حاول مجددا.', deleteFailed: 'تعذر حذف الوقت الاستثنائي. حاول مجددا.',
+  },
+} as const;
+
 type HoursEntry = { open: string; close: string } | null;
 type OpeningHours = Record<string, HoursEntry>;
 
 export default function RestaurantSettingsPage() {
   const { t, locale } = useT();
   const profileTx = profileLabels[locale];
+  const scheduleTx = scheduleLabels[locale];
   const { profile } = useAuth();
   const navigate = useNavigate();
 
@@ -78,10 +125,22 @@ export default function RestaurantSettingsPage() {
 
   // Business hours state
   const [hours, setHours] = useState<OpeningHours>({});
+  const [vacationMode, setVacationMode] = useState(false);
+  const [specialHours, setSpecialHours] = useState<RestaurantSpecialHours[]>([]);
+  const [specialDraft, setSpecialDraft] = useState({
+    date: algeriaAvailabilityDateRange().to,
+    is_closed: true,
+    open_time: '09:00',
+    close_time: '22:00',
+    reason: '',
+  });
+  const [scheduleSaving, setScheduleSaving] = useState(false);
+  const [operationalSaving, setOperationalSaving] = useState<string | null>(null);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [pendingSpecialDelete, setPendingSpecialDelete] = useState<string | null>(null);
 
   // Delivery settings
-  const [deliveryRadius, setDeliveryRadius] = useState('10');
-  const [minOrder, setMinOrder] = useState('0');
+  const [effectiveDeliveryRules, setEffectiveDeliveryRules] = useState<EffectiveDeliveryRules | null>(null);
   const [estimatedDeliveryMin, setEstimatedDeliveryMin] = useState('45');
   const [commercialTerm, setCommercialTerm] = useState<RestaurantCommercialTerm | null>(null);
   const [readiness, setReadiness] = useState<PublicationReadiness | null>(null);
@@ -110,7 +169,7 @@ export default function RestaurantSettingsPage() {
       if (re) throw re;
       
       if (!r) {
-        setError('No restaurant assigned to your account. Please contact the platform administrator to onboard your restaurant.');
+        setError(t('restaurant.settings.notAssigned'));
         return;
       }
 
@@ -122,16 +181,34 @@ export default function RestaurantSettingsPage() {
       setCuisines((activeRes.cuisine ?? []).join(', '));
       setImageUrl(activeRes.image_url ?? '');
       setHours(activeRes.opening_hours as OpeningHours || {});
-      setDeliveryRadius(String(activeRes.max_delivery_km || 10));
-      setMinOrder(String(activeRes.min_order_amount || 0));
+      setVacationMode(Boolean(activeRes.is_vacation_mode));
       setEstimatedDeliveryMin(String(activeRes.estimated_delivery_min || 45));
-      const [{ data: term }, { data: readinessData }] = await Promise.all([
+      const [
+        { data: term, error: termError },
+        { data: readinessData, error: readinessError },
+        specialResult,
+        { data: deliveryRulesData, error: deliveryRulesError },
+      ] = await Promise.all([
         supabase.from('restaurant_commercial_terms').select('*')
           .eq('restaurant_id', activeRes.id).eq('status', 'active').maybeSingle(),
         callUserAction<PublicationReadiness>('get_restaurant_publication_readiness', { p_restaurant_id: activeRes.id }),
+        supabase.from('restaurant_special_hours').select('*')
+          .eq('restaurant_id', activeRes.id)
+          .gte('date', algeriaAvailabilityDateRange().to)
+          .order('date')
+          .limit(30),
+        callUserAction<EffectiveDeliveryRules>('get_restaurant_effective_delivery_rules', {
+          p_restaurant_id: activeRes.id,
+        }),
       ]);
+      if (termError) throw termError;
+      if (readinessError) throw readinessError;
+      if (specialResult.error) throw specialResult.error;
+      if (deliveryRulesError) throw deliveryRulesError;
       setCommercialTerm((term as RestaurantCommercialTerm | null) ?? null);
       setReadiness((readinessData as PublicationReadiness | null) ?? null);
+      setSpecialHours((specialResult.data as RestaurantSpecialHours[] | null) ?? []);
+      setEffectiveDeliveryRules((deliveryRulesData as EffectiveDeliveryRules | null) ?? null);
       if (activeRes.latitude != null && activeRes.longitude != null) {
         setLocation({
           lat: activeRes.latitude,
@@ -159,13 +236,21 @@ export default function RestaurantSettingsPage() {
       }
     } catch (err: unknown) {
       console.error(err);
-      setError(err instanceof Error ? err.message : t('error.genericBody'));
+      setError(userFacingError(err, locale, t('error.genericBody')));
     } finally {
       setLoading(false);
     }
-  }, [profile, t]);
+  }, [locale, profile, t]);
 
   useEffect(() => { void load(); }, [load]);
+
+  const deliverySourceLabel = (source: DeliveryRuleSource) => {
+    if (source === 'restaurant') return t('restaurant.settings.ruleSourceRestaurant');
+    if (source === 'wilaya') return t('restaurant.settings.ruleSourceWilaya');
+    return t('restaurant.settings.ruleSourceGlobal');
+  };
+  const locationManagedByPlatform = restaurant != null
+    && ['published', 'hidden', 'suspended'].includes(restaurant.status);
 
   const saveSettings = async () => {
     if (!restaurant || saving) return;
@@ -173,7 +258,7 @@ export default function RestaurantSettingsPage() {
     setSaved(false);
     setSaveError(null);
 
-    if (!location?.confirmed) {
+    if (!locationManagedByPlatform && !location?.confirmed) {
       setSaveError(t('map.confirmRequired'));
       setSaving(false);
       return;
@@ -196,26 +281,25 @@ export default function RestaurantSettingsPage() {
         ? await uploadRestaurantImage(profile.id, imageFile)
         : imageUrl.trim() || null;
       const cuisineList = cuisines.split(',').map((item) => item.trim()).filter(Boolean).slice(0, 12);
-      const matchedWilaya = matchWilayaFromAddress(location.addressParts, FALLBACK_WILAYAS);
-      const { error: e } = await supabase
-        .from('restaurants')
-        .update({
-          name: restaurantName.trim(),
-          description: description.trim() || null,
-          phone: phone.trim(),
-          cuisine: cuisineList,
-          image_url: nextImageUrl,
-          opening_hours: hours,
-          max_delivery_km: Number(deliveryRadius),
-          min_order_amount: Number(minOrder),
-          estimated_delivery_min: Number(estimatedDeliveryMin),
+      const settingsPayload: Record<string, unknown> = {
+        name: restaurantName.trim(),
+        description: description.trim() || null,
+        phone: phone.trim(),
+        cuisine: cuisineList,
+        image_url: nextImageUrl,
+        opening_hours: hours,
+        estimated_delivery_min: Number(estimatedDeliveryMin),
+      };
+      if (!locationManagedByPlatform) {
+        if (!location) throw new Error('restaurant_location_invalid');
+        const matchedWilaya = matchWilayaFromAddress(location.addressParts, FALLBACK_WILAYAS);
+        if (!matchedWilaya) throw new Error('restaurant_location_wilaya_required');
+        Object.assign(settingsPayload, {
           address: location.address,
           latitude: location.lat,
           longitude: location.lng,
           location_accuracy_m: location.accuracy,
-          location_verified: true,
           location_source: location.source,
-          location_updated_at: new Date().toISOString(),
           place_id: location.placeId,
           street: location.addressParts?.street ?? null,
           neighborhood: location.addressParts?.neighborhood ?? null,
@@ -224,25 +308,26 @@ export default function RestaurantSettingsPage() {
           province: location.addressParts?.province ?? null,
           postal_code: location.addressParts?.postalCode ?? null,
           country: location.addressParts?.country ?? 'Algeria',
-          wilaya_id: matchedWilaya?.id ?? null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', restaurant.id);
-      if (e) throw e;
+          wilaya_id: matchedWilaya.id,
+        });
+      }
+      const { data: updatedRestaurant, error: updateError } = await callUserAction<Restaurant>(
+        'update_restaurant_profile_settings',
+        {
+          p_restaurant_id: restaurant.id,
+          p_payload: settingsPayload,
+          p_expected_updated_at: restaurant.updated_at,
+        },
+      );
+      if (updateError) throw updateError;
+      if (!updatedRestaurant) throw new Error('restaurant_settings_update_missing');
       const { data: readinessData } = await callUserAction<PublicationReadiness>('get_restaurant_publication_readiness', {
         p_restaurant_id: restaurant.id,
       });
       setReadiness((readinessData as PublicationReadiness | null) ?? null);
       setImageUrl(nextImageUrl ?? '');
       setImageFile(null);
-      setRestaurant({
-        ...restaurant,
-        name: restaurantName.trim(),
-        description: description.trim() || null,
-        phone: phone.trim(),
-        cuisine: cuisineList,
-        image_url: nextImageUrl,
-      });
+      setRestaurant(updatedRestaurant as Restaurant);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err: unknown) {
@@ -250,9 +335,16 @@ export default function RestaurantSettingsPage() {
       const message = err instanceof Error ? err.message : '';
       setSaveError(message === 'restaurant_image_type'
         ? profileTx.invalidImageType
-        : message === 'restaurant_image_size'
+          : message === 'restaurant_image_size'
           ? profileTx.invalidImageSize
-          : message || t('error.genericBody'));
+          : message === 'restaurant_location_wilaya_required'
+            ? t('restaurant.settings.locationWilayaRequired')
+            : message === 'restaurant_location_invalid'
+              || message.includes('Confirm a valid precise restaurant location')
+              ? t('restaurant.settings.locationInvalid')
+              : message.includes('location changes require platform review')
+                ? t('restaurant.settings.locationManaged')
+                : userFacingError(err, locale, t('error.genericBody')));
     } finally {
       setSaving(false);
     }
@@ -269,7 +361,7 @@ export default function RestaurantSettingsPage() {
     return (
       <AppShell>
         <ErrorState
-          title={t('error.genericTitle')} message={error ?? 'Error'}
+          title={t('error.genericTitle')} message={error ?? t('error.genericBody')}
           onRetry={load} retryLabel={t('error.retry')}
         />
       </AppShell>
@@ -290,6 +382,136 @@ export default function RestaurantSettingsPage() {
     }));
   };
 
+  const toggleVacationMode = async () => {
+    if (!restaurant || scheduleSaving || operationalSaving) return;
+    const next = !vacationMode;
+    setScheduleSaving(true);
+    setOperationalSaving('vacation');
+    setScheduleError(null);
+    try {
+      const { data, error: updateError } = await callUserAction<Restaurant>(
+        'update_restaurant_operational_state',
+        {
+          p_restaurant_id: restaurant.id,
+          p_vacation_mode: next,
+          p_expected_updated_at: restaurant.updated_at,
+        },
+      );
+      if (updateError) throw updateError;
+      if (!data) throw new Error('restaurant_operational_update_returned_no_data');
+      setVacationMode(data.is_vacation_mode);
+      setRestaurant(data);
+    } catch (updateError) {
+      setScheduleError(userFacingError(updateError, locale, t('error.genericBody')));
+      if ((updateError as { code?: string } | null)?.code === '40001') {
+        await load();
+      }
+    } finally {
+      setScheduleSaving(false);
+      setOperationalSaving(null);
+    }
+  };
+
+  const setOperationalStatus = async (status: Restaurant['operational_status']) => {
+    if (!restaurant || operationalSaving || restaurant.operational_status === status) return;
+    setOperationalSaving(status);
+    setSaveError(null);
+    try {
+      const { data, error: updateError } = await callUserAction<Restaurant>(
+        'update_restaurant_operational_state',
+        {
+          p_restaurant_id: restaurant.id,
+          p_operational_status: status,
+          p_expected_updated_at: restaurant.updated_at,
+        },
+      );
+      if (updateError) throw updateError;
+      if (!data) throw new Error('restaurant_operational_update_returned_no_data');
+      setVacationMode(data.is_vacation_mode);
+      setRestaurant(data);
+    } catch (updateError) {
+      const message = userFacingError(updateError, locale, t('error.genericBody'));
+      if ((updateError as { code?: string } | null)?.code === '40001') {
+        await load();
+      }
+      setSaveError(message);
+    } finally {
+      setOperationalSaving(null);
+    }
+  };
+
+  const saveSpecialHours = async () => {
+    if (!restaurant || scheduleSaving) return;
+    const invalid = !specialDraft.date
+      || specialDraft.date < algeriaAvailabilityDateRange().to
+      || (!specialDraft.is_closed && (
+        !specialDraft.open_time
+        || !specialDraft.close_time
+        || specialDraft.open_time === specialDraft.close_time
+      ));
+    if (invalid) {
+      setScheduleError(scheduleTx.invalid);
+      return;
+    }
+
+    setScheduleSaving(true);
+    setScheduleError(null);
+    try {
+      const existingEntry = specialHours.find((entry) => entry.date === specialDraft.date);
+      const { data, error: upsertError } = await callUserAction<RestaurantSpecialHours>(
+        'upsert_restaurant_special_hours',
+        {
+          p_restaurant_id: restaurant.id,
+          p_date: specialDraft.date,
+          p_is_closed: specialDraft.is_closed,
+          p_open_time: specialDraft.is_closed ? null : specialDraft.open_time,
+          p_close_time: specialDraft.is_closed ? null : specialDraft.close_time,
+          p_reason: specialDraft.reason.trim() || null,
+          p_expected_updated_at: existingEntry?.updated_at ?? null,
+        },
+      );
+      if (upsertError) throw upsertError;
+      if (!data) throw new Error('restaurant_special_hours_update_missing');
+      const savedEntry = data as RestaurantSpecialHours;
+      setSpecialHours((current) => [...current.filter((entry) => entry.date !== savedEntry.date), savedEntry]
+        .sort((a, b) => a.date.localeCompare(b.date)));
+      setSpecialDraft((current) => ({ ...current, reason: '' }));
+    } catch (upsertError) {
+      setScheduleError(userFacingError(upsertError, locale, scheduleTx.saveFailed));
+      if ((upsertError as { code?: string } | null)?.code === '40001') {
+        await load();
+      }
+    } finally {
+      setScheduleSaving(false);
+    }
+  };
+
+  const deleteSpecialHours = async (entry: RestaurantSpecialHours) => {
+    if (!restaurant || scheduleSaving) return;
+    setScheduleSaving(true);
+    setScheduleError(null);
+    try {
+      const { error: deleteError } = await callUserAction(
+        'delete_restaurant_special_hours',
+        {
+          p_restaurant_id: restaurant.id,
+          p_special_hours_id: entry.id,
+          p_expected_updated_at: entry.updated_at,
+        },
+      );
+      if (deleteError) throw deleteError;
+      setSpecialHours((current) => current.filter((item) => item.id !== entry.id));
+      setPendingSpecialDelete(null);
+    } catch (deleteError) {
+      setScheduleError(userFacingError(deleteError, locale, scheduleTx.deleteFailed));
+      if ((deleteError as { code?: string } | null)?.code === '40001') {
+        await load();
+      }
+    } finally {
+      setScheduleSaving(false);
+    }
+  };
+
   return (
     <AppShell>
       <button
@@ -302,7 +524,7 @@ export default function RestaurantSettingsPage() {
 
       <div className="mb-5">
         <h1 className="font-display text-2xl font-extrabold tracking-tight text-ink-900">
-          <Settings className="mr-2 inline h-6 w-6" />
+          <Settings className="me-2 inline h-6 w-6" />
           {t('restaurant.settings.title')}
         </h1>
         <p className="text-xs text-ink-400">{restaurant.name}</p>
@@ -393,6 +615,140 @@ export default function RestaurantSettingsPage() {
                 </div>
               ))}
             </div>
+            <div className="mt-5 border-t border-ink-100 pt-5">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={vacationMode}
+                disabled={scheduleSaving || Boolean(operationalSaving)}
+                onClick={toggleVacationMode}
+                className="flex min-h-11 w-full items-center justify-between gap-4 rounded-lg border border-ink-100 bg-ink-50 px-3 py-2 text-start transition-colors hover:border-ink-200 disabled:opacity-60"
+              >
+                <span>
+                  <span className="block text-sm font-bold text-ink-900">{scheduleTx.vacation}</span>
+                  <span className="mt-0.5 block text-xs text-ink-500">{scheduleTx.vacationBody}</span>
+                </span>
+                <span className={`relative h-6 w-11 flex-none rounded-full transition-colors ${vacationMode ? 'bg-error-500' : 'bg-ink-300'}`}>
+                  <span
+                    className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-[inset-inline-start] ${
+                      vacationMode ? '[inset-inline-start:1.5rem]' : '[inset-inline-start:0.25rem]'
+                    }`}
+                  />
+                </span>
+              </button>
+              <p className={`mt-2 text-xs font-semibold ${vacationMode ? 'text-error-600' : 'text-sage-700'}`}>
+                {vacationMode ? scheduleTx.vacationOn : scheduleTx.vacationOff}
+              </p>
+            </div>
+          </div>
+
+          <div className="kiyo-card">
+            <div className="mb-1 flex items-center gap-2">
+              <CalendarDays className="h-5 w-5 text-ember-600" />
+              <h2 className="font-display text-base font-bold text-ink-900">{scheduleTx.exceptions}</h2>
+            </div>
+            <p className="mb-4 text-xs text-ink-500">{scheduleTx.exceptionsBody}</p>
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <label>
+                <span className="kiyo-label">{scheduleTx.date}</span>
+                <input
+                  type="date"
+                  min={algeriaAvailabilityDateRange().to}
+                  value={specialDraft.date}
+                  onChange={(event) => setSpecialDraft((current) => ({ ...current, date: event.target.value }))}
+                  className="kiyo-input"
+                />
+              </label>
+              <label className="flex min-h-11 items-center gap-2 self-end rounded-lg border border-ink-100 px-3">
+                <input
+                  type="checkbox"
+                  checked={specialDraft.is_closed}
+                  onChange={(event) => setSpecialDraft((current) => ({ ...current, is_closed: event.target.checked }))}
+                  className="h-4 w-4 rounded border-ink-300 text-ember-500 focus:ring-ember-500"
+                />
+                <span className="text-sm font-semibold text-ink-700">{scheduleTx.allDayClosed}</span>
+              </label>
+              {!specialDraft.is_closed && (
+                <>
+                  <label>
+                    <span className="kiyo-label">{scheduleTx.opens}</span>
+                    <input type="time" value={specialDraft.open_time} onChange={(event) => setSpecialDraft((current) => ({ ...current, open_time: event.target.value }))} className="kiyo-input" />
+                  </label>
+                  <label>
+                    <span className="kiyo-label">{scheduleTx.closes}</span>
+                    <input type="time" value={specialDraft.close_time} onChange={(event) => setSpecialDraft((current) => ({ ...current, close_time: event.target.value }))} className="kiyo-input" />
+                  </label>
+                </>
+              )}
+              <label className="sm:col-span-2 lg:col-span-3">
+                <span className="kiyo-label">{scheduleTx.reason}</span>
+                <input
+                  value={specialDraft.reason}
+                  onChange={(event) => setSpecialDraft((current) => ({ ...current, reason: event.target.value }))}
+                  placeholder={scheduleTx.reasonPlaceholder}
+                  maxLength={160}
+                  className="kiyo-input"
+                />
+              </label>
+              <button type="button" onClick={saveSpecialHours} disabled={scheduleSaving} className="kiyo-btn-primary self-end">
+                {scheduleSaving ? <Spinner className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                {scheduleTx.add}
+              </button>
+            </div>
+
+            {scheduleError && (
+              <div role="alert" className="mt-3 flex items-start gap-2 rounded-lg bg-error-500/10 px-3 py-2 text-xs font-semibold text-error-700">
+                <AlertCircle className="mt-0.5 h-4 w-4 flex-none" />
+                {scheduleError}
+              </div>
+            )}
+
+            <div className="mt-4 space-y-2">
+              {specialHours.length === 0 && <p className="text-sm text-ink-400">{scheduleTx.none}</p>}
+              {specialHours.map((entry) => (
+                <div key={entry.id} className="rounded-lg border border-ink-100 px-3 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-ink-900">
+                        {new Date(`${entry.date}T12:00:00`).toLocaleDateString(
+                          locale === 'ar' ? 'ar-DZ' : locale === 'fr' ? 'fr-DZ' : 'en-DZ',
+                          { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' },
+                        )}
+                      </p>
+                      <p className="mt-0.5 text-xs text-ink-500">
+                        {entry.is_closed
+                          ? scheduleTx.allDayClosed
+                          : `${entry.open_time?.slice(0, 5)} ${t('common.to')} ${entry.close_time?.slice(0, 5)}`}
+                        {entry.reason ? ` · ${entry.reason}` : ''}
+                      </p>
+                    </div>
+                    {pendingSpecialDelete !== entry.id && (
+                      <button type="button" onClick={() => setPendingSpecialDelete(entry.id)} className="kiyo-btn-secondary min-h-11 text-error-600">
+                        <Trash2 className="h-4 w-4" />
+                        {scheduleTx.remove}
+                      </button>
+                    )}
+                  </div>
+                  {pendingSpecialDelete === entry.id && (
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-error-50 px-3 py-2">
+                      <span className="text-xs font-semibold text-error-700">{scheduleTx.removeConfirm}</span>
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => setPendingSpecialDelete(null)} className="kiyo-btn-secondary min-h-11">{scheduleTx.cancel}</button>
+                        <button
+                          type="button"
+                          onClick={() => void deleteSpecialHours(entry)}
+                          disabled={scheduleSaving}
+                          className="inline-flex min-h-11 items-center justify-center rounded-lg bg-error-600 px-4 text-sm font-bold text-white transition-colors hover:bg-error-700 disabled:opacity-60"
+                        >
+                          {scheduleTx.confirmRemove}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Delivery Configuration */}
@@ -404,12 +760,30 @@ export default function RestaurantSettingsPage() {
                 <p className="mt-0.5 text-xs text-ink-500">{t('restaurant.onboard.locationHelp')}</p>
               </div>
             </div>
-            <DeliveryMap
-              purpose="restaurant"
-              initialAddress={restaurant.address ?? ''}
-              initialLocation={location}
-              onLocationChange={setLocation}
-            />
+            {locationManagedByPlatform ? (
+              <div className="rounded-lg border border-ink-100 bg-ink-50 p-4">
+                <p className="font-semibold text-ink-900">
+                  {restaurant.address ?? t('restaurant.settings.locationAddressUnavailable')}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-ink-600">
+                  {t('restaurant.settings.locationManaged')}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigate('/support')}
+                  className="kiyo-btn-secondary mt-4 min-h-11"
+                >
+                  {t('restaurant.settings.locationManagedAction')}
+                </button>
+              </div>
+            ) : (
+              <DeliveryMap
+                purpose="restaurant"
+                initialAddress={restaurant.address ?? ''}
+                initialLocation={location}
+                onLocationChange={setLocation}
+              />
+            )}
           </div>
 
           {/* Delivery Configuration */}
@@ -418,33 +792,37 @@ export default function RestaurantSettingsPage() {
               <Truck className="h-5 w-5 text-sage-600" />
               <h2 className="font-display text-base font-bold text-ink-900">{t('restaurant.settings.deliveryConfig')}</h2>
             </div>
+            <p className="mb-4 rounded-lg border border-sage-200 bg-sage-50 p-3 text-sm leading-6 text-sage-900">
+              {t('restaurant.settings.deliveryControlled')}
+            </p>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="kiyo-label">{t('restaurant.settings.maxRadius')}</label>
-                <input
-                  type="number"
-                  value={deliveryRadius}
-                  onChange={(e) => setDeliveryRadius(e.target.value)}
-                  min="1"
-                  max="100"
-                  className="kiyo-input"
-                />
+              <div className="rounded-lg border border-ink-100 bg-white p-4">
+                <p className="kiyo-label">{t('restaurant.settings.maxRadius')}</p>
+                <p className="font-display text-2xl font-bold text-ink-900">
+                  {deliveryRuleNumber(effectiveDeliveryRules, 'max_delivery_km', 10).toLocaleString(locale)} {locale === 'ar' ? 'كم' : 'km'}
+                </p>
                 <p className="mt-1 text-xs text-ink-400">
                   {t('restaurant.settings.maxRadiusDesc')}
                 </p>
+                {effectiveDeliveryRules && (
+                  <p className="mt-3 text-xs font-semibold text-sage-700">
+                    {t('restaurant.settings.ruleSource')}: {deliverySourceLabel(effectiveDeliveryRules.sources.max_delivery_km)}
+                  </p>
+                )}
               </div>
-              <div>
-                <label className="kiyo-label">{t('restaurant.settings.minOrder')}</label>
-                <input
-                  type="number"
-                  value={minOrder}
-                  onChange={(e) => setMinOrder(e.target.value)}
-                  min="0"
-                  className="kiyo-input"
-                />
+              <div className="rounded-lg border border-ink-100 bg-white p-4">
+                <p className="kiyo-label">{t('restaurant.settings.minOrder')}</p>
+                <p className="font-display text-2xl font-bold text-ink-900">
+                  {deliveryRuleNumber(effectiveDeliveryRules, 'minimum_order', 0).toLocaleString(locale)} {locale === 'ar' ? 'دج' : 'DZD'}
+                </p>
                 <p className="mt-1 text-xs text-ink-400">
                   {t('restaurant.settings.minOrderDesc')}
                 </p>
+                {effectiveDeliveryRules && (
+                  <p className="mt-3 text-xs font-semibold text-sage-700">
+                    {t('restaurant.settings.ruleSource')}: {deliverySourceLabel(effectiveDeliveryRules.sources.minimum_order)}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="kiyo-label">{t('restaurant.settings.estTime')}</label>
@@ -486,7 +864,7 @@ export default function RestaurantSettingsPage() {
               {readiness.ready ? (
                 <p className="mt-2 text-sm text-sage-700">{profileTx.ready}</p>
               ) : (
-                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-warning-800">
+                <ul className="mt-2 list-disc space-y-1 ps-5 text-sm text-warning-800">
                   {readiness.blockers.map((blocker) => (
                     <li key={blocker}>{localizePublicationBlocker(blocker, locale)}</li>
                   ))}
@@ -505,17 +883,11 @@ export default function RestaurantSettingsPage() {
               {['open', 'busy', 'closed'].map((status) => (
                 <button
                   key={status}
-                  onClick={async () => {
-                    if (!restaurant) return;
-                    const { error: e } = await supabase
-                      .from('restaurants')
-                      .update({ operational_status: status })
-                      .eq('id', restaurant.id);
-                    if (!e) {
-                      setRestaurant({ ...restaurant, operational_status: status as Restaurant['operational_status'] });
-                    }
-                  }}
-                  className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
+                  type="button"
+                  aria-pressed={restaurant.operational_status === status}
+                  disabled={Boolean(operationalSaving)}
+                  onClick={() => void setOperationalStatus(status as Restaurant['operational_status'])}
+                  className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:cursor-wait disabled:opacity-60 ${
                     restaurant.operational_status === status
                       ? status === 'open'
                         ? 'bg-sage-500 text-white'
@@ -525,6 +897,7 @@ export default function RestaurantSettingsPage() {
                       : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
                   }`}
                 >
+                  {operationalSaving === status && <Spinner className="h-4 w-4" />}
                   {status === 'open' ? t('restaurant.open') : status === 'busy' ? t('restaurant.busy') : t('restaurant.closed')}
                 </button>
               ))}

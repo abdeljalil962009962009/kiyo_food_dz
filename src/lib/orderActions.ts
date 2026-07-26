@@ -1,5 +1,7 @@
-import { supabase, type OrderRow } from './supabase';
+import type { OrderRow } from './supabase';
 import { callUserAction } from './userApi';
+import type { Locale } from './i18n';
+import { userFacingError } from './userFacingError';
 
 export type CustomerCancelResult =
   | { status: 'cancelled' }
@@ -8,7 +10,7 @@ export type CustomerCancelResult =
 
 type CancellableOrder = Pick<OrderRow, 'id' | 'customer_id' | 'restaurant_id' | 'status' | 'updated_at'>;
 
-export async function requestCustomerCancellation(order: CancellableOrder): Promise<CustomerCancelResult> {
+export async function requestCustomerCancellation(order: CancellableOrder, locale: Locale = 'fr'): Promise<CustomerCancelResult> {
   try {
     if (order.status === 'pending') {
       const { data, error } = await callUserAction<{ id: string }>('transition_order_status', {
@@ -23,16 +25,22 @@ export async function requestCustomerCancellation(order: CancellableOrder): Prom
       }
     }
 
-    const { error: ticketError } = await supabase.from('support_tickets').insert({
-      requester_id: order.customer_id,
-      restaurant_id: order.restaurant_id,
-      order_id: order.id,
-      subject: `Cancellation request for order #${order.id.slice(0, 8)}`,
-      body: order.status === 'pending'
-        ? 'Customer requested cancellation, but direct cancellation was not available. Please review this order quickly.'
-        : `Customer requested help cancelling an order currently marked as "${order.status}".`,
-      category: 'complaint',
-      priority: order.status === 'pending' ? 'high' : 'normal',
+    const subject = locale === 'ar'
+      ? `طلب إلغاء الطلب #${order.id.slice(0, 8)}`
+      : locale === 'fr'
+        ? `Demande d’annulation de la commande #${order.id.slice(0, 8)}`
+        : `Cancellation request for order #${order.id.slice(0, 8)}`;
+    const body = locale === 'ar'
+      ? 'تعذّر الإلغاء التلقائي. يرجى مراجعة هذا الطلب ومساعدة العميل في أقرب وقت.'
+      : locale === 'fr'
+        ? 'L’annulation automatique n’était plus disponible. Merci de vérifier rapidement cette commande et d’aider le client.'
+        : 'Automatic cancellation was no longer available. Please review this order quickly and help the customer.';
+    const { error: ticketError } = await callUserAction('create_support_ticket', {
+      p_subject: subject,
+      p_body: body,
+      p_category: 'complaint',
+      p_priority: order.status === 'pending' ? 'high' : 'normal',
+      p_order_id: order.id,
     });
 
     if (ticketError) throw ticketError;
@@ -40,9 +48,15 @@ export async function requestCustomerCancellation(order: CancellableOrder): Prom
   } catch (err) {
     return {
       status: 'failed',
-      message: err instanceof Error
-        ? err.message
-        : 'We could not send the cancellation request. Please open order support and try again.',
+      message: userFacingError(
+        err,
+        locale,
+        locale === 'ar'
+          ? 'تعذر إرسال طلب الإلغاء. افتح دعم الطلب وحاول مجدداً.'
+          : locale === 'fr'
+            ? 'La demande d’annulation n’a pas pu être envoyée. Ouvrez l’assistance de la commande puis réessayez.'
+            : 'The cancellation request could not be sent. Open order support and try again.',
+      ),
     };
   }
 }
