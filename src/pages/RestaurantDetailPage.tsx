@@ -40,8 +40,6 @@ import { userFacingError } from '../lib/userFacingError';
 
 const OpenStreetMapDisplay = lazy(() => import('../components/OpenStreetMapDisplay'));
 
-const OpenStreetMapDisplay = lazy(() => import('../components/OpenStreetMapDisplay'));
-
 const detailCopy = {
   en: {
     verified: 'Verified by Kiyo Food', reviews: '{count} reviews', preparation: 'Typical preparation: about {minutes} min',
