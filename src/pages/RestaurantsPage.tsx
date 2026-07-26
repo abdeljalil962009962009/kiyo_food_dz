@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Star, Clock, MapPin, BadgeCheck } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
-import { supabase, type Restaurant } from '../lib/supabase';
+import { supabase, type Restaurant, type RestaurantSpecialHours } from '../lib/supabase';
 import { useWilaya, getWilayaName } from '../context/WilayaContext';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -13,9 +13,11 @@ import { withExponentialBackoff } from '../lib/locationNetwork';
 import { useRealtime } from '../lib/useRealtime';
 import { sanitizeMarketplaceSearchTerm, scoreMarketplaceRestaurant } from '../lib/marketplaceSearch';
 import { userFacingError } from '../lib/userFacingError';
+import { algeriaAvailabilityDateRange, restaurantAcceptsOrders } from '../lib/restaurantAvailability';
 
 type RestaurantWithDistance = Restaurant & {
   distance_km?: number | null;
+  special_hours?: RestaurantSpecialHours[];
 };
 
 type MenuSearchMatch = {
@@ -88,6 +90,7 @@ export default function RestaurantsPage() {
   const [menuSearchLoading, setMenuSearchLoading] = useState(false);
   const [menuSearchError, setMenuSearchError] = useState<string | null>(null);
   const [menuSearchRetry, setMenuSearchRetry] = useState(0);
+  const [availabilityClock, setAvailabilityClock] = useState(() => new Date());
   const currentLocation = useMemo(() => deliveryLocation
     ? { lat: deliveryLocation.lat, lng: deliveryLocation.lng }
     : null, [deliveryLocation]);
@@ -117,7 +120,26 @@ export default function RestaurantsPage() {
           ? haversineKm(currentLocation, { lat: restaurant.latitude, lng: restaurant.longitude })
           : null,
       }));
-      setItems(restaurants);
+      const specialByRestaurant = new Map<string, RestaurantSpecialHours[]>();
+      if (restaurants.length > 0) {
+        const range = algeriaAvailabilityDateRange();
+        const specialResult = await supabase
+          .from('restaurant_special_hours')
+          .select('*')
+          .in('restaurant_id', restaurants.map((restaurant) => restaurant.id))
+          .gte('date', range.from)
+          .lte('date', range.to);
+        if (specialResult.error) throw specialResult.error;
+        for (const entry of (specialResult.data as RestaurantSpecialHours[] | null) ?? []) {
+          const current = specialByRestaurant.get(entry.restaurant_id) ?? [];
+          current.push(entry);
+          specialByRestaurant.set(entry.restaurant_id, current);
+        }
+      }
+      setItems(restaurants.map((restaurant) => ({
+        ...restaurant,
+        special_hours: specialByRestaurant.get(restaurant.id) ?? [],
+      })));
     } catch (err: unknown) {
       console.error(err);
       setError(t('error.genericBody'));
@@ -163,6 +185,15 @@ export default function RestaurantsPage() {
     enabled: Boolean(selectedWilaya?.id),
     filter: selectedWilaya?.id ? { wilaya_id: `eq.${selectedWilaya.id}` } : undefined,
   });
+
+  useRealtime('restaurant_special_hours', () => {
+    void load();
+  }, { enabled: Boolean(selectedWilaya?.id) });
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setAvailabilityClock(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const term = sanitizeMarketplaceSearchTerm(query);
@@ -222,7 +253,10 @@ export default function RestaurantsPage() {
 
   const filtered = useMemo(() => {
     let list = items;
-    if (filter === 'open') list = list.filter((r) => r.operational_status === 'open');
+    if (filter === 'open') {
+      list = list.filter((restaurant) =>
+        restaurantAcceptsOrders(restaurant, restaurant.special_hours, availabilityClock));
+    }
     if (filter === 'top') list = list.filter((r) => r.rating >= 4).sort((a, b) => b.rating - a.rating);
     if (currentLocation) {
       list = [...list].sort((a, b) => (a.distance_km ?? Number.MAX_VALUE) - (b.distance_km ?? Number.MAX_VALUE));
@@ -242,7 +276,7 @@ export default function RestaurantsPage() {
         .map(({ restaurant }) => restaurant);
     }
     return list;
-  }, [items, filter, query, currentLocation, menuMatches]);
+  }, [items, filter, query, currentLocation, menuMatches, availabilityClock]);
 
   return (
     <AppShell>
@@ -399,7 +433,11 @@ export default function RestaurantsPage() {
                   )}
                   <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-3">
                     <div className="flex items-center gap-2">
-                      <StatusChip status={r.operational_status} />
+                      <StatusChip
+                        status={restaurantAcceptsOrders(r, r.special_hours, availabilityClock)
+                          ? r.operational_status
+                          : 'closed'}
+                      />
                       {r.estimated_delivery_min && (
                         <span className="flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur">
                           <Clock className="h-3 w-3" />

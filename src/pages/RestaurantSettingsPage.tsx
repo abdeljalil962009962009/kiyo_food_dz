@@ -2,10 +2,16 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Clock, Truck, Settings, ChevronLeft, ImagePlus,
-  AlertCircle, Save, Wallet, MapPin, Store,
+  AlertCircle, Save, Wallet, MapPin, Store, CalendarDays, Plus, Trash2,
 } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
-import { supabase, type PublicationReadiness, type Restaurant, type RestaurantCommercialTerm } from '../lib/supabase';
+import {
+  supabase,
+  type PublicationReadiness,
+  type Restaurant,
+  type RestaurantCommercialTerm,
+  type RestaurantSpecialHours,
+} from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -18,6 +24,7 @@ import { callUserAction } from '../lib/userApi';
 import { matchWilayaFromAddress } from '../lib/algeriaLocation';
 import { FALLBACK_WILAYAS } from '../context/WilayaContext';
 import { userFacingError } from '../lib/userFacingError';
+import { algeriaAvailabilityDateRange } from '../lib/restaurantAvailability';
 
 type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 const DAYS: { key: DayOfWeek; labelKey: 'day.0' | 'day.1' | 'day.2' | 'day.3' | 'day.4' | 'day.5' | 'day.6' }[] = [
@@ -63,12 +70,46 @@ const profileLabels = {
   },
 } as const;
 
+const scheduleLabels = {
+  en: {
+    vacation: 'Vacation mode', vacationBody: 'Stop all new orders until you switch this off. Your restaurant and existing orders stay visible to you.',
+    vacationOn: 'Vacation mode is active', vacationOff: 'Accept orders according to the schedule',
+    exceptions: 'Exceptional hours', exceptionsBody: 'Plan a holiday closure or different opening hours for a specific date.',
+    date: 'Date', allDayClosed: 'Closed all day', opens: 'Opens', closes: 'Closes', reason: 'Reason (optional)',
+    reasonPlaceholder: 'Public holiday, maintenance...', add: 'Save exceptional hours', none: 'No upcoming exceptions.',
+    remove: 'Remove', removeConfirm: 'Remove these exceptional hours?', confirmRemove: 'Yes, remove', cancel: 'Cancel',
+    invalid: 'Choose a future date and two different opening times, or mark the restaurant closed all day.',
+    saveFailed: 'Exceptional hours could not be saved. Try again.', deleteFailed: 'Exceptional hours could not be removed. Try again.',
+  },
+  fr: {
+    vacation: 'Mode vacances', vacationBody: 'Suspendez toutes les nouvelles commandes jusqu’à sa désactivation. Votre restaurant et les commandes existantes restent accessibles.',
+    vacationOn: 'Le mode vacances est actif', vacationOff: 'Accepter les commandes selon les horaires',
+    exceptions: 'Horaires exceptionnels', exceptionsBody: 'Planifiez une fermeture ou des horaires différents pour une date précise.',
+    date: 'Date', allDayClosed: 'Fermé toute la journée', opens: 'Ouverture', closes: 'Fermeture', reason: 'Motif (facultatif)',
+    reasonPlaceholder: 'Jour férié, maintenance...', add: 'Enregistrer cet horaire', none: 'Aucun horaire exceptionnel à venir.',
+    remove: 'Supprimer', removeConfirm: 'Supprimer cet horaire exceptionnel ?', confirmRemove: 'Oui, supprimer', cancel: 'Annuler',
+    invalid: 'Choisissez une date à venir et deux heures différentes, ou indiquez une fermeture toute la journée.',
+    saveFailed: 'Impossible d’enregistrer cet horaire. Réessayez.', deleteFailed: 'Impossible de supprimer cet horaire. Réessayez.',
+  },
+  ar: {
+    vacation: 'وضع العطلة', vacationBody: 'أوقف جميع الطلبات الجديدة حتى تعطّل هذا الوضع. يبقى المطعم والطلبات الحالية ظاهرين لك.',
+    vacationOn: 'وضع العطلة مفعّل', vacationOff: 'قبول الطلبات حسب أوقات العمل',
+    exceptions: 'أوقات العمل الاستثنائية', exceptionsBody: 'حدّد إغلاقا أو أوقات عمل مختلفة ليوم معيّن.',
+    date: 'التاريخ', allDayClosed: 'مغلق طوال اليوم', opens: 'يفتح', closes: 'يغلق', reason: 'السبب (اختياري)',
+    reasonPlaceholder: 'عطلة رسمية، صيانة...', add: 'حفظ الوقت الاستثنائي', none: 'لا توجد أوقات استثنائية قادمة.',
+    remove: 'حذف', removeConfirm: 'هل تريد حذف هذا الوقت الاستثنائي؟', confirmRemove: 'نعم، حذف', cancel: 'إلغاء',
+    invalid: 'اختر تاريخا قادما ووقتَي فتح وإغلاق مختلفين، أو حدّد أن المطعم مغلق طوال اليوم.',
+    saveFailed: 'تعذر حفظ الوقت الاستثنائي. حاول مجددا.', deleteFailed: 'تعذر حذف الوقت الاستثنائي. حاول مجددا.',
+  },
+} as const;
+
 type HoursEntry = { open: string; close: string } | null;
 type OpeningHours = Record<string, HoursEntry>;
 
 export default function RestaurantSettingsPage() {
   const { t, locale } = useT();
   const profileTx = profileLabels[locale];
+  const scheduleTx = scheduleLabels[locale];
   const { profile } = useAuth();
   const navigate = useNavigate();
 
@@ -79,6 +120,18 @@ export default function RestaurantSettingsPage() {
 
   // Business hours state
   const [hours, setHours] = useState<OpeningHours>({});
+  const [vacationMode, setVacationMode] = useState(false);
+  const [specialHours, setSpecialHours] = useState<RestaurantSpecialHours[]>([]);
+  const [specialDraft, setSpecialDraft] = useState({
+    date: algeriaAvailabilityDateRange().to,
+    is_closed: true,
+    open_time: '09:00',
+    close_time: '22:00',
+    reason: '',
+  });
+  const [scheduleSaving, setScheduleSaving] = useState(false);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [pendingSpecialDelete, setPendingSpecialDelete] = useState<string | null>(null);
 
   // Delivery settings
   const [deliveryRadius, setDeliveryRadius] = useState('10');
@@ -123,16 +176,26 @@ export default function RestaurantSettingsPage() {
       setCuisines((activeRes.cuisine ?? []).join(', '));
       setImageUrl(activeRes.image_url ?? '');
       setHours(activeRes.opening_hours as OpeningHours || {});
+      setVacationMode(Boolean(activeRes.is_vacation_mode));
       setDeliveryRadius(String(activeRes.max_delivery_km || 10));
       setMinOrder(String(activeRes.min_order_amount || 0));
       setEstimatedDeliveryMin(String(activeRes.estimated_delivery_min || 45));
-      const [{ data: term }, { data: readinessData }] = await Promise.all([
+      const [{ data: term, error: termError }, { data: readinessData, error: readinessError }, specialResult] = await Promise.all([
         supabase.from('restaurant_commercial_terms').select('*')
           .eq('restaurant_id', activeRes.id).eq('status', 'active').maybeSingle(),
         callUserAction<PublicationReadiness>('get_restaurant_publication_readiness', { p_restaurant_id: activeRes.id }),
+        supabase.from('restaurant_special_hours').select('*')
+          .eq('restaurant_id', activeRes.id)
+          .gte('date', algeriaAvailabilityDateRange().to)
+          .order('date')
+          .limit(30),
       ]);
+      if (termError) throw termError;
+      if (readinessError) throw readinessError;
+      if (specialResult.error) throw specialResult.error;
       setCommercialTerm((term as RestaurantCommercialTerm | null) ?? null);
       setReadiness((readinessData as PublicationReadiness | null) ?? null);
+      setSpecialHours((specialResult.data as RestaurantSpecialHours[] | null) ?? []);
       if (activeRes.latitude != null && activeRes.longitude != null) {
         setLocation({
           lat: activeRes.latitude,
@@ -207,6 +270,7 @@ export default function RestaurantSettingsPage() {
           cuisine: cuisineList,
           image_url: nextImageUrl,
           opening_hours: hours,
+          is_vacation_mode: vacationMode,
           max_delivery_km: Number(deliveryRadius),
           min_order_amount: Number(minOrder),
           estimated_delivery_min: Number(estimatedDeliveryMin),
@@ -243,6 +307,8 @@ export default function RestaurantSettingsPage() {
         phone: phone.trim(),
         cuisine: cuisineList,
         image_url: nextImageUrl,
+        opening_hours: hours as Restaurant['opening_hours'],
+        is_vacation_mode: vacationMode,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -289,6 +355,87 @@ export default function RestaurantSettingsPage() {
       ...prev,
       [day]: prev[day] ? null : { open: '09:00', close: '22:00' },
     }));
+  };
+
+  const toggleVacationMode = async () => {
+    if (!restaurant || scheduleSaving) return;
+    const next = !vacationMode;
+    setScheduleSaving(true);
+    setScheduleError(null);
+    try {
+      const { error: updateError } = await supabase
+        .from('restaurants')
+        .update({ is_vacation_mode: next, updated_at: new Date().toISOString() })
+        .eq('id', restaurant.id);
+      if (updateError) throw updateError;
+      setVacationMode(next);
+      setRestaurant({ ...restaurant, is_vacation_mode: next });
+    } catch (updateError) {
+      setScheduleError(userFacingError(updateError, locale, t('error.genericBody')));
+    } finally {
+      setScheduleSaving(false);
+    }
+  };
+
+  const saveSpecialHours = async () => {
+    if (!restaurant || scheduleSaving) return;
+    const invalid = !specialDraft.date
+      || specialDraft.date < algeriaAvailabilityDateRange().to
+      || (!specialDraft.is_closed && (
+        !specialDraft.open_time
+        || !specialDraft.close_time
+        || specialDraft.open_time === specialDraft.close_time
+      ));
+    if (invalid) {
+      setScheduleError(scheduleTx.invalid);
+      return;
+    }
+
+    setScheduleSaving(true);
+    setScheduleError(null);
+    try {
+      const { data, error: upsertError } = await supabase
+        .from('restaurant_special_hours')
+        .upsert({
+          restaurant_id: restaurant.id,
+          date: specialDraft.date,
+          is_closed: specialDraft.is_closed,
+          open_time: specialDraft.is_closed ? null : specialDraft.open_time,
+          close_time: specialDraft.is_closed ? null : specialDraft.close_time,
+          reason: specialDraft.reason.trim() || null,
+        }, { onConflict: 'restaurant_id,date' })
+        .select('*')
+        .single();
+      if (upsertError) throw upsertError;
+      const savedEntry = data as RestaurantSpecialHours;
+      setSpecialHours((current) => [...current.filter((entry) => entry.date !== savedEntry.date), savedEntry]
+        .sort((a, b) => a.date.localeCompare(b.date)));
+      setSpecialDraft((current) => ({ ...current, reason: '' }));
+    } catch (upsertError) {
+      setScheduleError(userFacingError(upsertError, locale, scheduleTx.saveFailed));
+    } finally {
+      setScheduleSaving(false);
+    }
+  };
+
+  const deleteSpecialHours = async (entry: RestaurantSpecialHours) => {
+    if (!restaurant || scheduleSaving) return;
+    setScheduleSaving(true);
+    setScheduleError(null);
+    try {
+      const { error: deleteError } = await supabase
+        .from('restaurant_special_hours')
+        .delete()
+        .eq('id', entry.id)
+        .eq('restaurant_id', restaurant.id);
+      if (deleteError) throw deleteError;
+      setSpecialHours((current) => current.filter((item) => item.id !== entry.id));
+      setPendingSpecialDelete(null);
+    } catch (deleteError) {
+      setScheduleError(userFacingError(deleteError, locale, scheduleTx.deleteFailed));
+    } finally {
+      setScheduleSaving(false);
+    }
   };
 
   return (
@@ -390,6 +537,140 @@ export default function RestaurantSettingsPage() {
                   )}
                   {!hours[key] && (
                     <span className="text-xs text-ink-400">{t('common.closed')}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="mt-5 border-t border-ink-100 pt-5">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={vacationMode}
+                disabled={scheduleSaving}
+                onClick={toggleVacationMode}
+                className="flex min-h-11 w-full items-center justify-between gap-4 rounded-lg border border-ink-100 bg-ink-50 px-3 py-2 text-start transition-colors hover:border-ink-200 disabled:opacity-60"
+              >
+                <span>
+                  <span className="block text-sm font-bold text-ink-900">{scheduleTx.vacation}</span>
+                  <span className="mt-0.5 block text-xs text-ink-500">{scheduleTx.vacationBody}</span>
+                </span>
+                <span className={`relative h-6 w-11 flex-none rounded-full transition-colors ${vacationMode ? 'bg-error-500' : 'bg-ink-300'}`}>
+                  <span
+                    className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-[inset-inline-start] ${
+                      vacationMode ? '[inset-inline-start:1.5rem]' : '[inset-inline-start:0.25rem]'
+                    }`}
+                  />
+                </span>
+              </button>
+              <p className={`mt-2 text-xs font-semibold ${vacationMode ? 'text-error-600' : 'text-sage-700'}`}>
+                {vacationMode ? scheduleTx.vacationOn : scheduleTx.vacationOff}
+              </p>
+            </div>
+          </div>
+
+          <div className="kiyo-card">
+            <div className="mb-1 flex items-center gap-2">
+              <CalendarDays className="h-5 w-5 text-ember-600" />
+              <h2 className="font-display text-base font-bold text-ink-900">{scheduleTx.exceptions}</h2>
+            </div>
+            <p className="mb-4 text-xs text-ink-500">{scheduleTx.exceptionsBody}</p>
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <label>
+                <span className="kiyo-label">{scheduleTx.date}</span>
+                <input
+                  type="date"
+                  min={algeriaAvailabilityDateRange().to}
+                  value={specialDraft.date}
+                  onChange={(event) => setSpecialDraft((current) => ({ ...current, date: event.target.value }))}
+                  className="kiyo-input"
+                />
+              </label>
+              <label className="flex min-h-11 items-center gap-2 self-end rounded-lg border border-ink-100 px-3">
+                <input
+                  type="checkbox"
+                  checked={specialDraft.is_closed}
+                  onChange={(event) => setSpecialDraft((current) => ({ ...current, is_closed: event.target.checked }))}
+                  className="h-4 w-4 rounded border-ink-300 text-ember-500 focus:ring-ember-500"
+                />
+                <span className="text-sm font-semibold text-ink-700">{scheduleTx.allDayClosed}</span>
+              </label>
+              {!specialDraft.is_closed && (
+                <>
+                  <label>
+                    <span className="kiyo-label">{scheduleTx.opens}</span>
+                    <input type="time" value={specialDraft.open_time} onChange={(event) => setSpecialDraft((current) => ({ ...current, open_time: event.target.value }))} className="kiyo-input" />
+                  </label>
+                  <label>
+                    <span className="kiyo-label">{scheduleTx.closes}</span>
+                    <input type="time" value={specialDraft.close_time} onChange={(event) => setSpecialDraft((current) => ({ ...current, close_time: event.target.value }))} className="kiyo-input" />
+                  </label>
+                </>
+              )}
+              <label className="sm:col-span-2 lg:col-span-3">
+                <span className="kiyo-label">{scheduleTx.reason}</span>
+                <input
+                  value={specialDraft.reason}
+                  onChange={(event) => setSpecialDraft((current) => ({ ...current, reason: event.target.value }))}
+                  placeholder={scheduleTx.reasonPlaceholder}
+                  maxLength={160}
+                  className="kiyo-input"
+                />
+              </label>
+              <button type="button" onClick={saveSpecialHours} disabled={scheduleSaving} className="kiyo-btn-primary self-end">
+                {scheduleSaving ? <Spinner className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                {scheduleTx.add}
+              </button>
+            </div>
+
+            {scheduleError && (
+              <div role="alert" className="mt-3 flex items-start gap-2 rounded-lg bg-error-500/10 px-3 py-2 text-xs font-semibold text-error-700">
+                <AlertCircle className="mt-0.5 h-4 w-4 flex-none" />
+                {scheduleError}
+              </div>
+            )}
+
+            <div className="mt-4 space-y-2">
+              {specialHours.length === 0 && <p className="text-sm text-ink-400">{scheduleTx.none}</p>}
+              {specialHours.map((entry) => (
+                <div key={entry.id} className="rounded-lg border border-ink-100 px-3 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-ink-900">
+                        {new Date(`${entry.date}T12:00:00`).toLocaleDateString(
+                          locale === 'ar' ? 'ar-DZ' : locale === 'fr' ? 'fr-DZ' : 'en-DZ',
+                          { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' },
+                        )}
+                      </p>
+                      <p className="mt-0.5 text-xs text-ink-500">
+                        {entry.is_closed
+                          ? scheduleTx.allDayClosed
+                          : `${entry.open_time?.slice(0, 5)} ${t('common.to')} ${entry.close_time?.slice(0, 5)}`}
+                        {entry.reason ? ` · ${entry.reason}` : ''}
+                      </p>
+                    </div>
+                    {pendingSpecialDelete !== entry.id && (
+                      <button type="button" onClick={() => setPendingSpecialDelete(entry.id)} className="kiyo-btn-secondary min-h-11 text-error-600">
+                        <Trash2 className="h-4 w-4" />
+                        {scheduleTx.remove}
+                      </button>
+                    )}
+                  </div>
+                  {pendingSpecialDelete === entry.id && (
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-error-50 px-3 py-2">
+                      <span className="text-xs font-semibold text-error-700">{scheduleTx.removeConfirm}</span>
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => setPendingSpecialDelete(null)} className="kiyo-btn-secondary min-h-11">{scheduleTx.cancel}</button>
+                        <button
+                          type="button"
+                          onClick={() => void deleteSpecialHours(entry)}
+                          disabled={scheduleSaving}
+                          className="inline-flex min-h-11 items-center justify-center rounded-lg bg-error-600 px-4 text-sm font-bold text-white transition-colors hover:bg-error-700 disabled:opacity-60"
+                        >
+                          {scheduleTx.confirmRemove}
+                        </button>
+                      </div>
+                    </div>
                   )}
                 </div>
               ))}

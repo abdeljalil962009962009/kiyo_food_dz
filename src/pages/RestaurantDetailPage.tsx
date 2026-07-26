@@ -3,7 +3,7 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import { Map, AdvancedMarker } from '@vis.gl/react-google-maps';
 import { Star, Clock, MapPin, Plus, ChevronLeft, ShoppingBag, Info, Truck, Heart, BadgeCheck, ShieldCheck, Utensils } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
-import { supabase, type Restaurant, type MenuItem, type MenuCategory } from '../lib/supabase';
+import { supabase, type Restaurant, type MenuItem, type MenuCategory, type RestaurantSpecialHours } from '../lib/supabase';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { AppShell } from '../components/AppShell';
@@ -14,6 +14,7 @@ import { GoogleMapShell, GOOGLE_MAPS_MAP_ID, MapCircle, MapMarkerBadge } from '.
 import { isValidMapCoordinate } from '../lib/googleMaps';
 import { useRealtime } from '../lib/useRealtime';
 import { publicRestaurantImageUrl } from '../lib/restaurantMedia';
+import { algeriaAvailabilityDateRange, restaurantAcceptsOrders } from '../lib/restaurantAvailability';
 
 const OpenStreetMapDisplay = lazy(() => import('../components/OpenStreetMapDisplay'));
 
@@ -55,17 +56,26 @@ export default function RestaurantDetailPage() {
   const [favoriteAnimating, setFavoriteAnimating] = useState(false);
   const [addedItemId, setAddedItemId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [specialHours, setSpecialHours] = useState<RestaurantSpecialHours[]>([]);
+  const [availabilityClock, setAvailabilityClock] = useState(() => new Date());
 
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true);
     setError(null);
     try {
-      const [r, c, m] = await Promise.all([
+      const range = algeriaAvailabilityDateRange();
+      const [r, c, m, special] = await Promise.all([
         supabase.from('restaurants').select('*').eq('id', id).maybeSingle(),
         supabase.from('menu_categories').select('*').eq('restaurant_id', id).order('position'),
         supabase.from('menu_items').select('*').eq('restaurant_id', id).order('position'),
+        supabase.from('restaurant_special_hours').select('*').eq('restaurant_id', id)
+          .gte('date', range.from).lte('date', range.to),
       ]);
+      if (r.error) throw r.error;
+      if (c.error) throw c.error;
+      if (m.error) throw m.error;
+      if (special.error) throw special.error;
       const foundRes = r.data as Restaurant;
       if (!foundRes) {
         setError('404');
@@ -74,6 +84,7 @@ export default function RestaurantDetailPage() {
         setRestaurantName(foundRes.name);
         setCategories((c.data as MenuCategory[]) ?? []);
         setMenuItems((m.data as MenuItem[]) ?? []);
+        setSpecialHours((special.data as RestaurantSpecialHours[]) ?? []);
       }
 
       // Check if favorite
@@ -100,6 +111,15 @@ export default function RestaurantDetailPage() {
     if (payload.new.id !== id) return;
     setRestaurant((current) => current ? { ...current, ...payload.new } as Restaurant : current);
   }, { enabled: Boolean(id), filter: id ? { id: `eq.${id}` } : undefined });
+
+  useRealtime('restaurant_special_hours', () => {
+    void load();
+  }, { enabled: Boolean(id), filter: id ? { restaurant_id: `eq.${id}` } : undefined });
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setAvailabilityClock(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const toggleFavorite = async () => {
     if (!user || !restaurant) return;
@@ -156,7 +176,8 @@ export default function RestaurantDetailPage() {
     );
   }
 
-  const isOpen = restaurant.operational_status !== 'closed';
+  const isOpen = restaurantAcceptsOrders(restaurant, specialHours, availabilityClock);
+  const displayStatus = isOpen ? restaurant.operational_status : 'closed';
   const cartHasOtherRestaurant = cart.restaurantId && cart.restaurantId !== restaurant.id;
 
   return (
@@ -202,11 +223,11 @@ export default function RestaurantDetailPage() {
                   </span>
                 )}
                 <span className={`rounded-full px-2 py-0.5 font-semibold backdrop-blur ${
-                  restaurant.operational_status === 'open' ? 'bg-sage-500/80 text-white' :
-                  restaurant.operational_status === 'busy' ? 'bg-warning-500/80 text-white' :
+                  displayStatus === 'open' ? 'bg-sage-500/80 text-white' :
+                  displayStatus === 'busy' ? 'bg-warning-500/80 text-white' :
                   'bg-ink-900/80 text-white'
                 }`}>
-                  {t(`restaurant.${restaurant.operational_status}`)}
+                  {t(`restaurant.${displayStatus}`)}
                 </span>
                 {restaurant.estimated_delivery_min && (
                   <span className="flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 font-semibold backdrop-blur">

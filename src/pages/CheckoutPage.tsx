@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronLeft, Check, ShieldCheck, AlertCircle, ShoppingCart, Truck, Home, Building2, Phone } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
-import { supabase } from '../lib/supabase';
+import { supabase, type Restaurant, type RestaurantSpecialHours } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useWilaya } from '../context/WilayaContext';
@@ -18,6 +18,7 @@ import { clearCachedDeliveryQuotes, getAuthoritativeDeliveryQuote, type Authorit
 import { useRealtime } from '../lib/useRealtime';
 import { checkoutEtaWindow } from '../lib/deliveryEta';
 import { userFacingError } from '../lib/userFacingError';
+import { algeriaAvailabilityDateRange, restaurantAcceptsOrders } from '../lib/restaurantAvailability';
 
 type Step = 'details' | 'review' | 'success';
 type ContactPhoneMode = 'account' | 'alternate';
@@ -69,7 +70,17 @@ export default function CheckoutPage() {
   const [savingRepeatedAddress, setSavingRepeatedAddress] = useState(false);
 
   // Restaurant coords for delivery zone + map
-  type RestaurantGeo = { lat: number; lng: number; max_km: number; operationalStatus: 'open' | 'busy' | 'closed'; preparationMinutes: number };
+  type RestaurantAvailability = Pick<
+    Restaurant,
+    'status' | 'operational_status' | 'is_vacation_mode' | 'opening_hours' | 'timezone'
+  >;
+  type RestaurantGeo = {
+    lat: number;
+    lng: number;
+    max_km: number;
+    operationalStatus: 'open' | 'busy' | 'closed';
+    preparationMinutes: number;
+  };
   const [restaurantGeo, setRestaurantGeo] = useState<RestaurantGeo | null>(null);
   // Customer-chosen delivery location from the map
   const [mapLocation, setMapLocation] = useState<DeliveryMapLocation | null>(deliveryLocation);
@@ -77,50 +88,90 @@ export default function CheckoutPage() {
   const accountPhoneAvailable = isValidAlgerianPhone(accountPhone);
   const selectedPhone = contactPhoneMode === 'account' ? accountPhone : alternatePhone;
 
-  // Load restaurant coordinates + delivery zone (for the map + distance check).
-  useEffect(() => {
+  const refreshRestaurantAvailability = useCallback(async (closedMessage: string = availability.closed) => {
     if (!cart.restaurantId) return;
-    void (async () => {
-      try {
-        const { data, error } = await supabase
+    try {
+      const data = await withExponentialBackoff(async () => {
+        const restaurantResult = await supabase
           .from('restaurants')
-          .select('latitude, longitude, max_delivery_km, operational_status, estimated_delivery_min')
+          .select('latitude, longitude, max_delivery_km, status, operational_status, is_vacation_mode, opening_hours, timezone, estimated_delivery_min')
           .eq('id', cart.restaurantId)
           .maybeSingle();
-        if (error) throw error;
-        if (data && data.latitude != null && data.longitude != null) {
-          setRestaurantGeo({
-            lat: data.latitude,
-            lng: data.longitude,
-            max_km: data.max_delivery_km ?? 10,
-            operationalStatus: data.operational_status,
-            preparationMinutes: data.estimated_delivery_min ?? 20,
-          });
-          if (data.operational_status === 'closed') {
-            setCalcError(availability.closed);
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load restaurant delivery geography', err);
-        setCalcError(userFacingError(err, locale, t('checkout.errorCalc')));
-      }
-    })();
-  }, [availability.closed, cart.restaurantId, locale, t]);
+        if (restaurantResult.error) throw restaurantResult.error;
+        if (!restaurantResult.data) return null;
 
-  useRealtime('restaurants', (payload) => {
-    if (!payload.new?.id || payload.new.id !== cart.restaurantId) return;
-    const operationalStatus = payload.new.operational_status as RestaurantGeo['operationalStatus'];
-    setRestaurantGeo((current) => current ? { ...current, operationalStatus } : current);
-    if (operationalStatus === 'closed') {
+        const range = algeriaAvailabilityDateRange();
+        const specialResult = await supabase
+          .from('restaurant_special_hours')
+          .select('*')
+          .eq('restaurant_id', cart.restaurantId)
+          .gte('date', range.from)
+          .lte('date', range.to);
+        if (specialResult.error) throw specialResult.error;
+        return {
+          restaurant: restaurantResult.data,
+          specialHours: (specialResult.data as RestaurantSpecialHours[] | null) ?? [],
+        };
+      }, { attempts: 3, timeoutMs: 12_000 });
+
+      if (!data?.restaurant || data.restaurant.latitude == null || data.restaurant.longitude == null) {
+        setRestaurantGeo(null);
+        setFinance(null);
+        setCalcError(t('checkout.errorCalc'));
+        return;
+      }
+
+      const source = data.restaurant as RestaurantAvailability;
+      const operationalStatus = restaurantAcceptsOrders(source, data.specialHours)
+        ? source.operational_status
+        : 'closed';
+      setRestaurantGeo({
+        lat: data.restaurant.latitude,
+        lng: data.restaurant.longitude,
+        max_km: data.restaurant.max_delivery_km ?? 10,
+        operationalStatus,
+        preparationMinutes: data.restaurant.estimated_delivery_min ?? 20,
+      });
+      if (operationalStatus === 'closed') {
+        setFinance(null);
+        setCalcError(closedMessage);
+      } else {
+        setCalcError((current) => current === availability.closed || current === availability.changed ? null : current);
+      }
+    } catch (err) {
+      console.error('[Kiyo] Checkout restaurant availability refresh failed:', err);
+      setRestaurantGeo(null);
       setFinance(null);
-      setCalcError(availability.changed);
-    } else {
-      setCalcError(null);
+      setCalcError(userFacingError(err, locale, t('checkout.errorCalc')));
     }
+  }, [availability.changed, availability.closed, cart.restaurantId, locale, t]);
+
+  // Load restaurant coordinates, delivery zone, and the complete acceptance rule.
+  useEffect(() => {
+    void refreshRestaurantAvailability();
+  }, [refreshRestaurantAvailability]);
+
+  useRealtime('restaurants', () => {
+    void refreshRestaurantAvailability(availability.changed);
   }, {
     enabled: Boolean(cart.restaurantId),
     filter: cart.restaurantId ? { id: `eq.${cart.restaurantId}` } : undefined,
   });
+
+  useRealtime('restaurant_special_hours', () => {
+    void refreshRestaurantAvailability(availability.changed);
+  }, {
+    enabled: Boolean(cart.restaurantId),
+    filter: cart.restaurantId ? { restaurant_id: `eq.${cart.restaurantId}` } : undefined,
+  });
+
+  useEffect(() => {
+    const timer = window.setInterval(
+      () => void refreshRestaurantAvailability(availability.changed),
+      60_000,
+    );
+    return () => window.clearInterval(timer);
+  }, [availability.changed, refreshRestaurantAvailability]);
 
   // Sync profile into form once on mount.
   useEffect(() => {

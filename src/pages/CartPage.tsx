@@ -8,10 +8,11 @@ import { AppShell } from '../components/AppShell';
 import { PriceTag } from '../components/ui';
 import { Spinner } from '../components/feedback';
 import { getAuthoritativeDeliveryQuote, type AuthoritativeDeliveryQuote } from '../lib/deliveryQuote';
-import { supabase } from '../lib/supabase';
+import { supabase, type Restaurant, type RestaurantSpecialHours } from '../lib/supabase';
 import { withExponentialBackoff } from '../lib/locationNetwork';
 import { useRealtime } from '../lib/useRealtime';
 import { userFacingError } from '../lib/userFacingError';
+import { algeriaAvailabilityDateRange, restaurantAcceptsOrders } from '../lib/restaurantAvailability';
 
 const copy = {
   en: {
@@ -84,39 +85,68 @@ export default function CartPage() {
     if (!state.restaurantId) return;
     setAvailabilityError(null);
     try {
-      const { data } = await withExponentialBackoff(async () => {
+      const data = await withExponentialBackoff(async () => {
         const result = await supabase
           .from('restaurants')
-          .select('status, operational_status')
+          .select('status, operational_status, is_vacation_mode, opening_hours, timezone')
           .eq('id', state.restaurantId)
           .maybeSingle();
         if (result.error) throw result.error;
-        return result;
+        if (!result.data) return { restaurant: null, specialHours: [] };
+        const range = algeriaAvailabilityDateRange();
+        const special = await supabase
+          .from('restaurant_special_hours')
+          .select('*')
+          .eq('restaurant_id', state.restaurantId)
+          .gte('date', range.from)
+          .lte('date', range.to);
+        if (special.error) throw special.error;
+        return {
+          restaurant: result.data as Pick<Restaurant, 'status' | 'operational_status' | 'is_vacation_mode' | 'opening_hours' | 'timezone'>,
+          specialHours: (special.data as RestaurantSpecialHours[] | null) ?? [],
+        };
       }, { attempts: 3, timeoutMs: 12_000 });
-      setOperationalStatus(data?.status === 'published' ? data.operational_status : 'closed');
+      setOperationalStatus(data.restaurant && restaurantAcceptsOrders(data.restaurant, data.specialHours)
+        ? data.restaurant.operational_status
+        : 'closed');
     } catch (err) {
       console.error('[Kiyo] Cart restaurant availability refresh failed:', err);
+      setOperationalStatus('closed');
       setAvailabilityError(userFacingError(err, locale, tx.availabilityError));
     }
   }, [locale, state.restaurantId, tx.availabilityError]);
 
   useEffect(() => { void refreshAvailability(); }, [refreshAvailability]);
 
-  useRealtime('restaurants', (payload) => {
-    if (payload.new?.id !== state.restaurantId) return;
-    const nextStatus = payload.new.status === 'published'
-      ? payload.new.operational_status as typeof operationalStatus
-      : 'closed';
-    setOperationalStatus(nextStatus);
-    setAvailabilityError(null);
-    if (nextStatus === 'closed') {
-      setQuote(null);
-      setQuoteError(null);
-    }
+  useEffect(() => {
+    const timer = window.setInterval(() => void refreshAvailability(), 60_000);
+    return () => window.clearInterval(timer);
+  }, [refreshAvailability]);
+
+  useRealtime('restaurants', () => {
+    void refreshAvailability();
   }, {
     enabled: Boolean(state.restaurantId),
     filter: state.restaurantId ? { id: `eq.${state.restaurantId}` } : undefined,
   });
+
+  useRealtime('restaurant_special_hours', () => {
+    void refreshAvailability();
+  }, {
+    enabled: Boolean(state.restaurantId),
+    filter: state.restaurantId ? { restaurant_id: `eq.${state.restaurantId}` } : undefined,
+  });
+
+  /*
+   * Quotes are cleared only after the refreshed authoritative availability
+   * state closes the restaurant, so transient realtime payloads cannot race
+   * with the full schedule check above.
+   */
+  useEffect(() => {
+    if (operationalStatus !== 'closed') return;
+    setQuote(null);
+    setQuoteError(null);
+  }, [operationalStatus]);
 
   if (state.lines.length === 0) {
     return (

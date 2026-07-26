@@ -254,6 +254,17 @@ export type MenuItem = {
   updated_at: string;
 };
 
+export type RestaurantSpecialHours = {
+  id: string;
+  restaurant_id: string;
+  date: string;
+  is_closed: boolean;
+  open_time: string | null;
+  close_time: string | null;
+  reason: string | null;
+  created_at: string;
+};
+
 export type OrderStatus =
   | 'pending' | 'accepted' | 'preparing'
   | 'out_for_delivery' | 'delivered' | 'cancelled'
