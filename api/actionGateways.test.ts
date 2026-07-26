@@ -132,6 +132,29 @@ describe('owner action gateway', () => {
     });
   });
 
+  it('routes geography changes through the idempotent service-only control function', async () => {
+    const { rpc } = queueClients({ id: ACTOR_ID, role: 'super_admin', is_suspended: false });
+    const { response, state } = makeResponse();
+    const args = {
+      p_wilaya_id: 25,
+      p_name: 'Constantine central service area',
+    };
+
+    await adminHandler({
+      method: 'POST',
+      headers: { authorization: 'Bearer owner-token' },
+      body: { action: 'create_delivery_zone', requestId: REQUEST_ID, args },
+    }, response);
+
+    expect(state.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith('manage_geography_control', {
+      p_actor_id: ACTOR_ID,
+      p_request_id: REQUEST_ID,
+      p_action: 'create_delivery_zone',
+      p_args: args,
+    });
+  });
+
   it('rejects oversized owner payloads before authentication or database access', async () => {
     const { response, state } = makeResponse();
     await adminHandler({

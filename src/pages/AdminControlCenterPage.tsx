@@ -220,7 +220,15 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'geography.inactive': 'Inactive',
     'geography.deliveryZones': 'Delivery Zones',
     'geography.addZone': 'Add Zone',
-    'geography.zonesDesc': 'Configure delivery pricing for different zones.',
+    'geography.zonesDesc': 'Manage operational service areas. Checkout pricing is controlled only by versioned Business Rules.',
+    'geography.managePricing': 'Manage pricing rules',
+    'geography.selectWilaya': 'Select Wilaya',
+    'geography.wilayaRequired': 'Select the Wilaya covered by this service zone.',
+    'geography.unassigned': 'Unassigned',
+    'geography.confirmEnableZone': 'Enable this service zone for new customer discovery?',
+    'geography.confirmDisableZone': 'Disable this service zone for new customer discovery? Existing orders remain available.',
+    'geography.confirmEnableWilaya': 'Enable this Wilaya for customer browsing and new service configuration?',
+    'geography.confirmDisableWilaya': 'Disable this Wilaya for new browsing? Existing orders remain manageable.',
     'geography.zoneName': 'Zone name',
     'geography.baseFee': 'Base fee',
     'geography.perKm': 'Per km',
@@ -418,7 +426,15 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'geography.inactive': 'Inactive',
     'geography.deliveryZones': 'Zones de livraison',
     'geography.addZone': 'Ajouter une zone',
-    'geography.zonesDesc': 'Configurer les tarifs de livraison pour différentes zones.',
+    'geography.zonesDesc': 'Gérez les zones de service opérationnelles. Les tarifs de commande sont contrôlés uniquement par les Règles commerciales versionnées.',
+    'geography.managePricing': 'Gérer les règles tarifaires',
+    'geography.selectWilaya': 'Sélectionner la Wilaya',
+    'geography.wilayaRequired': 'Sélectionnez la Wilaya couverte par cette zone de service.',
+    'geography.unassigned': 'Non attribuée',
+    'geography.confirmEnableZone': 'Activer cette zone de service pour les nouvelles recherches client ?',
+    'geography.confirmDisableZone': 'Désactiver cette zone pour les nouvelles recherches client ? Les commandes existantes restent accessibles.',
+    'geography.confirmEnableWilaya': 'Activer cette Wilaya pour la navigation client et la nouvelle configuration de service ?',
+    'geography.confirmDisableWilaya': 'Désactiver cette Wilaya pour les nouvelles recherches ? Les commandes existantes restent gérables.',
     'geography.zoneName': 'Nom de la zone',
     'geography.baseFee': 'Frais de base',
     'geography.perKm': 'Par km',
@@ -616,7 +632,15 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'geography.inactive': 'غير نشط',
     'geography.deliveryZones': 'مناطق التوصيل',
     'geography.addZone': 'إضافة منطقة',
-    'geography.zonesDesc': 'تهيئة تسعير التوصيل للمناطق المختلفة.',
+    'geography.zonesDesc': 'إدارة مناطق الخدمة التشغيلية. يتم التحكم في أسعار الطلبات حصرياً من خلال قواعد العمل المؤرخة.',
+    'geography.managePricing': 'إدارة قواعد التسعير',
+    'geography.selectWilaya': 'اختر الولاية',
+    'geography.wilayaRequired': 'اختر الولاية التي تغطيها منطقة الخدمة.',
+    'geography.unassigned': 'غير محددة',
+    'geography.confirmEnableZone': 'هل تريد تفعيل منطقة الخدمة هذه لعمليات بحث العملاء الجديدة؟',
+    'geography.confirmDisableZone': 'هل تريد تعطيل هذه المنطقة لعمليات البحث الجديدة؟ ستبقى الطلبات الحالية متاحة.',
+    'geography.confirmEnableWilaya': 'هل تريد تفعيل هذه الولاية لتصفح العملاء وإعدادات الخدمة الجديدة؟',
+    'geography.confirmDisableWilaya': 'هل تريد تعطيل هذه الولاية للتصفح الجديد؟ ستبقى الطلبات الحالية قابلة للإدارة.',
     'geography.zoneName': 'اسم المنطقة',
     'geography.baseFee': 'الرسوم الأساسية',
     'geography.perKm': 'لكل كم',
@@ -782,7 +806,7 @@ export default function AdminControlCenterPage() {
         {tab === 'settlements' && <SettlementsTab />}
         {tab === 'users' && <UsersTab />}
         {tab === 'restaurants' && <RestaurantsTab />}
-        {tab === 'geography' && <GeographyTab />}
+        {tab === 'geography' && <GeographyTab onOpenRules={() => setTab('rules')} />}
         {tab === 'rules' && <RulesTab />}
         {tab === 'analytics' && <AnalyticsTab />}
         {tab === 'alerts' && <AlertsTab />}
@@ -3359,6 +3383,7 @@ type DeliveryZone = {
   per_km_fee: string;
   min_fee: string;
   is_active: boolean;
+  updated_at: string;
 };
 
 type WilayaStats = {
@@ -3368,14 +3393,16 @@ type WilayaStats = {
   name_ar: string;
   code: string;
   is_active: boolean;
+  updated_at: string;
   restaurant_count: number;
   customer_count: number;
   order_count: number;
 };
 
-function GeographyTab() {
+function GeographyTab({ onOpenRules }: { onOpenRules: () => void }) {
   const { currentLocale, t } = useT();
   const { tx } = useAdminT();
+  const { confirmAction } = useActionDialog();
   const [wilayaStats, setWilayaStats] = useState<WilayaStats[]>([]);
   const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
   const [loading, setLoading] = useState(true);
@@ -3383,7 +3410,7 @@ function GeographyTab() {
   const [showZoneForm, setShowZoneForm] = useState(false);
   const [savingZone, setSavingZone] = useState(false);
   const [mutatingId, setMutatingId] = useState<string | number | null>(null);
-  const [newZone, setNewZone] = useState({ name: '', base_fee: '50', per_km_fee: '10', min_fee: '50' });
+  const [newZone, setNewZone] = useState({ name: '', wilaya_id: '' });
 
   const loadStats = useCallback(async () => {
     setLoading(true);
@@ -3426,6 +3453,7 @@ function GeographyTab() {
         name_ar: w.name_ar,
         code: w.code,
         is_active: Boolean(w.is_active),
+        updated_at: w.updated_at,
         restaurant_count: restaurantWilayaMap[w.id] || 0,
         customer_count: profileWilayaMap[w.id] || 0,
         order_count: 0,
@@ -3447,34 +3475,30 @@ function GeographyTab() {
 
   const createZone = async () => {
     const name = newZone.name.trim();
-    const baseFee = Number(newZone.base_fee);
-    const perKmFee = Number(newZone.per_km_fee);
-    const minFee = Number(newZone.min_fee);
+    const wilayaId = Number(newZone.wilaya_id);
 
     if (!name) {
       setError(tx('geography.zoneNameRequired', 'Enter a delivery zone name before saving.'));
       return;
     }
 
-    if (![baseFee, perKmFee, minFee].every((value) => Number.isFinite(value) && value >= 0)) {
-      setError(tx('geography.zoneFeesInvalid', 'Delivery zone fees must be valid positive numbers.'));
+    if (!Number.isInteger(wilayaId) || wilayaId < 1 || wilayaId > 58) {
+      setError(tx('geography.wilayaRequired', 'Select the Wilaya covered by this service zone.'));
       return;
     }
 
     setSavingZone(true);
     setError(null);
     try {
-      const { data, error: e } = await supabase.from('delivery_zones').insert({
-        name,
-        base_fee: baseFee,
-        per_km_fee: perKmFee,
-        min_fee: minFee,
-        is_active: true,
-      }).select('*').single();
+      const { data, error: e } = await callAdminAction<DeliveryZone>('create_delivery_zone', {
+        p_name: name,
+        p_wilaya_id: wilayaId,
+      });
       if (e) throw e;
+      if (!data) throw new Error('delivery_zone_create_returned_no_data');
       setShowZoneForm(false);
-      setNewZone({ name: '', base_fee: '50', per_km_fee: '10', min_fee: '50' });
-      setDeliveryZones((prev) => [...prev, data as DeliveryZone].sort((a, b) => a.name.localeCompare(b.name)));
+      setNewZone({ name: '', wilaya_id: '' });
+      setDeliveryZones((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
     } catch (err) {
       console.error('[Kiyo] Create delivery zone error:', err);
       setError(adminErrorMessage(err, tx('geography.createFailed', 'Delivery zone could not be created. Retry after checking the values.')));
@@ -3484,13 +3508,27 @@ function GeographyTab() {
   };
 
   const toggleZone = async (z: DeliveryZone) => {
+    const nextActive = !z.is_active;
+    const confirmed = await confirmAction({
+      title: nextActive ? tx('geography.enable', 'Enable') : tx('geography.disable', 'Disable'),
+      message: nextActive
+        ? tx('geography.confirmEnableZone', 'Enable this service zone for new customer discovery?')
+        : tx('geography.confirmDisableZone', 'Disable this service zone for new customer discovery? Existing orders remain available.'),
+      confirmLabel: nextActive ? tx('geography.enable', 'Enable') : tx('geography.disable', 'Disable'),
+      tone: nextActive ? 'default' : 'danger',
+    });
+    if (!confirmed) return;
     setMutatingId(z.id);
     setError(null);
     try {
-      const nextActive = !z.is_active;
-      const { error: e } = await supabase.from('delivery_zones').update({ is_active: nextActive }).eq('id', z.id);
+      const { data, error: e } = await callAdminAction<DeliveryZone>('set_delivery_zone_active', {
+        p_zone_id: z.id,
+        p_active: nextActive,
+        p_expected_updated_at: z.updated_at,
+      });
       if (e) throw e;
-      setDeliveryZones((prev) => prev.map((x) => x.id === z.id ? { ...x, is_active: nextActive } : x));
+      if (!data) throw new Error('delivery_zone_update_returned_no_data');
+      setDeliveryZones((prev) => prev.map((x) => x.id === z.id ? data : x));
     } catch (err) {
       console.error('[Kiyo] Toggle delivery zone error:', err);
       setError(adminErrorMessage(err, tx('geography.zoneUpdateFailed', 'Delivery zone status could not be updated. Retry in a moment.')));
@@ -3500,13 +3538,31 @@ function GeographyTab() {
   };
 
   const toggleWilaya = async (w: WilayaStats) => {
+    const nextActive = !w.is_active;
+    const confirmed = await confirmAction({
+      title: nextActive ? tx('geography.enable', 'Enable') : tx('geography.disable', 'Disable'),
+      message: nextActive
+        ? tx('geography.confirmEnableWilaya', 'Enable this Wilaya for customer browsing and new service configuration?')
+        : tx('geography.confirmDisableWilaya', 'Disable this Wilaya for new browsing? Existing orders remain manageable.'),
+      confirmLabel: nextActive ? tx('geography.enable', 'Enable') : tx('geography.disable', 'Disable'),
+      tone: nextActive ? 'default' : 'danger',
+    });
+    if (!confirmed) return;
     setMutatingId(w.id);
     setError(null);
     try {
-      const nextActive = !w.is_active;
-      const { error: e } = await supabase.from('wilayas').update({ is_active: nextActive }).eq('id', w.id);
+      const { data, error: e } = await callAdminAction<WilayaStats>('set_wilaya_active', {
+        p_wilaya_id: w.id,
+        p_active: nextActive,
+        p_expected_updated_at: w.updated_at,
+      });
       if (e) throw e;
-      setWilayaStats((prev) => prev.map((x) => x.id === w.id ? { ...x, is_active: nextActive } : x));
+      if (!data) throw new Error('wilaya_update_returned_no_data');
+      setWilayaStats((prev) => prev.map((x) => x.id === w.id ? {
+        ...x,
+        is_active: data.is_active,
+        updated_at: data.updated_at,
+      } : x));
     } catch (err) {
       console.error('[Kiyo] Toggle Wilaya error:', err);
       setError(adminErrorMessage(err, tx('geography.wilayaUpdateFailed', 'Wilaya status could not be updated. Retry in a moment.')));
@@ -3531,7 +3587,7 @@ function GeographyTab() {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <span>{error}</span>
             <button onClick={loadStats} className="self-start text-xs font-semibold underline sm:self-auto">
-              Retry
+              {t('error.retry')}
             </button>
           </div>
         </div>
@@ -3583,7 +3639,7 @@ function GeographyTab() {
                         onClick={() => toggleWilaya(w)}
                         disabled={mutatingId === w.id}
                         className="focus:outline-none transition-transform active:scale-95"
-                        title="Click to toggle active/inactive"
+                        aria-label={w.is_active ? tx('geography.disable', 'Disable') : tx('geography.enable', 'Enable')}
                       >
                         {w.is_active ? (
                           <span className="inline-flex items-center gap-1 rounded-full bg-sage-100 px-2 py-0.5 text-xs font-semibold text-sage-700 hover:bg-sage-200">
@@ -3613,25 +3669,37 @@ function GeographyTab() {
             <MapPin className="h-4 w-4 text-ember-500" />
             <h3 className="font-display text-sm font-bold text-ink-900">{tx('geography.deliveryZones', 'Delivery Zones')}</h3>
           </div>
-          <button onClick={() => { setError(null); setShowZoneForm((v) => !v); }} className="kiyo-btn-primary text-xs">
-            {tx('geography.addZone', 'Add Zone')}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button onClick={onOpenRules} className="kiyo-btn-secondary text-xs">
+              {tx('geography.managePricing', 'Manage pricing rules')}
+            </button>
+            <button onClick={() => { setError(null); setShowZoneForm((v) => !v); }} className="kiyo-btn-primary text-xs">
+              {tx('geography.addZone', 'Add Zone')}
+            </button>
+          </div>
         </div>
         <p className="mb-3 text-xs text-ink-500">
-          {tx('geography.zonesDesc', 'Configure delivery pricing for different zones.')}
+          {tx('geography.zonesDesc', 'Manage operational service areas. Checkout pricing is controlled only by versioned Business Rules.')}
         </p>
 
         {showZoneForm && (
           <div className="mb-3 rounded-lg border border-ink-200 bg-ink-50 p-3">
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <select
+                value={newZone.wilaya_id}
+                onChange={(event) => setNewZone({ ...newZone, wilaya_id: event.target.value })}
+                className="min-h-11 rounded border border-ink-200 bg-white px-2 py-1 text-xs text-ink-900 focus:border-ember-500 focus:outline-none"
+                aria-label={tx('geography.selectWilaya', 'Select Wilaya')}
+              >
+                <option value="">{tx('geography.selectWilaya', 'Select Wilaya')}</option>
+                {wilayaStats.map((wilaya) => (
+                  <option key={wilaya.id} value={wilaya.id}>
+                    {currentLocale === 'ar' ? wilaya.name_ar : currentLocale === 'fr' ? wilaya.name_fr : wilaya.name_en}
+                  </option>
+                ))}
+              </select>
               <input value={newZone.name} onChange={(e) => setNewZone({ ...newZone, name: e.target.value })}
-                placeholder={tx('geography.zoneName', 'Zone name')} className="rounded border border-ink-200 bg-white px-2 py-1 text-xs text-ink-900 focus:border-ember-500 focus:outline-none" />
-              <input type="number" value={newZone.base_fee} onChange={(e) => setNewZone({ ...newZone, base_fee: e.target.value })}
-                placeholder={tx('geography.baseFee', 'Base fee')} className="rounded border border-ink-200 bg-white px-2 py-1 text-xs text-ink-900 focus:border-ember-500 focus:outline-none" />
-              <input type="number" value={newZone.per_km_fee} onChange={(e) => setNewZone({ ...newZone, per_km_fee: e.target.value })}
-                placeholder={tx('geography.perKm', 'Per km')} className="rounded border border-ink-200 bg-white px-2 py-1 text-xs text-ink-900 focus:border-ember-500 focus:outline-none" />
-              <input type="number" value={newZone.min_fee} onChange={(e) => setNewZone({ ...newZone, min_fee: e.target.value })}
-                placeholder={tx('geography.minFee', 'Min fee')} className="rounded border border-ink-200 bg-white px-2 py-1 text-xs text-ink-900 focus:border-ember-500 focus:outline-none" />
+                placeholder={tx('geography.zoneName', 'Zone name')} className="min-h-11 rounded border border-ink-200 bg-white px-2 py-1 text-xs text-ink-900 focus:border-ember-500 focus:outline-none" />
             </div>
             <div className="mt-2 flex gap-2">
               <button onClick={createZone} disabled={savingZone} className="kiyo-btn-primary text-xs">
@@ -3650,32 +3718,38 @@ function GeographyTab() {
               <thead>
                 <tr className="border-b border-ink-100 text-left text-xs font-semibold text-ink-500">
                   <th className="px-3 py-2">{tx('geography.tbl.zone', 'Zone')}</th>
-                  <th className="px-3 py-2 text-right">{tx('geography.tbl.baseFee', 'Base Fee')}</th>
-                  <th className="px-3 py-2 text-right">{tx('geography.tbl.perKm', 'Per Km')}</th>
-                  <th className="px-3 py-2 text-right">{tx('geography.tbl.minFee', 'Min Fee')}</th>
+                  <th className="px-3 py-2">{tx('geography.tbl.wilaya', 'Wilaya')}</th>
                   <th className="px-3 py-2 text-center">{tx('geography.tbl.status', 'Status')}</th>
                   <th className="px-3 py-2"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-50">
-                {deliveryZones.map((z) => (
-                  <tr key={z.id} className="hover:bg-ink-50/50">
-                    <td className="px-3 py-2 font-medium text-ink-900">{z.name}</td>
-                    <td className="px-3 py-2 text-right text-ink-600">{z.base_fee} DZD</td>
-                    <td className="px-3 py-2 text-right text-ink-600">{z.per_km_fee} DZD</td>
-                    <td className="px-3 py-2 text-right text-ink-600">{z.min_fee} DZD</td>
-                    <td className="px-3 py-2 text-center">
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                        z.is_active ? 'bg-sage-100 text-sage-700' : 'bg-ink-100 text-ink-500'
-                      }`}>{z.is_active ? tx('geography.active', 'Active') : tx('geography.inactive', 'Inactive')}</span>
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <button onClick={() => toggleZone(z)} disabled={mutatingId === z.id} className="text-xs text-ink-500 hover:text-ink-700 disabled:cursor-not-allowed disabled:opacity-50">
-                        {z.is_active ? tx('geography.disable', 'Disable') : tx('geography.enable', 'Enable')}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {deliveryZones.map((z) => {
+                  const wilaya = wilayaStats.find((item) => item.id === z.wilaya_id);
+                  const wilayaName = wilaya
+                    ? currentLocale === 'ar' ? wilaya.name_ar : currentLocale === 'fr' ? wilaya.name_fr : wilaya.name_en
+                    : tx('geography.unassigned', 'Unassigned');
+                  return (
+                    <tr key={z.id} className="hover:bg-ink-50/50">
+                      <td className="px-3 py-2 font-medium text-ink-900">{z.name}</td>
+                      <td className="px-3 py-2 text-ink-600">{wilayaName}</td>
+                      <td className="px-3 py-2 text-center">
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                          z.is_active ? 'bg-sage-100 text-sage-700' : 'bg-ink-100 text-ink-500'
+                        }`}>{z.is_active ? tx('geography.active', 'Active') : tx('geography.inactive', 'Inactive')}</span>
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <button
+                          onClick={() => toggleZone(z)}
+                          disabled={mutatingId === z.id}
+                          className="min-h-11 text-xs text-ink-500 hover:text-ink-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {z.is_active ? tx('geography.disable', 'Disable') : tx('geography.enable', 'Enable')}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

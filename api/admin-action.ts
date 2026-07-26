@@ -35,6 +35,9 @@ const ALLOWED_ACTIONS = new Set([
   'set_marketplace_rule_override',
   'remove_marketplace_rule_override',
   'review_driver_application',
+  'create_delivery_zone',
+  'set_delivery_zone_active',
+  'set_wilaya_active',
 ]);
 
 export default async function handler(request: RequestLike, response: ResponseLike) {
@@ -88,6 +91,9 @@ export default async function handler(request: RequestLike, response: ResponseLi
     return;
   }
 
+  const geographyAction = action === 'create_delivery_zone'
+    || action === 'set_delivery_zone_active'
+    || action === 'set_wilaya_active';
   const { data, error } = action === 'review_driver_application'
     ? await serviceClient.rpc('review_driver_application', {
         p_actor_id: authData.user.id,
@@ -95,6 +101,13 @@ export default async function handler(request: RequestLike, response: ResponseLi
         p_target_status: args.p_target_status,
         p_reason: args.p_reason ?? null,
         p_expected_version: args.p_expected_version ?? null,
+      })
+    : geographyAction
+    ? await serviceClient.rpc('manage_geography_control', {
+        p_actor_id: authData.user.id,
+        p_request_id: requestId,
+        p_action: action,
+        p_args: args,
       })
     : await serviceClient.rpc('execute_owner_action', {
         p_actor_id: authData.user.id,
