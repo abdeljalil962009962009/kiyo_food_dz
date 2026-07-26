@@ -1,16 +1,41 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, Pencil, ChevronLeft, Utensils, X, Power } from 'lucide-react';
+import { Plus, Trash2, Pencil, ChevronLeft, Utensils, X, Power, ImagePlus } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
 import { supabase, type Restaurant, type MenuItem, type MenuCategory } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { AppShell } from '../components/AppShell';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Skeleton, ErrorState, Spinner } from '../components/feedback';
-import { PriceTag } from '../components/ui';
+import { PriceTag, RestaurantImage } from '../components/ui';
 import { Field } from '../components/Field';
 import { userFacingError } from '../lib/userFacingError';
 import { useActionDialog } from '../context/ActionDialogContext';
+import { uploadRestaurantImage, validateRestaurantImage } from '../lib/restaurantMedia';
+
+const menuCopy = {
+  en: {
+    uploadImage: 'Upload dish photo',
+    imageHelp: 'JPG, PNG or WebP, up to 5 MB. Use a clear photo of the actual dish.',
+    invalidImageType: 'Choose a JPG, PNG or WebP image.',
+    invalidImageSize: 'The image must be 5 MB or smaller.',
+    invalidImageUrl: 'Use a valid HTTPS image URL.',
+  },
+  fr: {
+    uploadImage: 'Importer la photo du plat',
+    imageHelp: 'JPG, PNG ou WebP, 5 Mo maximum. Utilisez une photo nette du plat réel.',
+    invalidImageType: 'Choisissez une image JPG, PNG ou WebP.',
+    invalidImageSize: "L'image ne doit pas dépasser 5 Mo.",
+    invalidImageUrl: "Utilisez une URL d'image HTTPS valide.",
+  },
+  ar: {
+    uploadImage: 'رفع صورة الطبق',
+    imageHelp: 'صورة JPG أو PNG أو WebP بحجم أقصى 5 ميغابايت. استخدم صورة واضحة للطبق الحقيقي.',
+    invalidImageType: 'اختر صورة بصيغة JPG أو PNG أو WebP.',
+    invalidImageSize: 'يجب ألا يتجاوز حجم الصورة 5 ميغابايت.',
+    invalidImageUrl: 'استخدم رابط صورة HTTPS صالحاً.',
+  },
+} as const;
 
 export default function RestaurantMenuPage() {
   const { t, locale } = useT();
@@ -217,6 +242,7 @@ export default function RestaurantMenuPage() {
       {showItemForm && restaurant && (
         <ItemFormModal
           restaurantId={restaurant.id}
+          uploaderId={profile?.id ?? restaurant.owner_id}
           categories={categories}
           item={editingItem}
           onClose={() => { setShowItemForm(false); setEditingItem(null); }}
@@ -247,6 +273,11 @@ function ItemGroup({ items, onToggle, onEdit, onDelete }: {
     <div className="space-y-2">
       {items.map((item) => (
         <div key={item.id} className="kiyo-card flex items-center gap-3 p-3">
+          {item.image_url && (
+            <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-ink-50">
+              <RestaurantImage url={item.image_url} name={item.name} />
+            </div>
+          )}
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
               <h3 className="font-display text-sm font-bold text-ink-900">{item.name}</h3>
@@ -308,18 +339,22 @@ function Modal({ title, onClose, children }: {
   );
 }
 
-function ItemFormModal({ restaurantId, categories, item, onClose, onSaved }: {
+function ItemFormModal({ restaurantId, uploaderId, categories, item, onClose, onSaved }: {
   restaurantId: string;
+  uploaderId: string;
   categories: MenuCategory[];
   item: MenuItem | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const { t, locale } = useT();
+  const copy = menuCopy[locale];
   const [name, setName] = useState(item?.name ?? '');
   const [description, setDescription] = useState(item?.description ?? '');
   const [price, setPrice] = useState(item?.price ?? '');
-  const [imageUrl, setImageUrl] = useState(item?.image_url ?? '');
+  const existingImage = item?.image_url ?? '';
+  const [imageUrl, setImageUrl] = useState(/^https:\/\//i.test(existingImage) ? existingImage : '');
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [categoryId, setCategoryId] = useState<string>(item?.category_id ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -332,15 +367,22 @@ function ItemFormModal({ restaurantId, categories, item, onClose, onSaved }: {
       setError(t('error.genericBody'));
       return;
     }
+    if (!imageFile && imageUrl.trim() && !/^https:\/\//i.test(imageUrl.trim())) {
+      setError(copy.invalidImageUrl);
+      return;
+    }
     setSaving(true);
     try {
+      const nextImageUrl = imageFile
+        ? await uploadRestaurantImage(uploaderId, imageFile, 'menu-item')
+        : imageUrl.trim() || existingImage || null;
       const payload = {
         restaurant_id: restaurantId,
         category_id: categoryId || null,
         name: name.trim(),
         description: description.trim() || null,
         price: Number(price),
-        image_url: imageUrl.trim() || null,
+        image_url: nextImageUrl,
         is_available: item?.is_available ?? true,
       };
       const { error: e } = item
@@ -366,8 +408,37 @@ function ItemFormModal({ restaurantId, categories, item, onClose, onSaved }: {
         <Field name="i-price" label={t('restaurant.price')} value={price}
           onChange={(e) => setPrice(e.target.value)} type="number" inputMode="decimal"
           min="0" step="0.01" required />
+        <label className="block">
+          <span className="kiyo-label">{copy.uploadImage}</span>
+          <span className="kiyo-btn-secondary flex min-h-11 w-full cursor-pointer items-center justify-center gap-2">
+            <ImagePlus className="h-4 w-4" />
+            <span className="truncate">{imageFile?.name ?? copy.uploadImage}</span>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="sr-only"
+              onChange={(event) => {
+                const file = event.target.files?.[0] ?? null;
+                const validation = file ? validateRestaurantImage(file) : null;
+                if (validation) {
+                  setError(validation === 'type' ? copy.invalidImageType : copy.invalidImageSize);
+                  setImageFile(null);
+                  return;
+                }
+                setError(null);
+                setImageFile(file);
+              }}
+            />
+          </span>
+        </label>
+        <p className="text-xs text-ink-400">{copy.imageHelp}</p>
         <Field name="i-img" label={t('restaurant.image')} value={imageUrl}
           onChange={(e) => setImageUrl(e.target.value)} type="url" placeholder="https://..." />
+        {existingImage && !imageFile && (
+          <div className="h-28 overflow-hidden rounded-lg border border-ink-100 bg-ink-50">
+            <RestaurantImage url={existingImage} name={name || t('restaurant.image')} />
+          </div>
+        )}
         {categories.length > 0 && (
           <div>
             <label htmlFor="i-cat" className="kiyo-label">{t('restaurant.category')}</label>
