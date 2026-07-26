@@ -512,7 +512,7 @@ export default function CheckoutPage() {
               </div>
 
               <div className="rounded-xl bg-ink-50 p-3 text-xs text-ink-500">
-                <Check className="mr-1 inline h-3.5 w-3.5 text-sage-500" />
+                <Check className="me-1 inline h-3.5 w-3.5 text-sage-500" />
                 {t('checkout.placeOrderSummary')}
               </div>
 

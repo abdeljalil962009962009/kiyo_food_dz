@@ -208,7 +208,7 @@ export default function OrdersPage() {
                         </button>
                       )}
                       {order.status === 'pending' && order.id !== activeOrder?.id && (
-                        <button type="button" onClick={() => void handleCancelOrder(order)} disabled={cancellingOrderId === order.id} className="ml-auto inline-flex min-h-11 items-center gap-1 rounded-lg border border-error-100 px-3 text-xs font-bold text-error-600 hover:bg-error-50 disabled:opacity-60"><Trash className="h-3.5 w-3.5" />{cancellingOrderId === order.id ? tx.cancelling : tx.cancel}</button>
+                        <button type="button" onClick={() => void handleCancelOrder(order)} disabled={cancellingOrderId === order.id} className="ms-auto inline-flex min-h-11 items-center gap-1 rounded-lg border border-error-100 px-3 text-xs font-bold text-error-600 hover:bg-error-50 disabled:opacity-60"><Trash className="h-3.5 w-3.5" />{cancellingOrderId === order.id ? tx.cancelling : tx.cancel}</button>
                       )}
                     </div>
                     {order.status === 'pending' && <p className="mt-2 text-xs text-ink-400">{tx.cod}</p>}

@@ -1129,13 +1129,13 @@ function UsersTab() {
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-300" />
+          <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-300" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={tx('search.users.placeholder', 'Search users by name or email...')}
-            className="w-full rounded-lg border border-ink-100 bg-white py-2 pl-10 pr-4 text-sm text-ink-900 placeholder:text-ink-300 focus:border-ember-500 focus:outline-none"
+            className="w-full rounded-lg border border-ink-100 bg-white py-2 pe-4 ps-10 text-sm text-ink-900 placeholder:text-ink-300 focus:border-ember-500 focus:outline-none"
           />
         </div>
       </div>

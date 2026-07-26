@@ -174,7 +174,7 @@ export default function RestaurantDetailPage() {
           <div className="relative h-44 sm:h-56">
             <RestaurantImage url={restaurant.image_url} name={restaurant.name} />
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-            <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5">
+            <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5">
               <h1 className="font-display text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
                 {restaurant.name}
               </h1>

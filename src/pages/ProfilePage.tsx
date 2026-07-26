@@ -189,7 +189,7 @@ export default function ProfilePage() {
       <ErrorBoundary variant="inline">
         {/* Loyalty Points - Customer only */}
         {profile?.role === 'customer' && features.loyalty && loyaltyRules.enabled && (
-          <div className="mb-4 kiyo-card border-l-4 border-l-amber-500 bg-gradient-to-r from-amber-50 to-white p-5">
+          <div className="mb-4 kiyo-card border-s-4 border-s-amber-500 bg-gradient-to-r from-amber-50 to-white p-5 rtl:bg-gradient-to-l">
             <div className="flex items-start justify-between">
               <div>
                 <div className="flex items-center gap-2">
@@ -255,7 +255,7 @@ export default function ProfilePage() {
 
           <div className="kiyo-card p-5">
             <h2 className="mb-4 font-display text-base font-bold text-ink-900">
-              <Globe className="mr-1.5 inline h-4 w-4" />
+              <Globe className="me-1.5 inline h-4 w-4" />
               {t('profile.language')}
             </h2>
             <div className="space-y-2">
@@ -314,7 +314,7 @@ export default function ProfilePage() {
         {/* Saved Addresses */}
         <div className="kiyo-card mt-6 p-5">
           <h2 className="mb-4 font-display text-base font-bold text-ink-900">
-            <MapPin className="mr-1.5 inline h-4 w-4" />
+            <MapPin className="me-1.5 inline h-4 w-4" />
             {t('profile.addresses.title')}
           </h2>
           <AddressManager />
@@ -323,7 +323,7 @@ export default function ProfilePage() {
         {/* Privacy & Data section */}
         <div className="kiyo-card mt-6 p-5">
           <h2 className="mb-1 font-display text-base font-bold text-ink-900">
-            <Shield className="mr-1.5 inline h-4 w-4" />
+            <Shield className="me-1.5 inline h-4 w-4" />
             {t('profile.privacy.title')}
           </h2>
           <p className="mb-4 text-xs text-ink-500">

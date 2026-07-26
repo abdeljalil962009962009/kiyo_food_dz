@@ -169,8 +169,8 @@ export function LiveOrderTracker({ order, onRefresh, realtimeStatus }: Props) {
       )}
 
       <div className="relative flex items-start justify-between overflow-x-auto pb-1">
-        <div className="absolute left-4 right-4 top-4 z-0 h-0.5 bg-ink-100" />
-        <div className="absolute left-4 top-4 z-0 h-0.5 bg-ember-500 transition-all duration-500" style={{ width: progress }} />
+        <div className="absolute inset-x-4 top-4 z-0 h-0.5 bg-ink-100" />
+        <div className="absolute start-4 top-4 z-0 h-0.5 bg-ember-500 transition-all duration-500" style={{ width: progress }} />
         {steps.map((step, index) => {
           const state = currentIndex > index ? 'completed' : currentIndex === index ? 'active' : 'upcoming';
           const Icon = step.icon;

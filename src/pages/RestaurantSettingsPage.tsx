@@ -303,7 +303,7 @@ export default function RestaurantSettingsPage() {
 
       <div className="mb-5">
         <h1 className="font-display text-2xl font-extrabold tracking-tight text-ink-900">
-          <Settings className="mr-2 inline h-6 w-6" />
+          <Settings className="me-2 inline h-6 w-6" />
           {t('restaurant.settings.title')}
         </h1>
         <p className="text-xs text-ink-400">{restaurant.name}</p>
@@ -487,7 +487,7 @@ export default function RestaurantSettingsPage() {
               {readiness.ready ? (
                 <p className="mt-2 text-sm text-sage-700">{profileTx.ready}</p>
               ) : (
-                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-warning-800">
+                <ul className="mt-2 list-disc space-y-1 ps-5 text-sm text-warning-800">
                   {readiness.blockers.map((blocker) => (
                     <li key={blocker}>{localizePublicationBlocker(blocker, locale)}</li>
                   ))}

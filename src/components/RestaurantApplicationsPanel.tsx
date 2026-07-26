@@ -382,8 +382,8 @@ export function RestaurantApplicationsPanel() {
 
       <div className="flex flex-col gap-2 sm:flex-row">
         <label className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-ink-400" />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} className="kiyo-input min-h-11 pl-10" placeholder={tx.search} />
+          <Search className="pointer-events-none absolute start-3 top-3.5 h-4 w-4 text-ink-400" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} className="kiyo-input min-h-11 ps-10" placeholder={tx.search} />
         </label>
         <select value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)} className="kiyo-input min-h-11 sm:w-56">
           <option value="waiting">{tx.waiting}</option>
@@ -406,7 +406,7 @@ export function RestaurantApplicationsPanel() {
                     <p className="truncate text-xs text-ink-400">{applicant?.full_name ?? applicant?.email ?? application.applicant_id}</p>
                     <span className="mt-1 inline-flex rounded-full bg-ink-100 px-2 py-0.5 text-[11px] font-semibold text-ink-600">{applicationStatusLabel(application.status, locale)}</span>
                     {(unreadByApplication[application.id] ?? 0) > 0 && (
-                      <span className="ml-1 inline-flex rounded-full bg-ember-600 px-2 py-0.5 text-[11px] font-bold text-white">
+                      <span className="ms-1 inline-flex rounded-full bg-ember-600 px-2 py-0.5 text-[11px] font-bold text-white">
                         {unreadByApplication[application.id]} {tx.newBadge}
                       </span>
                     )}
@@ -460,7 +460,7 @@ export function RestaurantApplicationsPanel() {
                 ) : (
                   <div className="mt-1 text-sm text-warning-800">
                     <p>{tx.blocked}</p>
-                    <ul className="mt-1 list-disc space-y-1 pl-5">
+                    <ul className="mt-1 list-disc space-y-1 ps-5">
                       {readiness.blockers.map((blocker) => (
                         <li key={blocker}>{localizePublicationBlocker(blocker, locale)}</li>
                       ))}

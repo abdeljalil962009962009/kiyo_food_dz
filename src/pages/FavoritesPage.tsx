@@ -87,7 +87,7 @@ export function FavoritesPage() {
     <AppShell>
       <div className="mb-5">
         <h1 className="font-display text-2xl font-extrabold tracking-tight text-ink-900">
-          <Heart className="mr-2 inline h-6 w-6 text-error-500" />
+          <Heart className="me-2 inline h-6 w-6 text-error-500" />
           {t('nav.favorites')}
         </h1>
         <p className="text-sm text-ink-400">{t('favorites.subtitle')}</p>

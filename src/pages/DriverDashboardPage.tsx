@@ -388,7 +388,7 @@ export default function DriverDashboardPage() {
               : 'bg-ink-200 text-ink-600 hover:bg-ink-300'
           }`}
         >
-          <Power className="mr-1.5 inline h-4 w-4" />
+          <Power className="me-1.5 inline h-4 w-4" />
           {driver?.is_online ? t('driver.dash.online') : t('driver.dash.goOnline')}
         </button>
       </div>
@@ -453,7 +453,7 @@ export default function DriverDashboardPage() {
       <ErrorBoundary variant="inline">
         {/* Active delivery */}
         {activeDelivery && (
-          <div className="mb-5 kiyo-card border-l-4 border-ember-500 p-4">
+          <div className="mb-5 kiyo-card border-s-4 border-ember-500 p-4">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-xs font-semibold uppercase text-ember-600">
                 {t('driver.dash.activeDelivery')}

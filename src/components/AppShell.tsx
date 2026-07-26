@@ -108,7 +108,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Logo size={32} />
             </Link>
             {role === 'customer' && (
-              <div className="ml-2 hidden md:block">
+              <div className="ms-2 hidden md:block">
                 <WilayaSelector />
               </div>
             )}
@@ -143,7 +143,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               >
                 <ShoppingBag className="h-4 w-4" />
                 <span className="hidden sm:inline">{t('cart.title')}</span>
-                <span className="ml-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-ember-500 px-1 text-[10px] font-bold text-white">
+                <span className="ms-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-ember-500 px-1 text-[10px] font-bold text-white">
                   {totalItems}
                 </span>
               </Link>
@@ -205,7 +205,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {(!network.online || network.slow) && (
         <div className={`border-b px-4 py-2 text-center text-xs font-semibold ${network.online ? 'border-warning-200 bg-warning-50 text-warning-800' : 'border-error-200 bg-error-50 text-error-700'}`} role="status">
-          <WifiOff className="mr-1 inline h-3.5 w-3.5" />
+          <WifiOff className="me-1 inline h-3.5 w-3.5" />
           {t(network.online ? 'network.weak' : 'network.offline')}
         </div>
       )}

@@ -201,7 +201,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen lg:grid lg:grid-cols-2 relative">
       {/* Visual database setup banner at the top of the whole screen */}
       {showBanner && (
-        <div className="absolute top-0 left-0 right-0 z-50 bg-amber-500 text-ink-950 text-xs px-4 py-2.5 flex items-center justify-between gap-3 font-medium shadow-sm border-b border-amber-600/20">
+        <div className="absolute inset-x-0 top-0 z-50 bg-amber-500 text-ink-950 text-xs px-4 py-2.5 flex items-center justify-between gap-3 font-medium shadow-sm border-b border-amber-600/20">
           <div className="flex items-center gap-2">
             <Database className="h-4 w-4 text-ink-950 animate-pulse flex-shrink-0" />
             <span>
@@ -289,7 +289,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
                 <h4 className="font-display font-bold text-sm text-ink-900 uppercase tracking-wider">
                   {tx.steps}:
                 </h4>
-                <ol className="list-decimal list-inside text-sm text-ink-700 space-y-2 pl-1">
+                <ol className="list-decimal list-inside text-sm text-ink-700 space-y-2 ps-1">
                   <li>
                     Open your{' '}
                     <a

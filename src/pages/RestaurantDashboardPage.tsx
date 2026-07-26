@@ -398,7 +398,7 @@ export default function RestaurantDashboardPage() {
 
       {/* New order alert popup */}
       {newOrderAlert && (
-        <div className="fixed bottom-4 right-4 z-50 flex max-w-sm items-start gap-3 rounded-xl border border-ember-500/30 bg-white p-4 shadow-card-lg animate-slide-up">
+        <div className="fixed bottom-4 end-4 z-50 flex max-w-sm items-start gap-3 rounded-xl border border-ember-500/30 bg-white p-4 shadow-card-lg animate-slide-up">
           <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-ember-500 text-white">
             <Bell className="h-5 w-5" />
           </span>
