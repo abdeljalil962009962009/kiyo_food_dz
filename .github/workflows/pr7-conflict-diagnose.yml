@@ -1,0 +1,32 @@
+name: PR7 Conflict Diagnose
+
+on:
+  push:
+    branches:
+      - agent/premium-platform-continuation
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Diagnose merge conflicts with main
+        shell: bash
+        run: |
+          set -u
+          git fetch origin main
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git merge origin/main --no-commit --no-ff || true
+          echo "=== CONFLICT FILES ==="
+          git diff --name-only --diff-filter=U || true
+          echo "=== CONFLICT MARKERS ==="
+          git diff --check || true
+          git merge --abort || true
