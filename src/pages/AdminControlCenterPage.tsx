@@ -23,6 +23,7 @@ import { auditActionLabel, orderStatusLabel, restaurantStatusLabel, settlementSt
 import { adminCopy } from '../lib/adminCopy';
 import { useActionDialog } from '../context/ActionDialogContext';
 import { withExponentialBackoff } from '../lib/locationNetwork';
+import { useRealtime } from '../lib/useRealtime';
 
 type Analytics = {
   revenue: { today: number; this_week: number; this_month: number; this_year: number; all_time: number };
@@ -894,45 +895,35 @@ function OrdersTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const statusLabel = useCallback((status: OrderRow['status']) => {
-    const copy: Record<typeof status, Record<string, string>> = {
-      pending: { en: 'Pending', fr: 'En attente', ar: 'قيد الانتظار' },
-      accepted: { en: 'Accepted', fr: 'Acceptée', ar: 'مقبول' },
-      preparing: { en: 'Preparing', fr: 'En préparation', ar: 'قيد التحضير' },
-      out_for_delivery: { en: 'Out for delivery', fr: 'En livraison', ar: 'قيد التوصيل' },
-      delivered: { en: 'Delivered', fr: 'Livrée', ar: 'تم التوصيل' },
-      cancelled: { en: 'Cancelled', fr: 'Annulée', ar: 'ملغى' },
-      failed_delivery: { en: 'Failed delivery', fr: 'Échec de livraison', ar: 'فشل التوصيل' },
-      refunded: { en: 'Refunded', fr: 'Remboursée', ar: 'مسترد' },
-    };
-    return copy[status]?.[locale] ?? copy[status]?.fr ?? status;
-  }, [locale]);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const load = useCallback(async (foreground = true) => {
+    if (foreground) {
+      setLoading(true);
+      setError(null);
+    }
     try {
-      const { data, error: ordersError } = await supabase
-        .from('orders')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50);
-      if (ordersError) throw ordersError;
-
-      const rows = ((data ?? []) as OrderRow[]);
+      const rows = await withExponentialBackoff(async () => {
+        const { data, error: ordersError } = await supabase
+          .from('orders')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(50);
+        if (ordersError) throw ordersError;
+        return ((data ?? []) as OrderRow[]);
+      }, { attempts: 3, baseDelayMs: 700, timeoutMs: 15000 });
       setOrders(rows);
+      setError(null);
 
       const restaurantIds = Array.from(new Set(rows.map((order) => order.restaurant_id).filter(Boolean)));
       const customerIds = Array.from(new Set(rows.map((order) => order.customer_id).filter(Boolean)));
 
-      const [restaurantRes, customerRes] = await Promise.all([
+      const [restaurantRes, customerRes] = await withExponentialBackoff(() => Promise.all([
         restaurantIds.length
           ? supabase.from('restaurants').select('id, name').in('id', restaurantIds)
           : Promise.resolve({ data: [], error: null }),
         customerIds.length
           ? supabase.from('profiles').select('id, full_name, email').in('id', customerIds)
           : Promise.resolve({ data: [], error: null }),
-      ]);
+      ]), { attempts: 3, baseDelayMs: 700, timeoutMs: 15000 });
 
       if (restaurantRes.error) throw restaurantRes.error;
       if (customerRes.error) throw customerRes.error;
@@ -943,13 +934,46 @@ function OrdersTab() {
         profile.full_name || profile.email || profile.id.slice(0, 8),
       ])));
     } catch (err) {
-      setError(adminErrorMessage(err, t('error.genericBody')));
+      if (foreground) setError(adminErrorMessage(err, t('error.genericBody')));
     } finally {
-      setLoading(false);
+      if (foreground) setLoading(false);
     }
   }, [t]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void load(false);
+    };
+    const interval = window.setInterval(refresh, 30000);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [load]);
+
+  useRealtime('orders', (payload) => {
+    const changed = (payload.eventType === 'DELETE' ? payload.old : payload.new) as Partial<OrderRow>;
+    if (!changed.id) return;
+    if (payload.eventType === 'DELETE') {
+      setOrders((current) => current.filter((order) => order.id !== changed.id));
+      return;
+    }
+    if (!orders.some((order) => order.id === changed.id)) {
+      void load(false);
+      return;
+    }
+    setOrders((current) => {
+      const index = current.findIndex((order) => order.id === changed.id);
+      if (index < 0) return current;
+      const next = [...current];
+      next[index] = { ...next[index], ...changed } as OrderRow;
+      return next;
+    });
+  }, { enabled: !loading });
 
   if (loading) return <Skeleton count={4} />;
   if (error) return <ErrorState title={t('error.genericTitle')} message={error} onRetry={load} retryLabel={t('error.retry')} />;
@@ -961,7 +985,7 @@ function OrdersTab() {
           <h3 className="font-display text-base font-bold text-ink-900">{tx('orders.title', 'Order oversight')}</h3>
           <p className="text-sm text-ink-400">{tx('orders.subtitle', 'Recent customer orders across all restaurants.')}</p>
         </div>
-        <button onClick={load} className="kiyo-btn-secondary">
+        <button onClick={() => void load()} className="kiyo-btn-secondary">
           <Activity className="h-4 w-4" />
           {tx('orders.refresh', 'Refresh')}
         </button>
@@ -973,12 +997,12 @@ function OrdersTab() {
         <div className="kiyo-card overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-ink-100 text-left text-xs font-semibold uppercase tracking-wide text-ink-400">
+              <tr className="border-b border-ink-100 text-start text-xs font-semibold uppercase tracking-wide text-ink-400">
                 <th className="px-4 py-3">{tx('orders.number', 'Order')}</th>
                 <th className="px-4 py-3">{tx('orders.restaurant', 'Restaurant')}</th>
                 <th className="px-4 py-3">{tx('orders.customer', 'Customer')}</th>
                 <th className="px-4 py-3">{tx('orders.status', 'Status')}</th>
-                <th className="px-4 py-3 text-right">{tx('orders.total', 'Total')}</th>
+                <th className="px-4 py-3 text-end">{tx('orders.total', 'Total')}</th>
                 <th className="px-4 py-3">{tx('orders.delivery', 'Delivery')}</th>
                 <th className="px-4 py-3">{tx('orders.created', 'Created')}</th>
               </tr>
@@ -991,10 +1015,10 @@ function OrdersTab() {
                   <td className="px-4 py-3 text-ink-600">{customers.get(order.customer_id) ?? order.customer_id.slice(0, 8)}</td>
                   <td className="px-4 py-3">
                     <span className="rounded-full bg-ink-100 px-2 py-1 text-xs font-semibold text-ink-700">
-                      {statusLabel(order.status)}
+                      {orderStatusLabel(order.status, locale)}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right font-semibold text-ink-900">{DZD(Number(order.total))}</td>
+                  <td className="px-4 py-3 text-end font-semibold text-ink-900">{DZD(Number(order.total))}</td>
                   <td className="px-4 py-3 text-xs text-ink-500">
                     {order.delivery_distance_km != null ? `${Number(order.delivery_distance_km).toLocaleString('fr-DZ')} km` : '—'}
                     {order.delivery_duration_minutes != null ? ` · ${Math.round(Number(order.delivery_duration_minutes))} min` : ''}
