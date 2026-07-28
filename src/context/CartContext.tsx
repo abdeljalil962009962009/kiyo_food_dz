@@ -18,6 +18,7 @@ type CartState = {
   restaurantId: string | null;
   restaurantName: string | null;
   lines: CartLine[];
+  updatedAt: number | null;
 };
 
 type CartAction =
@@ -33,7 +34,7 @@ type CartAction =
 const STORAGE_KEY = 'kiyo-cart';
 
 function emptyState(): CartState {
-  return { restaurantId: null, restaurantName: null, lines: [] };
+  return { restaurantId: null, restaurantName: null, lines: [], updatedAt: null };
 }
 
 function normalizeLine(line: Partial<CartLine> & Pick<CartLine, 'item' | 'quantity'>): CartLine {
@@ -52,13 +53,24 @@ function normalizeLine(line: Partial<CartLine> & Pick<CartLine, 'item' | 'quanti
 }
 
 function normalizeState(state: CartState): CartState {
+  const lines = Array.isArray(state?.lines)
+    ? state.lines.filter((line) => line?.item?.id).map(normalizeLine)
+    : [];
+  const parsedUpdatedAt = Number(state?.updatedAt);
   return {
     restaurantId: state?.restaurantId ?? null,
     restaurantName: state?.restaurantName ?? null,
-    lines: Array.isArray(state?.lines)
-      ? state.lines.filter((line) => line?.item?.id).map(normalizeLine)
-      : [],
+    lines,
+    updatedAt: Number.isFinite(parsedUpdatedAt) && parsedUpdatedAt > 0
+      ? parsedUpdatedAt
+      : lines.length > 0
+        ? Date.now()
+        : null,
   };
+}
+
+function touch(state: Omit<CartState, 'updatedAt'>): CartState {
+  return { ...state, updatedAt: Date.now() };
 }
 
 function reducer(state: CartState, action: CartAction): CartState {
@@ -72,6 +84,7 @@ function reducer(state: CartState, action: CartAction): CartState {
           restaurantId: action.line.item.restaurant_id,
           restaurantName: null,
           lines: [action.line],
+          updatedAt: Date.now(),
         };
       }
       const existing = state.lines.find((line) => line.lineId === action.line.lineId);
@@ -83,40 +96,41 @@ function reducer(state: CartState, action: CartAction): CartState {
               ? { ...l, quantity: Math.min(99, l.quantity + action.line.quantity) }
               : l,
           ),
+          updatedAt: Date.now(),
         };
       }
-      return {
+      return touch({
         ...state,
         restaurantId: action.line.item.restaurant_id,
         lines: [...state.lines, action.line],
-      };
+      });
     }
     case 'REMOVE':
-      return {
+      return touch({
         ...state,
         lines: state.lines.filter((line) => line.lineId !== action.lineId),
-      };
+      });
     case 'SET_QTY': {
       if (action.quantity <= 0) {
-        return {
+        return touch({
           ...state,
           lines: state.lines.filter((line) => line.lineId !== action.lineId),
-        };
+        });
       }
-      return {
+      return touch({
         ...state,
         lines: state.lines.map((l) =>
           l.lineId === action.lineId ? { ...l, quantity: Math.min(99, action.quantity) } : l,
         ),
-      };
+      });
     }
     case 'SET_NOTES':
-      return {
+      return touch({
         ...state,
         lines: state.lines.map((l) =>
           l.lineId === action.lineId ? { ...l, notes: action.notes } : l,
         ),
-      };
+      });
     case 'SET_RESTAURANT_NAME':
       return { ...state, restaurantName: action.name };
     case 'REPLACE':
@@ -124,6 +138,7 @@ function reducer(state: CartState, action: CartAction): CartState {
         restaurantId: action.restaurantId,
         restaurantName: action.restaurantName,
         lines: action.lines,
+        updatedAt: Date.now(),
       });
     case 'CLEAR':
       return emptyState();

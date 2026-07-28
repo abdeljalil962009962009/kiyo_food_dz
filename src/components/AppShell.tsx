@@ -11,17 +11,52 @@ import { WilayaSelector } from './WilayaSelector';
 import { useNetworkStatus } from '../lib/useNetworkStatus';
 import { LocaleSwitcher } from './LocaleSwitcher';
 
+const CART_RETENTION_COPY = {
+  en: {
+    title: 'Your cart is still ready',
+    body: 'Complete the order when you are ready. Prices and restaurant availability are checked again before checkout.',
+    action: 'Review cart',
+    dismiss: 'Not now',
+  },
+  fr: {
+    title: 'Votre panier est toujours prêt',
+    body: 'Terminez la commande quand vous voulez. Les prix et la disponibilité du restaurant sont revérifiés avant validation.',
+    action: 'Voir le panier',
+    dismiss: 'Pas maintenant',
+  },
+  ar: {
+    title: 'سلتك ما زالت جاهزة',
+    body: 'أكمل الطلب عندما تكون مستعداً. نعيد التحقق من الأسعار وتوفر المطعم قبل تأكيد الطلب.',
+    action: 'مراجعة السلة',
+    dismiss: 'ليس الآن',
+  },
+} as const;
+
+function numberSetting(value: unknown, fallback: number) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const { profile, signOut, locale, setLocale } = useAuth();
-  const { totalItems } = useCart();
+  const { totalItems, state: cartState } = useCart();
+  const { settings, isMaintenance } = useSettings();
   const { t } = useT();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [cartPulse, setCartPulse] = useState(false);
+  const [cartReminderVisible, setCartReminderVisible] = useState(false);
   const previousTotal = useRef(totalItems);
   const network = useNetworkStatus();
   const authenticated = Boolean(profile);
+  const role = profile?.role ?? 'customer';
   const menuLabel = locale === 'ar' ? 'فتح القائمة' : locale === 'fr' ? 'Ouvrir le menu' : 'Open menu';
+  const cartRetentionCopy = CART_RETENTION_COPY[locale];
+  const retentionSettings = settings?.retention && typeof settings.retention === 'object'
+    ? settings.retention as Record<string, unknown>
+    : {};
+  const cartReminderEnabled = retentionSettings.abandoned_cart_enabled !== false;
+  const cartReminderMinutes = numberSetting(retentionSettings.abandoned_cart_minutes, 30);
 
   useEffect(() => {
     if (totalItems > previousTotal.current) {
@@ -32,6 +67,31 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
     previousTotal.current = totalItems;
   }, [totalItems]);
+
+  useEffect(() => {
+    if (role !== 'customer' || totalItems <= 0 || !cartState.updatedAt || !cartReminderEnabled) {
+      setCartReminderVisible(false);
+      return;
+    }
+
+    const reminderKey = `kiyo-cart-reminder-dismissed-${cartState.updatedAt}`;
+    if (localStorage.getItem(reminderKey) === '1') {
+      setCartReminderVisible(false);
+      return;
+    }
+
+    const dueAt = cartState.updatedAt + cartReminderMinutes * 60_000;
+    const delay = Math.max(0, dueAt - Date.now());
+    const timer = window.setTimeout(() => setCartReminderVisible(true), delay);
+    return () => window.clearTimeout(timer);
+  }, [cartReminderEnabled, cartReminderMinutes, cartState.updatedAt, role, totalItems]);
+
+  const dismissCartReminder = () => {
+    if (cartState.updatedAt) {
+      localStorage.setItem(`kiyo-cart-reminder-dismissed-${cartState.updatedAt}`, '1');
+    }
+    setCartReminderVisible(false);
+  };
 
   const ROLE_LABEL: Record<string, string> = {
     super_admin: t('role.super_admin'),
@@ -46,7 +106,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
 
   // Role-adaptive primary nav.
-  const role = profile?.role ?? 'customer';
   const navItems = [
     ...(authenticated ? [{ to: '/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard }] : []),
     ...(!authenticated ? [
@@ -73,8 +132,6 @@ export function AppShell({ children }: { children: ReactNode }) {
     ] : []),
     ...(authenticated ? [{ to: '/profile', label: t('nav.profile'), icon: User }] : []),
   ];
-
-  const { isMaintenance } = useSettings();
 
   if (isMaintenance) {
     return (
@@ -222,6 +279,26 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className={`border-b px-4 py-2 text-center text-xs font-semibold ${network.online ? 'border-warning-200 bg-warning-50 text-warning-800' : 'border-error-200 bg-error-50 text-error-700'}`} role="status">
           <WifiOff className="me-1 inline h-3.5 w-3.5" />
           {t(network.online ? 'network.weak' : 'network.offline')}
+        </div>
+      )}
+      {cartReminderVisible && (
+        <div className="border-b border-ember-100 bg-ember-50 px-4 py-3" role="status">
+          <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-bold text-ink-900">{cartRetentionCopy.title}</p>
+              <p className="mt-0.5 text-xs leading-5 text-ink-600">{cartRetentionCopy.body}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Link to="/cart" className="kiyo-btn-primary min-h-11 px-3 py-2 text-xs" onClick={dismissCartReminder}>
+                <ShoppingBag className="h-4 w-4" />
+                {cartRetentionCopy.action}
+              </Link>
+              <button type="button" onClick={dismissCartReminder} className="kiyo-btn-secondary min-h-11 px-3 py-2 text-xs">
+                <X className="h-4 w-4" />
+                {cartRetentionCopy.dismiss}
+              </button>
+            </div>
+          </div>
         </div>
       )}
       <main className="mx-auto max-w-6xl px-4 pb-24 pt-6 sm:px-6 sm:pt-8">
