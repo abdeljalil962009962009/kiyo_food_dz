@@ -311,6 +311,13 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'rules.loyalty.referrerReward': 'Referrer Reward (DZD)',
     'rules.loyalty.refereeDiscount': 'Referee Sign-up Discount (DZD)',
     'rules.loyalty.minOrderToRedeem': 'Min Order to Redeem (DZD)',
+    'rules.retentionTitle': 'Retention Notifications',
+    'rules.retention.abandonedEnabled': 'Enable abandoned-cart reminder',
+    'rules.retention.abandonedMinutes': 'Abandoned-cart wait time (minutes)',
+    'rules.retention.winbackEnabled': 'Enable win-back reminder',
+    'rules.retention.winbackDays': 'Win-back wait time (days)',
+    'rules.retention.maxCartReminders': 'Max reminders per abandoned cart',
+    'rules.retention.maxWinbackDays': 'Minimum days between win-back reminders',
     'alerts.failedOrders': 'Failed Orders (24h)',
     'alerts.noFailedOrders': 'No failed orders in the last 24 hours',
     'alerts.highCancellation': 'High Cancellation Rate (7d)',
@@ -517,6 +524,13 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'rules.loyalty.referrerReward': 'Récompense du parrain (DZD)',
     'rules.loyalty.refereeDiscount': 'Remise d\'inscription du filleul (DZD)',
     'rules.loyalty.minOrderToRedeem': 'Commande min pour utiliser (DZD)',
+    'rules.retentionTitle': 'Notifications de rétention',
+    'rules.retention.abandonedEnabled': 'Activer le rappel de panier abandonné',
+    'rules.retention.abandonedMinutes': 'Délai du rappel panier (minutes)',
+    'rules.retention.winbackEnabled': 'Activer le rappel de retour client',
+    'rules.retention.winbackDays': 'Délai de retour client (jours)',
+    'rules.retention.maxCartReminders': 'Rappels maximum par panier abandonné',
+    'rules.retention.maxWinbackDays': 'Jours minimum entre rappels de retour',
     'alerts.failedOrders': 'Commandes échouées (24 h)',
     'alerts.noFailedOrders': 'Aucune commande échouée ces dernières 24 heures',
     'alerts.highCancellation': 'Taux d\'annulation élevé (7 j)',
@@ -723,6 +737,13 @@ const ADMIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     'rules.loyalty.referrerReward': 'مكافأة المحيل (د.ج)',
     'rules.loyalty.refereeDiscount': 'خصم تسجيل المحال (د.ج)',
     'rules.loyalty.minOrderToRedeem': 'الحد الأدنى للطلب للاسترداد (د.ج)',
+    'rules.retentionTitle': 'إشعارات الاحتفاظ بالعملاء',
+    'rules.retention.abandonedEnabled': 'تفعيل تذكير السلة المتروكة',
+    'rules.retention.abandonedMinutes': 'مدة انتظار تذكير السلة بالدقائق',
+    'rules.retention.winbackEnabled': 'تفعيل تذكير عودة العميل',
+    'rules.retention.winbackDays': 'مدة انتظار عودة العميل بالأيام',
+    'rules.retention.maxCartReminders': 'أقصى عدد تذكيرات لكل سلة متروكة',
+    'rules.retention.maxWinbackDays': 'أقل عدد أيام بين تذكيرات العودة',
     'alerts.failedOrders': 'الطلبات الفاشلة خلال 24 ساعة',
     'alerts.noFailedOrders': 'لا توجد طلبات فاشلة خلال آخر 24 ساعة',
     'alerts.highCancellation': 'معدل إلغاء مرتفع خلال 7 أيام',
@@ -1875,6 +1896,14 @@ const DEFAULT_SETTINGS: Record<string, Record<string, unknown>> = {
     referrer_reward: 200,
     referee_discount: 150,
     min_order_value: 800,
+  },
+  retention: {
+    abandoned_cart_enabled: true,
+    abandoned_cart_minutes: 30,
+    winback_enabled: true,
+    winback_days: 14,
+    max_abandoned_cart_reminders_per_cart: 1,
+    max_winback_notifications_per_customer_per_days: 14,
   }
 };
 
@@ -2106,6 +2135,22 @@ function RulesTab() {
           onChange={(v) => updateField('loyalty_referral', 'referee_discount', Number(v))} />
         <RuleField label={tx('rules.loyalty.minOrderToRedeem', 'Min Order to Redeem (DZD)')} value={settings.loyalty_referral?.min_order_value as number ?? 800}
           onChange={(v) => updateField('loyalty_referral', 'min_order_value', Number(v))} />
+      </RulesCard>
+
+      {/* Retention Notification Controls */}
+      <RulesCard title={tx('rules.retentionTitle', 'Retention Notifications')} icon={Clock} onSave={() => save('retention')} saving={saving} saved={savedKey === 'retention'}>
+        <RuleToggle label={tx('rules.retention.abandonedEnabled', 'Enable abandoned-cart reminder')} value={settings.retention?.abandoned_cart_enabled as boolean ?? true}
+          onChange={(v) => updateField('retention', 'abandoned_cart_enabled', v)} />
+        <RuleField label={tx('rules.retention.abandonedMinutes', 'Abandoned-cart wait time (minutes)')} value={settings.retention?.abandoned_cart_minutes as number ?? 30}
+          onChange={(v) => updateField('retention', 'abandoned_cart_minutes', Number(v))} />
+        <RuleField label={tx('rules.retention.maxCartReminders', 'Max reminders per abandoned cart')} value={settings.retention?.max_abandoned_cart_reminders_per_cart as number ?? 1}
+          onChange={(v) => updateField('retention', 'max_abandoned_cart_reminders_per_cart', Number(v))} />
+        <RuleToggle label={tx('rules.retention.winbackEnabled', 'Enable win-back reminder')} value={settings.retention?.winback_enabled as boolean ?? true}
+          onChange={(v) => updateField('retention', 'winback_enabled', v)} />
+        <RuleField label={tx('rules.retention.winbackDays', 'Win-back wait time (days)')} value={settings.retention?.winback_days as number ?? 14}
+          onChange={(v) => updateField('retention', 'winback_days', Number(v))} />
+        <RuleField label={tx('rules.retention.maxWinbackDays', 'Minimum days between win-back reminders')} value={settings.retention?.max_winback_notifications_per_customer_per_days as number ?? 14}
+          onChange={(v) => updateField('retention', 'max_winback_notifications_per_customer_per_days', Number(v))} />
       </RulesCard>
     </div>
   );
