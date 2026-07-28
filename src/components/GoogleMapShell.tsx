@@ -206,7 +206,13 @@ function GoogleMapsRuntimeMonitor({ onFailure }: { onFailure: (failure: GoogleMa
     detectNativeFailure();
     const observer = new MutationObserver(detectNativeFailure);
     observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
+    const interval = window.setInterval(detectNativeFailure, 1000);
+    const timeout = window.setTimeout(() => window.clearInterval(interval), 15000);
+    return () => {
+      observer.disconnect();
+      window.clearInterval(interval);
+      window.clearTimeout(timeout);
+    };
   }, [onFailure]);
 
   return null;

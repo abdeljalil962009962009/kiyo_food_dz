@@ -87,6 +87,8 @@ export function containsNativeGoogleMapErrorText(value: string): boolean {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+    .replace(/ã©/g, 'e')
+    .replace(/â€™/g, "'")
     .replace(/[’`´]/g, "'")
     .replace(/\s+/g, ' ')
     .trim();
@@ -94,6 +96,7 @@ export function containsNativeGoogleMapErrorText(value: string): boolean {
   return [
     'google maps did not load correctly',
     "this page can't load google maps correctly",
+    "google maps ne s'est pas charg",
     "google maps ne s'est pas charge correctement",
     'veuillez consulter la console javascript',
     'consultez la console javascript',
