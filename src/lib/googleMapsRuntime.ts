@@ -81,3 +81,23 @@ export function classifyGoogleMapsLoadFailure(
   }
   return 'network';
 }
+
+export function containsNativeGoogleMapErrorText(value: string): boolean {
+  const normalized = value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[’`´]/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return [
+    'google maps did not load correctly',
+    "this page can't load google maps correctly",
+    "google maps ne s'est pas charge correctement",
+    'veuillez consulter la console javascript',
+    'consultez la console javascript',
+    'check the javascript console',
+    'for development purposes only',
+  ].some((marker) => normalized.includes(marker));
+}

@@ -54,4 +54,16 @@ describe('notification localization', () => {
     expect(display.title).toBe('Demande restaurant \u00e0 examiner');
     expect(display.body).toContain('Kiyo E2E Test Restaurant');
   });
+
+  it('does not leak unknown stored English text into Arabic notifications', () => {
+    const display = localizeNotification(notification({
+      type: 'legacy_unknown',
+      title: 'Something went wrong',
+      body: 'The restaurant action needs your attention.',
+    }), 'ar');
+
+    expect(display.title).not.toContain('Something');
+    expect(display.body).not.toContain('restaurant action');
+    expect(display.title).toBe('\u062a\u062d\u062f\u064a\u062b \u062c\u062f\u064a\u062f');
+  });
 });

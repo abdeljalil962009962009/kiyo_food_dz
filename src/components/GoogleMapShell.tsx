@@ -17,6 +17,7 @@ import {
 import { getConnectionQuality, type NetworkInformationLike } from '../lib/locationNetwork';
 import {
   classifyGoogleMapsLoadFailure,
+  containsNativeGoogleMapErrorText,
   ensureGoogleMapsAuthFailureHandler,
   hasGoogleMapsAuthFailure,
   subscribeToGoogleMapsAuthFailure,
@@ -196,7 +197,9 @@ function GoogleMapsRuntimeMonitor({ onFailure }: { onFailure: (failure: GoogleMa
 
   useEffect(() => {
     const detectNativeFailure = () => {
-      if (document.querySelector('.gm-err-container, .gm-err-title, .gm-err-message')) {
+      const nativeErrorNode = document.querySelector('.gm-err-container, .gm-err-title, .gm-err-message');
+      const nativeErrorText = nativeErrorNode?.textContent ?? document.body.textContent ?? '';
+      if (nativeErrorNode || containsNativeGoogleMapErrorText(nativeErrorText)) {
         onFailure('authorization');
       }
     };
