@@ -255,10 +255,10 @@ function resolveNotificationType(notification: Notification) {
 export function localizeNotification(notification: Notification, locale: string) {
   const notificationLocale = normalizeLocale(locale);
   const copy = NOTIFICATION_COPY[notificationLocale];
-  return localizedNotification(notification, copy);
+  return localizedNotification(notification, copy, notificationLocale);
 }
 
-function localizedNotification(notification: Notification, copy: NotificationCopy) {
+function localizedNotification(notification: Notification, copy: NotificationCopy, locale: NotificationLocale) {
   const resolvedType = resolveNotificationType(notification);
   const template = copy.types[resolvedType];
   const orderRef = valueFromMetadata(notification.metadata, ['order_number', 'order_id']);
@@ -275,9 +275,16 @@ function localizedNotification(notification: Notification, copy: NotificationCop
   const rawTitle = notification.title?.trim();
   const rawBody = notification.body?.trim();
   return {
-    title: rawTitle && !containsMojibake(rawTitle) ? rawTitle : copy.fallbackTitle,
-    body: rawBody && !containsMojibake(rawBody) ? rawBody : copy.fallbackBody,
+    title: rawTitle && canShowStoredNotificationText(rawTitle, locale) ? rawTitle : copy.fallbackTitle,
+    body: rawBody && canShowStoredNotificationText(rawBody, locale) ? rawBody : copy.fallbackBody,
   };
+}
+
+function canShowStoredNotificationText(value: string, locale: NotificationLocale) {
+  if (containsMojibake(value)) return false;
+  if (locale === 'en') return true;
+  if (locale === 'ar') return !/[A-Za-z]{3,}/.test(value);
+  return !/\b(?:restaurant|application|waiting|review|applicant|replied|order|delivery|support|driver|published|suspended|cancelled|failed|error|something|wrong)\b/i.test(value);
 }
 
 export function NotificationBell() {
