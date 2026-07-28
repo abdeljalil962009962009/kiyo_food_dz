@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState, useCallback } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { Map, AdvancedMarker } from '@vis.gl/react-google-maps';
-import { Star, Clock, MapPin, Plus, Minus, X, ChevronLeft, ShoppingBag, Info, Truck, Heart, BadgeCheck, ShieldCheck, Utensils } from 'lucide-react';
+import { Star, Clock, MapPin, Plus, Minus, X, ChevronLeft, ShoppingBag, Info, Truck, Heart, BadgeCheck, ShieldCheck, Utensils, Share2, Sparkles } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
 import {
   supabase,
@@ -50,6 +50,11 @@ const detailCopy = {
     addConfigured: 'Add to cart', each: 'each', close: 'Close', decrease: 'Decrease quantity', increase: 'Increase quantity',
     reviewsDelayed: 'Customer reviews are taking longer to load. The restaurant and menu remain available.',
     retryReviews: 'Retry reviews',
+    exclusive: 'Only on Kiyo Food',
+    fairCommission: 'Fair commission, fair prices',
+    share: 'Share restaurant',
+    shareCopied: 'Restaurant link copied.',
+    shareFailed: 'The share link could not be prepared. Try again in a moment.',
   },
   fr: {
     verified: 'Vérifié par Kiyo Food', reviews: '{count} avis', preparation: 'Préparation habituelle : environ {minutes} min',
@@ -62,6 +67,11 @@ const detailCopy = {
     addConfigured: 'Ajouter au panier', each: "l'unité", close: 'Fermer', decrease: 'Réduire la quantité', increase: 'Augmenter la quantité',
     reviewsDelayed: 'Les avis clients mettent plus de temps à charger. Le restaurant et son menu restent disponibles.',
     retryReviews: 'Recharger les avis',
+    exclusive: 'Seulement sur Kiyo Food',
+    fairCommission: 'Commission équitable, prix plus justes',
+    share: 'Partager le restaurant',
+    shareCopied: 'Lien du restaurant copié.',
+    shareFailed: 'Le lien de partage n’a pas pu être préparé. Réessayez dans un moment.',
   },
   ar: {
     verified: 'موثّق من كيو فود', reviews: '{count} تقييم', preparation: 'مدة التحضير المعتادة: نحو {minutes} دقيقة',
@@ -74,6 +84,11 @@ const detailCopy = {
     addConfigured: 'أضف إلى السلة', each: 'للوحدة', close: 'إغلاق', decrease: 'تقليل الكمية', increase: 'زيادة الكمية',
     reviewsDelayed: 'يتأخر تحميل تقييمات العملاء. المطعم وقائمة الطعام ما زالا متاحين.',
     retryReviews: 'إعادة تحميل التقييمات',
+    exclusive: 'حصري على كيو فود',
+    fairCommission: 'عمولة عادلة، أسعار أعدل',
+    share: 'مشاركة المطعم',
+    shareCopied: 'تم نسخ رابط المطعم.',
+    shareFailed: 'تعذر تجهيز رابط المشاركة. حاول مرة أخرى بعد قليل.',
   },
 } as const;
 
@@ -102,6 +117,7 @@ export default function RestaurantDetailPage() {
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewsError, setReviewsError] = useState<string | null>(null);
+  const [shareNotice, setShareNotice] = useState<string | null>(null);
 
   const loadReviews = useCallback(async () => {
     if (!features.reviews || !id) {
@@ -262,6 +278,24 @@ export default function RestaurantDetailPage() {
     window.setTimeout(() => setFavoriteAnimating(false), 350);
   };
 
+  const shareRestaurant = async () => {
+    if (!restaurant) return;
+    setShareNotice(null);
+    const url = `${window.location.origin}/restaurant/${restaurant.id}`;
+    const text = `${restaurant.name} - Kiyo Food`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: restaurant.name, text, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        setShareNotice(tx.shareCopied);
+      }
+    } catch (shareError) {
+      if (shareError instanceof DOMException && shareError.name === 'AbortError') return;
+      setShareNotice(tx.shareFailed);
+    }
+  };
+
   const handleAdd = (item: MenuItem) => {
     setActionError(null);
     if ((modifierGroupsByItem[item.id]?.length ?? 0) > 0) {
@@ -339,6 +373,16 @@ export default function RestaurantDetailPage() {
                   <Heart className={`h-5 w-5 ${isFavorite ? 'fill-error-500 text-error-500' : 'text-ink-400'}`} />
                 </button>
               )}
+              <button
+                type="button"
+                onClick={shareRestaurant}
+                className="absolute top-4 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-ink-600 shadow-lg transition-all hover:bg-white sm:top-5"
+                style={{ insetInlineStart: '1rem' }}
+                aria-label={tx.share}
+                title={tx.share}
+              >
+                <Share2 className="h-5 w-5" />
+              </button>
               <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-ink-100">
                 {restaurant.rating > 0 && restaurant.review_count > 0 && (
                   <span className="flex items-center gap-0.5 rounded-full bg-white/20 px-2 py-0.5 font-semibold backdrop-blur">
@@ -350,6 +394,11 @@ export default function RestaurantDetailPage() {
                 {restaurant.is_verified && (
                   <span className="flex items-center gap-1 rounded-full bg-white/95 px-2 py-0.5 font-bold text-sage-700">
                     <BadgeCheck className="h-3.5 w-3.5" aria-hidden /> {tx.verified}
+                  </span>
+                )}
+                {restaurant.is_exclusive_to_kiyo && (
+                  <span className="flex items-center gap-1 rounded-full bg-ember-500 px-2 py-0.5 font-bold text-white">
+                    <Sparkles className="h-3.5 w-3.5" aria-hidden /> {tx.exclusive}
                   </span>
                 )}
                 <span className={`rounded-full px-2 py-0.5 font-semibold backdrop-blur ${
@@ -373,9 +422,22 @@ export default function RestaurantDetailPage() {
             </div>
           </div>
 
+          {shareNotice && (
+            <div className="border-b border-ember-100 bg-ember-50 px-4 py-2 text-xs font-semibold text-ember-700 sm:px-5" role="status">
+              {shareNotice}
+            </div>
+          )}
+
           {restaurant.description && (
             <div className="border-b border-ink-100 p-4 sm:p-5">
               <p className="text-sm text-ink-600">{restaurant.description}</p>
+            </div>
+          )}
+
+          {restaurant.is_exclusive_to_kiyo && (
+            <div className="flex items-start gap-2 border-b border-ember-100 bg-ember-50 px-4 py-2.5 text-xs leading-5 text-ember-800 sm:px-5">
+              <Sparkles className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+              {restaurant.fair_commission_message || tx.fairCommission}
             </div>
           )}
 

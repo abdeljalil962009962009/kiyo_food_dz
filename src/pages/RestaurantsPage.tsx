@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Star, Clock, MapPin, BadgeCheck } from 'lucide-react';
+import { Search, Star, Clock, MapPin, BadgeCheck, Sparkles } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
 import { supabase, type Restaurant, type RestaurantSpecialHours } from '../lib/supabase';
 import { useWilaya, getWilayaName } from '../context/WilayaContext';
@@ -77,15 +77,75 @@ const pageCopy = {
   },
 } as const;
 
+const correctedPageCopy = {
+  en: {
+    trustAvailability: 'Availability checked before checkout',
+    trustPricing: 'Road-route delivery pricing',
+    trustCod: 'Cash on Delivery, no surprise card charge',
+    emptyTitle: 'No matching restaurants yet',
+    emptyBody: 'Try another search, clear the filter, or adjust your delivery location. Kiyo Food only shows restaurants that are actually published for your area.',
+    clearSearch: 'Clear search',
+    showAll: 'Show all restaurants',
+    verified: 'Verified by Kiyo Food',
+    preparation: 'Prep. ~{minutes} min',
+    reviews: '{count} reviews',
+    dishMatch: 'Matches dish: {dish} · {price} DZD',
+    searchDelayed: 'Dish search is delayed. Restaurant search still works.',
+    retryDishSearch: 'Retry dish search',
+    searchingMenu: 'Searching restaurants and dishes',
+    exclusive: 'Only on Kiyo Food',
+    exclusiveFilter: 'Only on Kiyo',
+    fairCommission: 'Fair commission, fair prices',
+  },
+  fr: {
+    trustAvailability: 'Disponibilité vérifiée avant la commande',
+    trustPricing: 'Prix de livraison selon le trajet routier',
+    trustCod: 'Paiement à la livraison, sans débit de carte',
+    emptyTitle: 'Aucun restaurant correspondant',
+    emptyBody: 'Essayez une autre recherche, retirez le filtre ou ajustez votre adresse. Kiyo Food affiche uniquement les restaurants réellement publiés pour votre zone.',
+    clearSearch: 'Effacer la recherche',
+    showAll: 'Voir tous les restaurants',
+    verified: 'Vérifié par Kiyo Food',
+    preparation: 'Préparation ~{minutes} min',
+    reviews: '{count} avis',
+    dishMatch: 'Plat correspondant : {dish} · {price} DZD',
+    searchDelayed: 'La recherche de plats est retardée. La recherche de restaurants reste disponible.',
+    retryDishSearch: 'Relancer la recherche de plats',
+    searchingMenu: 'Recherche dans les restaurants et les plats',
+    exclusive: 'Seulement sur Kiyo Food',
+    exclusiveFilter: 'Exclusifs Kiyo',
+    fairCommission: 'Commission équitable, prix plus justes',
+  },
+  ar: {
+    trustAvailability: 'يتم التحقق من التوفر قبل تأكيد الطلب',
+    trustPricing: 'تسعير التوصيل حسب الطريق الحقيقي',
+    trustCod: 'الدفع عند التوصيل بدون مفاجآت',
+    emptyTitle: 'لا توجد مطاعم مطابقة حاليا',
+    emptyBody: 'جرّب بحثا آخر، أزل الفلتر أو عدّل عنوان التوصيل. كيو فود يعرض فقط المطاعم المنشورة فعلا في منطقتك.',
+    clearSearch: 'مسح البحث',
+    showAll: 'عرض كل المطاعم',
+    verified: 'موثّق من كيو فود',
+    preparation: 'التحضير نحو {minutes} د',
+    reviews: '{count} تقييم',
+    dishMatch: 'طبق مطابق: {dish} · {price} دج',
+    searchDelayed: 'البحث عن الأطباق متأخر. لا يزال البحث عن المطاعم متاحا.',
+    retryDishSearch: 'إعادة البحث عن الأطباق',
+    searchingMenu: 'جار البحث في المطاعم والأطباق',
+    exclusive: 'حصري على كيو فود',
+    exclusiveFilter: 'حصري على كيو',
+    fairCommission: 'عمولة عادلة، أسعار أعدل',
+  },
+} as const;
+
 export default function RestaurantsPage() {
   const { t } = useT();
   const { selectedWilaya, deliveryLocation, loading: wilayaLoading, locale } = useWilaya();
-  const tx = pageCopy[locale];
+  const tx = { ...pageCopy[locale], ...correctedPageCopy[locale] };
   const [items, setItems] = useState<RestaurantWithDistance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<'all' | 'open' | 'top'>('all');
+  const [filter, setFilter] = useState<'all' | 'open' | 'top' | 'exclusive'>('all');
   const [menuMatches, setMenuMatches] = useState<Map<string, MenuSearchMatch>>(new Map());
   const [menuSearchLoading, setMenuSearchLoading] = useState(false);
   const [menuSearchError, setMenuSearchError] = useState<string | null>(null);
@@ -258,6 +318,7 @@ export default function RestaurantsPage() {
         restaurantAcceptsOrders(restaurant, restaurant.special_hours, availabilityClock));
     }
     if (filter === 'top') list = list.filter((r) => r.rating >= 4).sort((a, b) => b.rating - a.rating);
+    if (filter === 'exclusive') list = list.filter((r) => r.is_exclusive_to_kiyo);
     if (currentLocation) {
       list = [...list].sort((a, b) => (a.distance_km ?? Number.MAX_VALUE) - (b.distance_km ?? Number.MAX_VALUE));
     }
@@ -319,6 +380,7 @@ export default function RestaurantsPage() {
             { id: 'all', label: t('nav.restaurants') },
             { id: 'open', label: t('market.openNow') },
             { id: 'top', label: t('market.topRated') },
+            { id: 'exclusive', label: tx.exclusiveFilter },
           ].map((f) => (
             <button
               key={f.id}
@@ -431,6 +493,15 @@ export default function RestaurantsPage() {
                       {tx.verified}
                     </span>
                   )}
+                  {r.is_exclusive_to_kiyo && (
+                    <span
+                      className="absolute top-3 inline-flex min-h-7 items-center gap-1 rounded-full bg-ember-500 px-2 text-[10px] font-bold text-white shadow-sm"
+                      style={{ insetInlineStart: '0.75rem' }}
+                    >
+                      <Sparkles className="h-3.5 w-3.5" aria-hidden />
+                      {tx.exclusive}
+                    </span>
+                  )}
                   <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-3">
                     <div className="flex items-center gap-2">
                       <StatusChip
@@ -467,6 +538,12 @@ export default function RestaurantsPage() {
                   )}
                   {r.description && (
                     <p className="mt-2 line-clamp-2 text-sm text-ink-500">{r.description}</p>
+                  )}
+                  {r.is_exclusive_to_kiyo && (
+                    <p className="mt-2 inline-flex items-center gap-1 rounded-lg bg-ember-50 px-2.5 py-1.5 text-xs font-bold text-ember-700">
+                      <Sparkles className="h-3.5 w-3.5" aria-hidden />
+                      {r.fair_commission_message || tx.fairCommission}
+                    </p>
                   )}
                   {menuMatches.has(r.id) && (
                     <p className="mt-2 rounded-lg bg-ember-50 px-2.5 py-2 text-xs font-semibold text-ember-800">

@@ -199,6 +199,74 @@ const NOTIFICATION_COPY: Record<NotificationLocale, NotificationCopy> = {
   },
 };
 
+const CORRECTED_NOTIFICATION_COPY: Record<NotificationLocale, NotificationCopy> = {
+  en: NOTIFICATION_COPY.en,
+  fr: {
+    ...NOTIFICATION_COPY.fr,
+    title: 'Notifications',
+    markAll: 'Tout marquer comme lu',
+    empty: 'Aucune notification',
+    fallbackTitle: 'Nouvelle mise à jour',
+    fallbackBody: 'Ouvrez Kiyo Food pour voir les derniers détails.',
+    types: {
+      ...NOTIFICATION_COPY.fr.types,
+      new_order: { title: 'Nouvelle commande reçue', body: 'Une nouvelle commande attend votre équipe.' },
+      order_accepted: { title: 'Commande acceptée', body: 'Votre commande a été acceptée par le restaurant.' },
+      order_preparing: { title: 'Commande en préparation', body: 'Votre repas est maintenant en préparation.' },
+      order_out_for_delivery: { title: 'Commande en route', body: 'Votre commande est en cours de livraison.' },
+      order_delivered: { title: 'Commande livrée', body: 'Votre commande a été livrée. Bon appétit.' },
+      order_cancelled: { title: 'Commande annulée', body: 'Cette commande a été annulée.' },
+      order_failed_delivery: { title: 'Problème de livraison', body: 'La livraison n’a pas pu être terminée. Contactez le support.' },
+      support_reply: { title: 'Réponse du support', body: 'Vous avez une nouvelle réponse du support Kiyo Food.' },
+      new_restaurant: { title: 'Nouvelle demande restaurant', body: 'Une demande de restaurant attend votre examen.' },
+      application_submitted: { title: 'Demande restaurant à examiner', body: 'Une demande de restaurant attend votre validation.' },
+      application_message: { title: 'Message de demande restaurant', body: 'Un nouveau message a été ajouté à la discussion de la demande.' },
+      application_status_changed: { title: 'Demande restaurant mise à jour', body: 'Le statut de la demande restaurant a changé.' },
+      application_under_review: { title: 'Demande en cours d’examen', body: 'Votre demande de restaurant est maintenant en cours d’examen.' },
+      application_changes_requested: { title: 'Modifications demandées', body: 'Kiyo Food a demandé des corrections sur votre demande de restaurant.' },
+      application_preliminarily_approved: { title: 'Demande approuvée', body: 'Votre restaurant peut continuer son intégration.' },
+      restaurant_ready_to_publish: { title: 'Restaurant prêt à publier', body: 'Un restaurant est prêt pour la validation finale.' },
+      restaurant_published: { title: 'Restaurant publié', body: 'Votre restaurant est maintenant visible par les clients.' },
+      restaurant_suspended: { title: 'Restaurant suspendu', body: 'Ce restaurant a été suspendu par Kiyo Food.' },
+    },
+  },
+  ar: {
+    ...NOTIFICATION_COPY.ar,
+    title: 'الإشعارات',
+    markAll: 'تحديد الكل كمقروء',
+    empty: 'لا توجد إشعارات',
+    fallbackTitle: 'تحديث جديد',
+    fallbackBody: 'افتح كيو فود للاطلاع على آخر التفاصيل.',
+    types: {
+      ...NOTIFICATION_COPY.ar.types,
+      new_order: { title: 'طلب جديد', body: 'يوجد طلب جديد بانتظار فريق المطعم.' },
+      order_accepted: { title: 'تم قبول الطلب', body: 'قبل المطعم طلبك.' },
+      order_preparing: { title: 'الطلب قيد التحضير', body: 'يتم الآن تحضير وجبتك.' },
+      order_out_for_delivery: { title: 'الطلب في الطريق', body: 'طلبك في طريقه إليك.' },
+      order_delivered: { title: 'تم تسليم الطلب', body: 'تم تسليم طلبك. شهية طيبة.' },
+      order_cancelled: { title: 'تم إلغاء الطلب', body: 'تم إلغاء هذا الطلب.' },
+      order_failed_delivery: { title: 'مشكلة في التوصيل', body: 'تعذر إكمال التوصيل. يرجى التواصل مع الدعم.' },
+      support_reply: { title: 'رد من الدعم', body: 'لديك رد جديد من دعم كيو فود.' },
+      new_restaurant: { title: 'طلب مطعم جديد', body: 'يوجد طلب مطعم بانتظار المراجعة.' },
+      application_submitted: { title: 'طلب مطعم بانتظار المراجعة', body: 'يوجد طلب مطعم جديد يحتاج إلى مراجعتك.' },
+      application_message: { title: 'رسالة حول طلب مطعم', body: 'توجد رسالة جديدة في محادثة طلب المطعم.' },
+      application_status_changed: { title: 'تم تحديث طلب المطعم', body: 'تم تغيير حالة طلب المطعم.' },
+      application_under_review: { title: 'الطلب قيد المراجعة', body: 'طلب مطعمك قيد المراجعة الآن.' },
+      application_changes_requested: { title: 'تعديلات مطلوبة', body: 'طلبت كيو فود تعديلات على طلب مطعمك.' },
+      application_preliminarily_approved: { title: 'تمت الموافقة على الطلب', body: 'يمكن لمطعمك متابعة خطوات الإعداد.' },
+      restaurant_ready_to_publish: { title: 'مطعم جاهز للنشر', body: 'يوجد مطعم جاهز للمراجعة النهائية قبل النشر.' },
+      restaurant_published: { title: 'تم نشر المطعم', body: 'مطعمك أصبح ظاهرا للعملاء الآن.' },
+      restaurant_suspended: { title: 'تم تعليق المطعم', body: 'تم تعليق هذا المطعم من طرف كيو فود.' },
+      new_driver_application: { title: 'طلب سائق جديد', body: 'يوجد طلب سائق بانتظار مراجعتك.' },
+      driver_application_submitted: { title: 'تم إرسال طلب السائق', body: 'طلبك بانتظار مراجعة كيو فود.' },
+      driver_application_under_review: { title: 'الطلب قيد المراجعة', body: 'بدأت كيو فود مراجعة طلب انضمامك كسائق.' },
+      driver_application_approved: { title: 'تمت الموافقة على طلب السائق', body: 'يمكنك الآن تفعيل جاهزيتك وقبول عمليات التوصيل.' },
+      driver_application_rejected: { title: 'لم تتم الموافقة على الطلب', body: 'افتح لوحة السائق للاطلاع على السبب.' },
+      driver_application_suspended: { title: 'تم تعليق وصول السائق', body: 'تم تعليق وصولك كسائق. افتح لوحة التحكم للاطلاع على التفاصيل.' },
+    },
+  },
+};
+
 const valueFromMetadata = (metadata: Record<string, unknown> | null | undefined, keys: string[]) => {
   if (!metadata) return '';
   for (const key of keys) {
@@ -254,7 +322,7 @@ function resolveNotificationType(notification: Notification) {
 
 export function localizeNotification(notification: Notification, locale: string) {
   const notificationLocale = normalizeLocale(locale);
-  const copy = NOTIFICATION_COPY[notificationLocale];
+  const copy = CORRECTED_NOTIFICATION_COPY[notificationLocale];
   return localizedNotification(notification, copy, notificationLocale);
 }
 
@@ -291,7 +359,7 @@ export function NotificationBell() {
   const { profile } = useAuth();
   const { locale } = useT();
   const notificationLocale = normalizeLocale(locale);
-  const copy = NOTIFICATION_COPY[notificationLocale];
+  const copy = CORRECTED_NOTIFICATION_COPY[notificationLocale];
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications(profile?.id);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);

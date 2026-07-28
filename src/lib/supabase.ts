@@ -227,6 +227,8 @@ export type Restaurant = {
   min_order_amount: number;
   is_verified: boolean;
   is_featured: boolean;
+  is_exclusive_to_kiyo: boolean;
+  fair_commission_message: string | null;
   featured_until: string | null;
   created_at: string;
   updated_at: string;

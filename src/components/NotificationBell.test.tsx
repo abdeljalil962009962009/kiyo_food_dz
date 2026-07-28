@@ -66,4 +66,25 @@ describe('notification localization', () => {
     expect(display.body).not.toContain('restaurant action');
     expect(display.title).toBe('\u062a\u062d\u062f\u064a\u062b \u062c\u062f\u064a\u062f');
   });
+
+  it('localizes restaurant publication and suspension notifications in Arabic', () => {
+    const published = localizeNotification(notification({
+      type: 'restaurant_published',
+      title: 'Restaurant published',
+      body: 'Your restaurant is now visible.',
+      metadata: { restaurant_name: 'Kiyo Premium' },
+    }), 'ar');
+    const suspended = localizeNotification(notification({
+      type: 'restaurant_suspended',
+      title: 'Restaurant suspended',
+      body: 'This restaurant was suspended by Kiyo Food.',
+      metadata: { restaurant_name: 'Kiyo Premium' },
+    }), 'ar');
+
+    expect(published.title).toBe('تم نشر المطعم');
+    expect(published.body).not.toContain('Restaurant');
+    expect(published.body).toContain('Kiyo Premium');
+    expect(suspended.title).toBe('تم تعليق المطعم');
+    expect(suspended.body).not.toContain('suspended');
+  });
 });

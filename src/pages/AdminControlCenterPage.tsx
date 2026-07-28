@@ -1610,6 +1610,7 @@ function UsersTab() {
 function RestaurantsTab() {
   const { t, locale } = useT();
   const { tx } = useAdminT();
+  const { requestText, confirmAction } = useActionDialog();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1634,7 +1635,49 @@ function RestaurantsTab() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const updateRestaurant = async (r: Restaurant, updates: { status?: string; is_verified?: boolean; is_featured?: boolean }) => {
+  const growthCopy = {
+    en: {
+      exclusive: 'Only on Kiyo',
+      removeExclusive: 'Remove exclusive',
+      exclusivePromptTitle: 'Mark as exclusive',
+      exclusivePrompt: 'Optional customer-facing note. Keep it honest, for example: Fair commission means fair prices.',
+      exclusiveInput: 'Trust note',
+      exclusiveConfirm: 'Save exclusive badge',
+      removeExclusiveTitle: 'Remove exclusive badge',
+      removeExclusiveBody: 'Remove the “Only on Kiyo Food” badge from this restaurant?',
+    },
+    fr: {
+      exclusive: 'Exclusif Kiyo',
+      removeExclusive: 'Retirer exclusif',
+      exclusivePromptTitle: 'Marquer comme exclusif',
+      exclusivePrompt: 'Note visible par les clients, facultative. Restez honnête, par exemple : Une commission équitable permet des prix plus justes.',
+      exclusiveInput: 'Message de confiance',
+      exclusiveConfirm: 'Enregistrer le badge exclusif',
+      removeExclusiveTitle: 'Retirer le badge exclusif',
+      removeExclusiveBody: 'Retirer le badge « Seulement sur Kiyo Food » de ce restaurant ?',
+    },
+    ar: {
+      exclusive: 'حصري كيو',
+      removeExclusive: 'إزالة الحصرية',
+      exclusivePromptTitle: 'تمييزه كمطعم حصري',
+      exclusivePrompt: 'ملاحظة اختيارية يراها العملاء. اجعلها صادقة، مثلا: عمولة عادلة تعني أسعارا أعدل.',
+      exclusiveInput: 'رسالة الثقة',
+      exclusiveConfirm: 'حفظ شارة الحصرية',
+      removeExclusiveTitle: 'إزالة شارة الحصرية',
+      removeExclusiveBody: 'هل تريد إزالة شارة "حصري على كيو فود" من هذا المطعم؟',
+    },
+  }[locale];
+
+  const updateRestaurant = async (
+    r: Restaurant,
+    updates: {
+      status?: string;
+      is_verified?: boolean;
+      is_featured?: boolean;
+      is_exclusive_to_kiyo?: boolean;
+      fair_commission_message?: string | null;
+    },
+  ) => {
     setActingId(r.id);
     setError(null);
     try {
@@ -1643,6 +1686,8 @@ function RestaurantsTab() {
         p_status: updates.status ?? null,
         p_is_verified: updates.is_verified ?? null,
         p_is_featured: updates.is_featured ?? null,
+        p_is_exclusive_to_kiyo: updates.is_exclusive_to_kiyo ?? null,
+        p_fair_commission_message: updates.fair_commission_message ?? null,
       });
       if (e) throw e;
       setRestaurants((prev) => prev.map((x) => x.id === r.id ? { ...x, ...updates } as Restaurant : x));
@@ -1651,6 +1696,33 @@ function RestaurantsTab() {
     } finally {
       setActingId(null);
     }
+  };
+
+  const toggleExclusive = async (restaurant: Restaurant) => {
+    if (restaurant.is_exclusive_to_kiyo) {
+      const confirmed = await confirmAction({
+        title: growthCopy.removeExclusiveTitle,
+        message: growthCopy.removeExclusiveBody,
+        confirmLabel: growthCopy.removeExclusive,
+        tone: 'danger',
+      });
+      if (!confirmed) return;
+      await updateRestaurant(restaurant, { is_exclusive_to_kiyo: false, fair_commission_message: null });
+      return;
+    }
+
+    const message = await requestText({
+      title: growthCopy.exclusivePromptTitle,
+      message: growthCopy.exclusivePrompt,
+      inputLabel: growthCopy.exclusiveInput,
+      initialValue: restaurant.fair_commission_message ?? '',
+      confirmLabel: growthCopy.exclusiveConfirm,
+      required: false,
+    });
+    await updateRestaurant(restaurant, {
+      is_exclusive_to_kiyo: true,
+      fair_commission_message: message,
+    });
   };
 
   if (loading) return <Skeleton count={4} />;
@@ -1674,6 +1746,9 @@ function RestaurantsTab() {
               )}
               {r.is_featured && (
                 <Sparkles className="h-4 w-4 flex-shrink-0 text-sage-500" />
+              )}
+              {r.is_exclusive_to_kiyo && (
+                <Tag className="h-4 w-4 flex-shrink-0 text-ember-500" />
               )}
             </div>
             <div className="flex items-center gap-2 text-xs text-ink-400">
@@ -1708,6 +1783,15 @@ function RestaurantsTab() {
             >
               <Sparkles className="h-3 w-3" />
               {r.is_featured ? tx('btn.unfeature', 'Unfeature') : tx('btn.feature', 'Feature')}
+            </button>
+            <button
+              onClick={() => void toggleExclusive(r)}
+              disabled={actingId === r.id}
+              className={`kiyo-btn-secondary text-xs ${r.is_exclusive_to_kiyo ? 'border-ember-500/30 text-ember-600' : ''}`}
+              title={r.is_exclusive_to_kiyo ? growthCopy.removeExclusive : growthCopy.exclusive}
+            >
+              <Tag className="h-3 w-3" />
+              {r.is_exclusive_to_kiyo ? growthCopy.removeExclusive : growthCopy.exclusive}
             </button>
             {r.status !== 'published' && !r.source_application_id && (
               <span className="max-w-48 text-right text-xs font-medium text-warning-700">{t('admin.applicationRequired')}</span>
