@@ -134,6 +134,19 @@ async function ensureProfileExists(client: SupabaseClient, user: User): Promise<
   return true;
 }
 
+async function claimReferralFromMetadata(client: SupabaseClient, user: User) {
+  const rawCode = user.user_metadata?.referral_code;
+  const referralCode = typeof rawCode === 'string'
+    ? rawCode.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()
+    : '';
+  if (referralCode.length < 6) return;
+  try {
+    await client.rpc('claim_referral_code', { p_referral_code: referralCode });
+  } catch {
+    // Non-blocking: an invalid/disabled invite code must never prevent login.
+  }
+}
+
 // ----- Context -----
 type AuthState = 'restoring' | 'unauthenticated' | 'authenticated';
 
@@ -146,7 +159,7 @@ type AuthContextValue = {
   locale: Locale;
   setLocale: (l: Locale) => void;
   signInWithPassword: (email: string, password: string) => Promise<{ ok: boolean }>;
-  signUp: (email: string, password: string, fullName: string, phone: string) => Promise<{ ok: boolean; needsEmailConfirmation?: boolean }>;
+  signUp: (email: string, password: string, fullName: string, phone: string, referralCode?: string) => Promise<{ ok: boolean; needsEmailConfirmation?: boolean }>;
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ ok: boolean; retryAfterSeconds?: number }>;
@@ -229,6 +242,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const p = await fetchProfileWithRetry(supabase, u.id);
+      await claimReferralFromMetadata(supabase, u);
       if (!mountedRef.current) return;
       if (p) {
         setProfile(p);
@@ -361,11 +375,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signUp = useCallback<AuthContextValue['signUp']>(
-    async (email, password, fullName, phone) => {
+    async (email, password, fullName, phone, referralCode) => {
       clearError();
       try {
         const normalizedEmail = email.trim().toLowerCase();
         const normalizedPhone = normalizeAlgerianPhone(phone);
+        const normalizedReferralCode = (referralCode ?? '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
         if (!normalizedPhone) {
           setError({ code: 'invalidPhone', message: translate(locale, 'auth.error.invalidPhone') });
           return { ok: false };
@@ -374,11 +389,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: normalizedEmail,
           password,
           options: {
-            data: { full_name: fullName.trim(), phone: normalizedPhone },
+            data: {
+              full_name: fullName.trim(),
+              phone: normalizedPhone,
+              ...(normalizedReferralCode.length >= 6 ? { referral_code: normalizedReferralCode } : {}),
+            },
             emailRedirectTo: getAuthRedirectUrl('/auth/callback'),
           },
         });
         if (e) throw e;
+        if (data.session?.user && normalizedReferralCode.length >= 6) {
+          await claimReferralFromMetadata(supabase, data.session.user);
+        }
         return { ok: true, needsEmailConfirmation: Boolean(data.user && !data.session) };
       } catch (err) {
         console.error('[Kiyo Auth] Sign-up failed', JSON.stringify(authDiagnostic(err)));

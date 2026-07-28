@@ -10,21 +10,42 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { AuthLayout } from './LoginPage';
 import { isValidAlgerianPhone } from '../lib/phone';
 
+const REFERRAL_COPY = {
+  en: {
+    label: 'Invite code',
+    helper: 'Optional. If a friend invited you, enter their Kiyo Food code here.',
+    placeholder: 'KF123ABC',
+  },
+  fr: {
+    label: 'Code d’invitation',
+    helper: 'Facultatif. Si un ami vous a invité, ajoutez son code Kiyo Food ici.',
+    placeholder: 'KF123ABC',
+  },
+  ar: {
+    label: 'رمز الدعوة',
+    helper: 'اختياري. إذا دعاك صديق، أدخل رمز كيو فود الخاص به هنا.',
+    placeholder: 'KF123ABC',
+  },
+} as const;
+
 export default function SignupPage() {
   const { t } = useT();
-  const { signUp, error } = useAuth();
+  const { signUp, error, locale } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const initialReferralCode = new URLSearchParams(location.search).get('ref') ?? '';
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [referralCode, setReferralCode] = useState(initialReferralCode.replace(/[^a-zA-Z0-9]/g, '').toUpperCase());
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false);
+  const referralCopy = REFERRAL_COPY[locale];
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -39,7 +60,13 @@ export default function SignupPage() {
     if (!acceptTerms) return setLocalError(t('auth.error.acceptTerms'));
 
     setSubmitting(true);
-    const { ok, needsEmailConfirmation: shouldConfirmEmail } = await signUp(email.trim(), password, fullName.trim(), phone);
+    const { ok, needsEmailConfirmation: shouldConfirmEmail } = await signUp(
+      email.trim(),
+      password,
+      fullName.trim(),
+      phone,
+      referralCode,
+    );
     setSubmitting(false);
     if (ok) {
       if (shouldConfirmEmail) {
@@ -136,6 +163,18 @@ export default function SignupPage() {
             placeholder="••••••••"
             required
           />
+          <div>
+            <Field
+              name="referralCode"
+              type="text"
+              autoComplete="off"
+              label={referralCopy.label}
+              value={referralCode}
+              onChange={(e) => setReferralCode(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase())}
+              placeholder={referralCopy.placeholder}
+            />
+            <p className="mt-1 text-xs text-ink-400">{referralCopy.helper}</p>
+          </div>
 
           <div className="rounded-xl border border-ember-100 bg-ember-50/60 px-3 py-3 text-xs text-ink-700">
             <div className="flex gap-2">

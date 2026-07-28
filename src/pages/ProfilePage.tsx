@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   LogOut, Mail, Phone, User as UserIcon, Globe, Shield,
   Download, Trash2, AlertTriangle, X, FileText, MapPin,
-  Award, Star, TrendingUp, Store,
+  Award, Star, TrendingUp, Store, Gift, Copy, Share2, CheckCircle2,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useT } from '../lib/i18n-react';
@@ -37,12 +37,46 @@ const LOYALTY_COPY = {
   },
 } as const;
 
+const REFERRAL_COPY = {
+  en: {
+    title: 'Invite friends',
+    body: 'Share your Kiyo Food code. When a new customer completes their first real order, rewards are handled safely by the platform rules.',
+    code: 'Your code',
+    copy: 'Copy',
+    copied: 'Copied',
+    share: 'Share',
+    signups: 'Signups',
+    rewarded: 'Rewarded',
+  },
+  fr: {
+    title: 'Invitez vos amis',
+    body: 'Partagez votre code Kiyo Food. Quand un nouveau client termine sa première vraie commande, les récompenses sont appliquées selon les règles de la plateforme.',
+    code: 'Votre code',
+    copy: 'Copier',
+    copied: 'Copié',
+    share: 'Partager',
+    signups: 'Inscriptions',
+    rewarded: 'Récompensés',
+  },
+  ar: {
+    title: 'ادعُ أصدقاءك',
+    body: 'شارك رمز كيو فود الخاص بك. عندما يكمل عميل جديد أول طلب حقيقي، تُطبّق المكافآت بأمان حسب قواعد المنصة.',
+    code: 'رمزك',
+    copy: 'نسخ',
+    copied: 'تم النسخ',
+    share: 'مشاركة',
+    signups: 'التسجيلات',
+    rewarded: 'المكافآت',
+  },
+} as const;
+
 export default function ProfilePage() {
   const { t } = useT();
   const { profile, signOut, locale, setLocale } = useAuth();
   const { settings, features } = useSettings();
   const loyaltyRules = normalizeLoyaltyRules(settings?.loyalty_referral);
   const loyaltyCopy = LOYALTY_COPY[locale];
+  const referralCopy = REFERRAL_COPY[locale];
   const navigate = useNavigate();
   const [savingLang, setSavingLang] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -52,6 +86,9 @@ export default function ProfilePage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [confirmText, setConfirmText] = useState('');
+  const [referralCode, setReferralCode] = useState<string | null>(profile?.referral_code ?? null);
+  const [referralStats, setReferralStats] = useState({ signups: 0, rewarded: 0 });
+  const [referralCopied, setReferralCopied] = useState(false);
 
   // Loyalty state
   const [loyalty, setLoyalty] = useState<{
@@ -81,6 +118,38 @@ export default function ProfilePage() {
       .then(({ data }) => {
         if (data) setLoyalty(data);
       });
+  }, [profile]);
+
+  useEffect(() => {
+    if (!profile || profile.role !== 'customer') return;
+
+    let cancelled = false;
+    supabase
+      .from('profiles')
+      .select('referral_code')
+      .eq('id', profile.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled && typeof data?.referral_code === 'string') {
+          setReferralCode(data.referral_code);
+        }
+      });
+
+    supabase
+      .from('referrals')
+      .select('status')
+      .eq('referrer_id', profile.id)
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        setReferralStats({
+          signups: data.length,
+          rewarded: data.filter((row) => row.status === 'rewarded').length,
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [profile]);
 
   const updateLang = async (lang: 'en' | 'fr' | 'ar') => {
@@ -180,6 +249,30 @@ export default function ProfilePage() {
     }
   };
 
+  const referralLink = referralCode
+    ? `${window.location.origin}/signup?ref=${encodeURIComponent(referralCode)}`
+    : '';
+
+  const copyReferral = async () => {
+    if (!referralLink) return;
+    await navigator.clipboard.writeText(referralLink);
+    setReferralCopied(true);
+    window.setTimeout(() => setReferralCopied(false), 1800);
+  };
+
+  const shareReferral = async () => {
+    if (!referralLink) return;
+    if (navigator.share) {
+      await navigator.share({
+        title: 'Kiyo Food',
+        text: referralCopy.body,
+        url: referralLink,
+      });
+      return;
+    }
+    await copyReferral();
+  };
+
   return (
     <AppShell>
       <h1 className="mb-6 font-display text-2xl font-extrabold tracking-tight text-ink-900">
@@ -235,6 +328,65 @@ export default function ProfilePage() {
                     ? loyaltyCopy.toTier(Math.max(0, nextTier.threshold - lifetimePoints), nextTier.name)
                     : t('profile.loyalty.maxTier')}
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {profile?.role === 'customer' && (
+          <div className="mb-4 kiyo-card border-s-4 border-s-ember-500 bg-white p-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-ember-50 text-ember-600">
+                  <Gift className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="font-display text-base font-bold text-ink-900">
+                    {referralCopy.title}
+                  </h2>
+                  <p className="mt-1 max-w-2xl text-sm text-ink-500">
+                    {referralCopy.body}
+                  </p>
+                </div>
+              </div>
+              <div className="min-w-0 rounded-2xl border border-ink-100 bg-ink-50 p-3">
+                <div className="text-xs font-semibold uppercase text-ink-400">{referralCopy.code}</div>
+                <div className="mt-1 font-display text-xl font-extrabold tracking-wide text-ink-900">
+                  {referralCode ?? '...'}
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto_auto]">
+              <div className="min-w-0 rounded-xl border border-ink-100 bg-white px-3 py-3 text-sm font-medium text-ink-700">
+                <span className="block truncate">{referralLink || '...'}</span>
+              </div>
+              <button
+                type="button"
+                onClick={copyReferral}
+                disabled={!referralLink}
+                className="kiyo-btn-secondary min-h-[44px] justify-center"
+              >
+                {referralCopied ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                {referralCopied ? referralCopy.copied : referralCopy.copy}
+              </button>
+              <button
+                type="button"
+                onClick={shareReferral}
+                disabled={!referralLink}
+                className="kiyo-btn-primary min-h-[44px] justify-center"
+              >
+                <Share2 className="h-4 w-4" />
+                {referralCopy.share}
+              </button>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+              <div className="rounded-xl bg-ink-50 px-3 py-3">
+                <div className="text-xs text-ink-400">{referralCopy.signups}</div>
+                <div className="mt-1 font-display text-lg font-bold text-ink-900">{referralStats.signups}</div>
+              </div>
+              <div className="rounded-xl bg-ink-50 px-3 py-3">
+                <div className="text-xs text-ink-400">{referralCopy.rewarded}</div>
+                <div className="mt-1 font-display text-lg font-bold text-ink-900">{referralStats.rewarded}</div>
               </div>
             </div>
           </div>
