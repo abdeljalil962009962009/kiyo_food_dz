@@ -1,19 +1,71 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { ClipboardCheck, ShieldCheck, Tag, Wallet, MapPin, LifeBuoy } from 'lucide-react';
+import { ArrowRight, ClipboardCheck, ShieldCheck, Tag, Wallet, MapPin, LifeBuoy } from 'lucide-react';
 import { useT } from '../lib/i18n-react';
 import { Logo } from '../components/Logo';
 import { FullScreenLoader } from '../components/feedback';
 import { getPublicSiteUrl } from '../lib/siteUrl';
 import { LocaleSwitcher } from '../components/LocaleSwitcher';
+import { supabase } from '../lib/supabase';
+import { withExponentialBackoff } from '../lib/locationNetwork';
 
 const HERO_IMAGE = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1800&q=82&auto=format&fit=crop';
+
+type HomepageCampaign = {
+  id: string;
+  name: string;
+  content: Record<string, unknown>;
+  ctaLabel: string | null;
+  ctaHref: string | null;
+};
+
+function readCampaignText(content: Record<string, unknown>, key: string): string | null {
+  const value = content[key];
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
 
 export function HomePage() {
   const { t } = useT();
   const { locale, setLocale } = useAuth();
   const siteUrl = getPublicSiteUrl();
+  const [campaign, setCampaign] = useState<HomepageCampaign | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void withExponentialBackoff(async () => {
+      const { data, error } = await supabase
+        .from('marketing_campaigns')
+        .select('id, name, content')
+        .eq('is_active', true)
+        .eq('campaign_type', 'in_app')
+        .in('target_audience', ['all', 'customers'])
+        .or(`scheduled_start.is.null,scheduled_start.lte.${new Date().toISOString()}`)
+        .or(`scheduled_end.is.null,scheduled_end.gt.${new Date().toISOString()}`)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data ? {
+        id: data.id,
+        name: data.name,
+        content: (data.content && typeof data.content === 'object' ? data.content : {}) as Record<string, unknown>,
+        ctaLabel: null,
+        ctaHref: null,
+      } satisfies HomepageCampaign : null;
+    }, { attempts: 2, timeoutMs: 8000 })
+      .then((data) => {
+        if (active) setCampaign(data);
+      })
+      .catch((error) => {
+        console.error('[Kiyo] Homepage campaign could not be loaded:', error);
+        if (active) setCampaign(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-ink-900 text-white">
       <section className="relative min-h-[74svh] overflow-hidden">
@@ -57,6 +109,25 @@ export function HomePage() {
               {t('auth.login')}
             </Link>
           </div>
+          {campaign && (
+            <div className="mt-7 max-w-2xl rounded-lg border border-white/15 bg-black/35 p-4 shadow-card backdrop-blur">
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-ember-300">
+                {readCampaignText(campaign.content, 'title') ?? campaign.name}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-white/90">
+                {readCampaignText(campaign.content, 'subtitle') ?? readCampaignText(campaign.content, 'message') ?? campaign.name}
+              </p>
+              {(readCampaignText(campaign.content, 'cta_href') ?? campaign.ctaHref) && (readCampaignText(campaign.content, 'cta_label') ?? campaign.ctaLabel) && (
+                <Link
+                  to={readCampaignText(campaign.content, 'cta_href') ?? campaign.ctaHref ?? '/restaurants'}
+                  className="mt-3 inline-flex min-h-11 items-center gap-2 text-sm font-bold text-white underline underline-offset-4"
+                >
+                  {readCampaignText(campaign.content, 'cta_label') ?? campaign.ctaLabel}
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              )}
+            </div>
+          )}
         </main>
       </section>
 

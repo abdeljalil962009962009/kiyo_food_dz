@@ -20,6 +20,8 @@ describe('Google Maps runtime failures', () => {
   it('detects native Google Maps error panels in English and French', () => {
     expect(containsNativeGoogleMapErrorText("This page can't load Google Maps correctly.")).toBe(true);
     expect(containsNativeGoogleMapErrorText("Google Maps ne s'est pas chargé correctement sur cette page.")).toBe(true);
-    expect(containsNativeGoogleMapErrorText('Pour plus d’informations techniques, veuillez consulter la console JavaScript.')).toBe(true);
+    expect(containsNativeGoogleMapErrorText("Pour plus d'informations techniques sur cette erreur, veuillez consulter la console JavaScript.")).toBe(true);
+    expect(containsNativeGoogleMapErrorText("Google Maps ne s'est pas chargÃ© correctement sur cette page.")).toBe(true);
+    expect(containsNativeGoogleMapErrorText('Pour plus dâ€™informations techniques, veuillez consulter la console JavaScript.')).toBe(true);
   });
 });

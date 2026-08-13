@@ -68,7 +68,7 @@ export function restaurantAcceptsOrders(
 ): boolean {
   if (
     restaurant.status !== 'published'
-    || restaurant.operational_status === 'closed'
+    || restaurant.operational_status !== 'open'
     || restaurant.is_vacation_mode
   ) return false;
 

@@ -44,9 +44,15 @@ const DIALOG_COPY = {
   ar: { confirm: 'تأكيد', cancel: 'إلغاء', close: 'إغلاق النافذة', required: 'يرجى كتابة السبب قبل المتابعة.' },
 } as const;
 
+const CORRECTED_DIALOG_COPY = {
+  en: DIALOG_COPY.en,
+  fr: { confirm: 'Confirmer', cancel: 'Annuler', close: 'Fermer la fenêtre', required: 'Saisissez un motif avant de continuer.' },
+  ar: { confirm: 'تأكيد', cancel: 'إلغاء', close: 'إغلاق النافذة', required: 'يرجى كتابة السبب قبل المتابعة.' },
+} as const;
+
 export function ActionDialogProvider({ children }: { children: ReactNode }) {
   const { locale } = useT();
-  const copy = DIALOG_COPY[locale];
+  const copy = CORRECTED_DIALOG_COPY[locale];
   const [request, setRequest] = useState<DialogRequest | null>(null);
   const [value, setValue] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);

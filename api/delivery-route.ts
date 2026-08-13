@@ -103,12 +103,12 @@ export default async function handler(request: RequestLike, response: ResponseLi
     restaurantError
     || !restaurant
     || restaurant.status !== 'published'
-    || restaurant.operational_status === 'closed'
+    || restaurant.operational_status !== 'open'
     || !isAlgerianCoordinate(Number(restaurant.latitude), Number(restaurant.longitude))
   ) {
     response.status(409).json({
       code: 'restaurant_unavailable',
-      message: restaurant?.operational_status === 'closed'
+      message: restaurant && restaurant.operational_status !== 'open'
         ? 'This restaurant is currently closed or paused. Please choose another restaurant or try again later.'
         : 'This restaurant is not ready to calculate delivery.',
     });

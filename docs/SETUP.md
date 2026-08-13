@@ -246,7 +246,7 @@ You can launch WITHOUT publishing as long as every user is on your "Test users" 
 
 1. Open your production URL → **/login**.
 2. Click **Continue with Google**.
-3. A popup opens (or full redirect on mobile). Pick a Google account.
+3. The browser opens Google's secure sign-in page. Pick a Google account.
 4. First time: Google's consent screen asks you to allow Kiyo Food → click **Allow**.
 5. You land back in the app at `/dashboard`, signed in.
 
@@ -254,7 +254,7 @@ You can launch WITHOUT publishing as long as every user is on your "Test users" 
 
 - ❌ **"redirect_uri_mismatch"** → the redirect URI in Google Cloud does not match the one Supabase generates. The correct value is `https://YOUR_PROJECT.supabase.co/auth/v1/callback` — your **Supabase project URL**, not your Vercel URL.
 - ❌ **"Access blocked: this app's request is invalid"** → you skipped OAuth consent screen setup.
-- ❌ **Popup blocked** → the app opens a popup; some browsers block it. The frontend surfaces a "Popup was blocked" error in this case (look in the UI for a banner).
+- ❌ **Sign-in returns to the login page** → verify both the Supabase redirect allow-list and the Google Cloud Supabase callback URI above. Kiyo Food uses a full-page OAuth redirect so popup blockers do not interrupt mobile sign-in.
 - ❌ **Works locally but not in production** → you forgot to add the production Vercel domain to "Authorized JavaScript origins" in Google Cloud.
 
 ---
