@@ -59,18 +59,6 @@ function describeAuthError(code: AuthErrorCode, locale: Locale): string {
   return translate(locale, map[code]);
 }
 
-function openAuthPopup(): Window | null {
-  const width = 600;
-  const height = 700;
-  const left = window.screen.width / 2 - width / 2;
-  const top = window.screen.height / 2 - height / 2;
-  return window.open(
-    'about:blank',
-    'kiyo-oauth',
-    `width=${width},height=${height},left=${left},top=${top}`,
-  );
-}
-
 // ----- Profile fetch with timeout -----
 const PROFILE_TIMEOUT_MS = 8000;
 const MAX_PROFILE_RETRIES = 1;
@@ -87,6 +75,7 @@ async function fetchProfileWithRetry(
       .from('profiles')
       .select('*')
       .eq('id', userId)
+      .abortSignal(controller.signal)
       .maybeSingle();
     if (error) throw error;
     return data as Profile | null;
@@ -116,7 +105,18 @@ async function ensureProfileExists(client: SupabaseClient, user: User): Promise<
     role: 'customer' as const,
   };
 
-  const { error } = await client.from('profiles').insert(insert);
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), PROFILE_TIMEOUT_MS);
+  let error: { code?: string; message?: string } | null;
+  try {
+    const result = await client
+      .from('profiles')
+      .insert(insert)
+      .abortSignal(controller.signal);
+    error = result.error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
 
   if (error) {
     if (error.code === '23505') return true;
@@ -227,21 +227,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loadingProfileRef.current = true;
     clearProfileError();
     try {
-      // Super-admin promotion is enforced via the DB trigger on insert;
-      // ensure profile row exists first (also runs the promotion).
-      // If this returns false, the user was signed out (stale session after auth reset).
-      const profileEnsured = await ensureProfileExists(supabase, u);
-      if (!profileEnsured) {
-        // User was signed out due to invalid session - reset state
-        if (mountedRef.current) {
-          setUser(null);
-          setProfile(null);
-          setState('unauthenticated');
+      // Most sessions already have a profile. Read first so returning users do
+      // not pay for a guaranteed duplicate insert on every app launch.
+      let p = await fetchProfileWithRetry(supabase, u.id);
+      if (!p) {
+        // OAuth and fresh sign-ups can briefly arrive before the profile trigger.
+        // Bootstrap only when the row is genuinely absent, then read it back.
+        const profileEnsured = await ensureProfileExists(supabase, u);
+        if (!profileEnsured) {
+          if (mountedRef.current) {
+            setUser(null);
+            setProfile(null);
+            setState('unauthenticated');
+          }
+          return;
         }
-        return;
+        p = await fetchProfileWithRetry(supabase, u.id);
       }
-
-      const p = await fetchProfileWithRetry(supabase, u.id);
       await claimReferralFromMetadata(supabase, u);
       if (!mountedRef.current) return;
       if (p) {
@@ -414,30 +416,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = useCallback(async () => {
     clearError();
-    const popup = openAuthPopup();
-    if (!popup) {
-      setError({
-        code: 'unknown',
-        message: translate(locale, 'auth.error.popupBlocked'),
-      });
-      return;
-    }
     try {
-      const { data, error: e } = await supabase.auth.signInWithOAuth({
+      const { error: e } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: getAuthRedirectUrl('/auth/callback'),
-          skipBrowserRedirect: true,
         },
       });
       if (e) throw e;
-      if (data?.url) {
-        popup.location.href = data.url;
-      } else {
-        popup.close();
-      }
     } catch (err) {
-      popup.close();
       const code = mapSupabaseError(err);
       setError({ code, message: describeAuthError(code, locale) });
     }
@@ -445,30 +432,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithApple = useCallback(async () => {
     clearError();
-    const popup = openAuthPopup();
-    if (!popup) {
-      setError({
-        code: 'unknown',
-        message: translate(locale, 'auth.error.popupBlocked'),
-      });
-      return;
-    }
     try {
-      const { data, error: e } = await supabase.auth.signInWithOAuth({
+      const { error: e } = await supabase.auth.signInWithOAuth({
         provider: 'apple',
         options: {
           redirectTo: getAuthRedirectUrl('/auth/callback'),
-          skipBrowserRedirect: true,
         },
       });
       if (e) throw e;
-      if (data?.url) {
-        popup.location.href = data.url;
-      } else {
-        popup.close();
-      }
     } catch (err) {
-      popup.close();
       const code = mapSupabaseError(err);
       setError({ code, message: describeAuthError(code, locale) });
     }

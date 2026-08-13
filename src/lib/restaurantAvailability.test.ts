@@ -19,6 +19,7 @@ describe('restaurant availability', () => {
     expect(restaurantAcceptsOrders(restaurant, [], mondayNoon)).toBe(true);
     expect(restaurantAcceptsOrders({ ...restaurant, status: 'suspended' }, [], mondayNoon)).toBe(false);
     expect(restaurantAcceptsOrders({ ...restaurant, operational_status: 'closed' }, [], mondayNoon)).toBe(false);
+    expect(restaurantAcceptsOrders({ ...restaurant, operational_status: 'busy' }, [], mondayNoon)).toBe(false);
     expect(restaurantAcceptsOrders({ ...restaurant, is_vacation_mode: true }, [], mondayNoon)).toBe(false);
   });
 
