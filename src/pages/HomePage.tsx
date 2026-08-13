@@ -223,7 +223,7 @@ export function NotFoundPage() {
 export function AuthCallbackPage() {
   const { t } = useT();
   const navigate = useNavigate();
-  const { state } = useAuth();
+  const { state, needsPhoneCompletion } = useAuth();
 
   useEffect(() => {
     if (window.opener) {
@@ -235,12 +235,12 @@ export function AuthCallbackPage() {
     } else {
       // Direct window redirect
       if (state === 'authenticated') {
-        navigate('/dashboard', { replace: true });
+        navigate(needsPhoneCompletion ? '/complete-profile' : '/dashboard', { replace: true });
       } else if (state === 'unauthenticated') {
         navigate('/login', { replace: true });
       }
     }
-  }, [state, navigate]);
+  }, [state, needsPhoneCompletion, navigate]);
 
   return <FullScreenLoader label={t('auth.sessionRestoring')} />;
 }
