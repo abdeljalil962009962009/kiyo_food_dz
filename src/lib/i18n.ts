@@ -38,7 +38,12 @@ export type TranslationKey =
   | 'auth.recoveryCodeInvalid'
   | 'auth.recoveryFallback'
   | 'auth.continueWithGoogle'
-  | 'auth.continueWithApple'
+  | 'auth.completePhoneTitle'
+  | 'auth.completePhoneBody'
+  | 'auth.completePhonePrivacy'
+  | 'auth.completePhoneAction'
+  | 'auth.completePhoneSaving'
+  | 'auth.completePhoneDifferentAccount'
   | 'auth.orContinueWith'
   | 'auth.noAccount'
   | 'auth.haveAccount'
@@ -752,7 +757,12 @@ const en: Dict = {
   'auth.recoveryCodeInvalid': 'Enter the valid recovery code from your latest email.',
   'auth.recoveryFallback': 'The email link could not be verified. Enter the recovery code shown in the same email.',
   'auth.continueWithGoogle': 'Continue with Google',
-  'auth.continueWithApple': 'Continue with Apple',
+  'auth.completePhoneTitle': 'Add your phone number',
+  'auth.completePhoneBody': 'Google does not provide the delivery phone number Kiyo Food needs. Add a valid Algerian mobile number to finish setting up your account.',
+  'auth.completePhonePrivacy': 'Your number is used for order coordination, delivery, and account security. It is not shown publicly.',
+  'auth.completePhoneAction': 'Save and continue',
+  'auth.completePhoneSaving': 'Saving…',
+  'auth.completePhoneDifferentAccount': 'Use a different account',
   'auth.orContinueWith': 'or',
   'auth.noAccount': "Don't have an account?",
   'auth.haveAccount': 'Already have an account?',
@@ -1454,7 +1464,12 @@ const fr: Dict = {
   'auth.recoveryCodeInvalid': 'Saisissez le code de récupération valide de votre dernier e-mail.',
   'auth.recoveryFallback': 'Le lien n’a pas pu être vérifié. Saisissez le code de récupération affiché dans le même e-mail.',
   'auth.continueWithGoogle': 'Continuer avec Google',
-  'auth.continueWithApple': 'Continuer avec Apple',
+  'auth.completePhoneTitle': 'Ajoutez votre numéro de téléphone',
+  'auth.completePhoneBody': 'Google ne transmet pas le numéro nécessaire à la livraison. Ajoutez un numéro mobile algérien valide pour terminer la création de votre compte Kiyo Food.',
+  'auth.completePhonePrivacy': 'Votre numéro sert à coordonner la commande, la livraison et la sécurité du compte. Il n’est jamais affiché publiquement.',
+  'auth.completePhoneAction': 'Enregistrer et continuer',
+  'auth.completePhoneSaving': 'Enregistrement…',
+  'auth.completePhoneDifferentAccount': 'Utiliser un autre compte',
   'auth.orContinueWith': 'ou',
   'auth.noAccount': "Vous n'avez pas de compte ?",
   'auth.haveAccount': 'Vous avez déjà un compte ?',
@@ -2156,7 +2171,12 @@ const ar: Dict = {
   'auth.recoveryCodeInvalid': 'أدخل رمز الاسترداد الصحيح من أحدث رسالة.',
   'auth.recoveryFallback': 'تعذر التحقق من الرابط. أدخل رمز الاسترداد الظاهر في الرسالة نفسها.',
   'auth.continueWithGoogle': 'المتابعة عبر Google',
-  'auth.continueWithApple': 'المتابعة عبر Apple',
+  'auth.completePhoneTitle': 'أضف رقم هاتفك',
+  'auth.completePhoneBody': 'لا يرسل Google رقم الهاتف المطلوب للتوصيل. أضف رقم هاتف جزائري صالحاً لإكمال إعداد حسابك في كيو فود.',
+  'auth.completePhonePrivacy': 'نستخدم رقمك لتنسيق الطلب والتوصيل وحماية الحساب، ولن يظهر للعموم.',
+  'auth.completePhoneAction': 'حفظ ومتابعة',
+  'auth.completePhoneSaving': 'جارٍ الحفظ…',
+  'auth.completePhoneDifferentAccount': 'استخدام حساب آخر',
   'auth.orContinueWith': 'أو',
   'auth.noAccount': 'ليس لديك حساب؟',
   'auth.haveAccount': 'لديك حساب بالفعل؟',

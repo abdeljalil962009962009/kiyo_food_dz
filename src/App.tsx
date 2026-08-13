@@ -11,7 +11,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { FullScreenLoader } from './components/feedback';
 import { SettingsProvider } from './context/SettingsContext';
 import { CookieConsentBanner } from './components/CookieConsentBanner';
-import { ProtectedRoute, PublicOnlyRoute, RoleRoute } from './components/ProtectedRoute';
+import { PhoneCompletionRoute, ProtectedRoute, PublicOnlyRoute, RoleRoute } from './components/ProtectedRoute';
 import { isSupabaseConfigured } from './lib/supabase';
 import { SupabaseConfigMissing } from './components/SupabaseConfigMissing';
 import { ActionDialogProvider } from './context/ActionDialogContext';
@@ -23,6 +23,7 @@ const LoginPage = lazy(() => import('./pages/LoginPage'));
 const SignupPage = lazy(() => import('./pages/SignupPage'));
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
+const CompleteGoogleProfilePage = lazy(() => import('./pages/CompleteGoogleProfilePage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const AuditLogPage = lazy(() => import('./pages/AuditLogPage'));
@@ -51,8 +52,10 @@ const DriverDashboardPage = lazy(() => import('./pages/DriverDashboardPage'));
 const DriverOnboardingPage = lazy(() => import('./pages/DriverOnboardingPage'));
 
 function HomeRedirect() {
-  const { state } = useAuth();
-  if (state === 'authenticated') return <Navigate to="/dashboard" replace />;
+  const { state, needsPhoneCompletion } = useAuth();
+  if (state === 'authenticated') {
+    return <Navigate to={needsPhoneCompletion ? '/complete-profile' : '/dashboard'} replace />;
+  }
   if (state === 'restoring') return <FullScreenLoader />;
   return <HomePage />;
 }
@@ -70,6 +73,7 @@ const router = createBrowserRouter([
   { path: '/login', element: withSuspense(<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>) },
   { path: '/signup', element: withSuspense(<PublicOnlyRoute><SignupPage /></PublicOnlyRoute>) },
   { path: '/auth/callback', element: withSuspense(<AuthCallbackPage />) },
+  { path: '/complete-profile', element: withSuspense(<ProtectedRoute><CompleteGoogleProfilePage /></ProtectedRoute>) },
   { path: '/forgot-password', element: withSuspense(<ForgotPasswordPage />) },
   { path: '/reset-password', element: withSuspense(<ResetPasswordPage />) },
   { path: '/auth/forgot', element: withSuspense(<ForgotPasswordPage />) },
@@ -82,8 +86,8 @@ const router = createBrowserRouter([
   { path: '/legal/account-deletion', element: withSuspense(<AccountDeletionPage />) },
   { path: '/dashboard', element: withSuspense(<ProtectedRoute><DashboardPage /></ProtectedRoute>) },
   { path: '/profile', element: withSuspense(<ProtectedRoute><ProfilePage /></ProtectedRoute>) },
-  { path: '/restaurants', element: withSuspense(<RestaurantsPage />) },
-  { path: '/restaurant/:id', element: withSuspense(<RestaurantDetailPage />) },
+  { path: '/restaurants', element: withSuspense(<PhoneCompletionRoute><RestaurantsPage /></PhoneCompletionRoute>) },
+  { path: '/restaurant/:id', element: withSuspense(<PhoneCompletionRoute><RestaurantDetailPage /></PhoneCompletionRoute>) },
   { path: '/cart', element: withSuspense(<ProtectedRoute><CartPage /></ProtectedRoute>) },
   { path: '/checkout', element: withSuspense(<ProtectedRoute><CheckoutPage /></ProtectedRoute>) },
   { path: '/orders', element: withSuspense(<ProtectedRoute><OrdersPage /></ProtectedRoute>) },

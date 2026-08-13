@@ -1,11 +1,11 @@
 # Kiyo Food — Production Setup Guide
 
-Step-by-step, click-by-click setup for the four external services the platform needs before you take the first real order. Written for a non-developer founder — every step says exactly which screen, which button, and which value to copy where.
+Step-by-step, click-by-click setup for the external services the platform needs before you take the first real order. Written for a non-developer founder — every step says exactly which screen, which button, and which value to copy where.
 
 > **Before you start**, have these accounts ready:
 > - A Supabase project (the one whose URL is `https://rjdhzfcrsxibcszzlxyp.supabase.co`)
 > - A Vercel account connected to the `kiyo_food_dz` GitHub repo
-> - (For Google + Apple) A personal Google account and an Apple Developer account ($99/yr, required for Apple)
+> - A personal Google account for Maps and Google sign-in configuration
 
 ---
 
@@ -14,9 +14,8 @@ Step-by-step, click-by-click setup for the four external services the platform n
 1. [Resend password-reset email](#1-resend-password-reset-email-setup)
 2. [Google Maps setup](#2-google-maps-setup)
 3. [Sign in with Google](#3-sign-in-with-google)
-4. [Sign in with Apple](#4-sign-in-with-apple)
-5. [Where each value goes (cheat sheet)](#5-where-each-value-goes)
-6. [Quick verification after every change](#6-quick-verification)
+4. [Where each value goes (cheat sheet)](#5-where-each-value-goes)
+5. [Quick verification after every change](#6-quick-verification)
 
 ---
 
@@ -248,7 +247,7 @@ You can launch WITHOUT publishing as long as every user is on your "Test users" 
 2. Click **Continue with Google**.
 3. The browser opens Google's secure sign-in page. Pick a Google account.
 4. First time: Google's consent screen asks you to allow Kiyo Food → click **Allow**.
-5. You land back in the app at `/dashboard`, signed in.
+5. New Google users land on `/complete-profile`, where a valid Algerian mobile number is required before app access. Returning users with a valid saved number land on `/dashboard`.
 
 #### Common mistakes
 
@@ -259,120 +258,11 @@ You can launch WITHOUT publishing as long as every user is on your "Test users" 
 
 ---
 
-## 4. Sign in with Apple
+## 4. Sign in with Apple (removed)
 
-**This is the hardest of the four.** Apple requires three things that the others don't: a paid Apple Developer account, a "Services ID" (not the App ID), and a private key you use to sign a JWT client secret. Below is the full click-by-click.
-
-> ⚠️ Apple charges $99/year for a developer account. If you don't have one yet, you can skip this for MVP and enable later — the rest of the app works fine.
-
-### Step-by-step
-
-#### A. Apple Developer account
-
-1. Open **https://developer.apple.com/** → **Account** → sign in with your Apple ID (create one if you need to).
-2. Pay the $99/year fee (this is required before you can do anything below).
-3. Once you're a member, go to **https://developer.apple.com/account/resources/certificates/list** — this is where you'll do all the work.
-
-#### B. Create a Services ID (this is *not* your app's Bundle ID)
-
-1. Top nav → **Certificates, Identifiers & Profiles** → **Identifiers**.
-2. Top-right → click the **+** button.
-3. Choose **Services IDs** → click **Continue**.
-4. Fill:
-   - **Description**: `Kiyo Food Web`
-   - **Identifier**: must be a reverse-DNS string. Convention: `com.kiyofood.web` (must be unique; pick something matching your Apple Developer team's domain convention).
-5. Click **Continue** → **Register**.
-
-#### C. Enable Sign in with Apple on the Services ID
-
-1. Still on the **Identifiers** page → click your new Services ID.
-2. Tick the box **Sign in with Apple** → click **Configure**.
-3. **Primary App ID**: select your team's main iOS App ID. If you don't have one yet, create one quickly (Identifiers → App IDs → + → App → Bundle ID = `com.kiyofood.app`).
-4. **Domains**: add your Vercel domain AND Supabase callback domain (one per line):
-   ```
-   kiyo-food.store
-   rjdhzfcrsxibcszzlxyp.supabase.co
-   ```
-5. **Return URLs**: paste the Supabase callback URL:
-   ```
-   https://rjdhzfcrsxibcszzlxyp.supabase.co/auth/v1/callback
-   ```
-6. Click **Save** → **Continue** → **Save** again on the Identifiers screen.
-
-#### D. Generate the private key
-
-1. Still in **Certificates, Identifiers & Profiles** → **Keys** (left column).
-2. Top-right → click the **+** button.
-3. **Key Name**: `Kiyo Food Web Key`.
-4. Tick **Sign in with Apple** → click **Configure** → select your primary App ID (same one as step C.3) → **Save**.
-5. Click **Continue** → **Register**.
-6. **Download the .p8 file NOW.** Save it somewhere safe — you cannot download it again. The file is named `AuthKey_ABCDEFGHIJ.p8` (the ABC… is your Key ID, copy it down).
-7. Also note your **Team ID**: top-right of any developer.apple.com page → your name → copy "Team ID" (10-character alphanumeric string).
-
-#### E. Generate the Apple client secret (this is the unusual step)
-
-> Supabase needs the client secret, but Apple requires you to **sign a JWT yourself** using the .p8 key. You do this ONCE, then paste the resulting JWT into Supabase (it expires after 6 months, so you'll need to repeat).
-
-**Easiest method:** Run this Python script (or the equivalent Node.js version) on your laptop, AFTER installing the .p8 file.
-
-1. Get Python 3 (already on macOS) or install: https://www.python.org/downloads/
-2. Save this as `gen_apple_secret.py`:
-   ```python
-   import jwt, time, uuid
-   # pip install PyJWT cryptography
-   team_id   = "ABCDE12345"          # from step D.7
-   service_id = "com.kiyofood.web"   # from step B.4
-   key_id    = "ABCDEFGHIJ"          # from step D.6 (the .p8 file's prefix)
-   with open("AuthKey_ABCDEFGHIJ.p8", "r") as f:
-       private_key = f.read()
-
-   now = int(time.time())
-   headers = {"kid": key_id, "alg": "ES256"}
-   payload = {
-       "iss": team_id,
-       "iat": now,
-       "exp": now + 60*60*24*180,           # 180 days max
-       "aud": "https://appleid.apple.com",
-       "sub": service_id,
-   }
-   token = jwt.encode(payload, private_key, algorithm="ES256", headers=headers)
-   print(token)
-   ```
-3. Run: `python3 gen_apple_secret.py`
-4. It prints a very long JWT string (~700 characters). Copy it.
-
-> **Repeat every 6 months.** Set a calendar reminder for the day before `exp`. Apple won't warn you; users will suddenly get "invalid_client" errors.
-
-#### F. Plug into Supabase
-
-1. Supabase → **Authentication** → **Providers** → find **Apple** → click to expand.
-2. Toggle **Enable** to ON.
-3. Paste:
-   - **Client ID**: the Services ID from step B.4, e.g. `com.kiyofood.web`
-   - **Client Secret**: the long JWT from step E.4
-   - **Team ID**: from step D.7
-   - **Key ID**: from step D.6
-4. Toggle **Enable Sign in with Apple (Native)** OFF (this is for iOS apps, not web).
-5. Click **Save**.
-
-#### G. Verify the redirect URL again
-
-Same as for Google — make sure `/auth/callback` is in your Supabase **URL Configuration → Redirect URLs**.
-
-#### H. Test
-
-1. Production URL → **/login** → **Continue with Apple**.
-2. First time: Apple shows a sign-in popup (or full-page on mobile). Sign in with your Apple ID.
-3. Apple asks if you want to share your real email or use a private relay (`@privaterelay.appleid.com`) — customer chooses.
-4. Click **Continue** — you land back in the app at `/dashboard`.
-
-#### Common mistakes
-
-- ❌ **"invalid_client"** → JWT is wrong or expired. Regenerate (step E).
-- ❌ **"redirect_uri_mismatch"** → your Return URL (step C.5) or Supabase's Redirect URLs (step G) don't match what's on the other side.
-- ❌ **"Sign in with Apple is not configured"** → you forgot to click **Configure** on the Services ID in step C.
-- ❌ **Works on iPhone Safari but not Chrome desktop** → Apple web sign-in sometimes misbehaves when the popup is opened cross-window. The popup code in `AuthContext.tsx` has fallback logic, but Chrome users might need to enable third-party cookies for `appleid.apple.com`.
-- ❌ **I can't find a Services ID option** → your Apple Developer account isn't paid, or you're in the wrong team. Sign out, sign back in.
+Kiyo Food does not offer Apple sign-in. The login UI and client authentication
+flow intentionally support Google plus email/password only. Keep the Apple
+provider disabled in Supabase so the operator configuration matches the app.
 
 ---
 
@@ -388,10 +278,6 @@ Same as for Google — make sure `/auth/callback` is in your Supabase **URL Conf
 | Google OAuth Client Secret | Google Cloud → Credentials | Supabase → Auth → Providers → Google |
 | Google Maps JavaScript API key | Google Cloud → Credentials | Vercel env `VITE_GOOGLE_MAPS_API_KEY` |
 | Google Maps map ID | Google Maps Platform → Map Management | Vercel env `VITE_GOOGLE_MAPS_MAP_ID` |
-| Apple Services ID | developer.apple.com | Supabase → Auth → Providers → Apple |
-| Apple Key ID | developer.apple.com | Supabase → Auth → Providers → Apple |
-| Apple Team ID | developer.apple.com (top-right) | Supabase → Auth → Providers → Apple |
-| Apple .p8 private key | developer.apple.com | Run locally to sign a JWT, paste JWT into Supabase |
 | All redirect URLs | n/a (you choose) | Supabase → Auth → URL Configuration → Redirect URLs |
 
 ---
@@ -406,8 +292,6 @@ After touching any of the four setups:
 4. **Run through each flow** you changed:
    - Email → Request password reset → check inbox → click link → set new password → log in
    - Google → Click button → choose account → land in dashboard
-   - Apple → Click button → choose Apple ID → land in dashboard
 5. **If something breaks**, check **Supabase → Auth → Logs** for the request trace. That's where errors land.
-6. **For Apple specifically**, if it silently fails, check that the JWT hasn't expired (max 6 months).
 
 If you get stuck, the logs are your friend. Both Supabase and Resend have very good log dashboards.

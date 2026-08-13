@@ -13,7 +13,7 @@ import type { UserRole } from '../lib/supabase';
  *  - unauthenticated -> redirect to /login (preserve destination)
  */
 export function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { state, profile, profileError, refreshProfile } = useAuth();
+  const { state, profile, profileError, refreshProfile, needsPhoneCompletion } = useAuth();
   const { t } = useT();
   const location = useLocation();
 
@@ -35,6 +35,9 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   if (state === 'unauthenticated' || !profile) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
+  if (needsPhoneCompletion && location.pathname !== '/complete-profile') {
+    return <Navigate to="/complete-profile" replace state={{ from: location }} />;
+  }
   return <>{children}</>;
 }
 
@@ -55,7 +58,7 @@ export function RoleRoute({ role, children }: { role: UserRole | UserRole[]; chi
  * bounce to dashboard.
  */
 export function PublicOnlyRoute({ children }: { children: ReactNode }) {
-  const { state } = useAuth();
+  const { state, needsPhoneCompletion } = useAuth();
   const location = useLocation();
   const from = (location.state as {
     from?: { pathname?: string; search?: string; hash?: string };
@@ -63,7 +66,23 @@ export function PublicOnlyRoute({ children }: { children: ReactNode }) {
   const dest = from?.pathname?.startsWith('/')
     ? `${from.pathname}${from.search ?? ''}${from.hash ?? ''}`
     : '/dashboard';
-  if (state === 'authenticated') return <Navigate to={dest} replace />;
+  if (state === 'authenticated') {
+    return <Navigate to={needsPhoneCompletion ? '/complete-profile' : dest} replace />;
+  }
   if (state === 'restoring') return <FullScreenLoader />;
+  return <>{children}</>;
+}
+
+/**
+ * Public browsing remains available to signed-out visitors. A signed-in
+ * Google user with an incomplete profile must finish the required phone step
+ * before continuing through public discovery pages as an account holder.
+ */
+export function PhoneCompletionRoute({ children }: { children: ReactNode }) {
+  const { state, needsPhoneCompletion } = useAuth();
+  const location = useLocation();
+  if (state === 'authenticated' && needsPhoneCompletion) {
+    return <Navigate to="/complete-profile" replace state={{ from: location }} />;
+  }
   return <>{children}</>;
 }

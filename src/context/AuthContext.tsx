@@ -9,6 +9,7 @@ import { translate, type Locale, type TranslationKey } from '../lib/i18n';
 import type { Profile } from '../lib/supabase';
 import { normalizeAlgerianPhone } from '../lib/phone';
 import { retryAfterSeconds } from '../lib/authRecovery';
+import { requiresGooglePhoneCompletion } from '../lib/authProfileCompletion';
 
 // ----- Auth error mapping -----
 export type AuthErrorCode =
@@ -24,7 +25,7 @@ function mapSupabaseError(err: unknown): AuthErrorCode {
   // OAuth provider not configured in Supabase.
   if (code === 'validation_failed' && lc.includes('provider is not enabled')) return 'providerNotEnabled';
   if (lc.includes('provider is not enabled') || lc.includes('provider not enabled')) return 'providerNotEnabled';
-  // OAuth provider rejected the redirect_uri (Google/Apple reject the request itself).
+  // Google rejected the OAuth redirect URI.
   if (lc.includes('redirect_uri_mismatch') || lc.includes('redirect uri') || lc.includes('invalid_request')) return 'invalidRedirect';
   if (code === 'invalid_request' && lc.includes('redirect')) return 'invalidRedirect';
   if (lc.includes('invalid login') || lc.includes('invalid credentials')) return 'invalidCredentials';
@@ -161,7 +162,8 @@ type AuthContextValue = {
   signInWithPassword: (email: string, password: string) => Promise<{ ok: boolean }>;
   signUp: (email: string, password: string, fullName: string, phone: string, referralCode?: string) => Promise<{ ok: boolean; needsEmailConfirmation?: boolean }>;
   signInWithGoogle: () => Promise<void>;
-  signInWithApple: () => Promise<void>;
+  needsPhoneCompletion: boolean;
+  completeGooglePhone: (phone: string) => Promise<{ ok: boolean }>;
   resetPassword: (email: string) => Promise<{ ok: boolean; retryAfterSeconds?: number }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -430,21 +432,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [locale]);
 
-  const signInWithApple = useCallback(async () => {
+  const completeGooglePhone = useCallback<AuthContextValue['completeGooglePhone']>(async (phone) => {
     clearError();
     try {
-      const { error: e } = await supabase.auth.signInWithOAuth({
-        provider: 'apple',
-        options: {
-          redirectTo: getAuthRedirectUrl('/auth/callback'),
-        },
+      const normalizedPhone = normalizeAlgerianPhone(phone);
+      if (!normalizedPhone) {
+        setError({ code: 'invalidPhone', message: translate(locale, 'auth.error.invalidPhone') });
+        return { ok: false };
+      }
+      const { error: e } = await supabase.rpc('complete_google_profile_phone', {
+        p_phone: normalizedPhone,
       });
       if (e) throw e;
+      if (user) {
+        const p = await fetchProfileWithRetry(supabase, user.id);
+        if (!p) throw new Error('Profile was not available after saving the phone number.');
+        setProfile(p);
+      }
+      return { ok: true };
     } catch (err) {
       const code = mapSupabaseError(err);
       setError({ code, message: describeAuthError(code, locale) });
+      return { ok: false };
     }
-  }, [locale]);
+  }, [locale, user]);
 
   const resetPassword = useCallback<AuthContextValue['resetPassword']>(
     async (email) => {
@@ -488,11 +499,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthContextValue>(
     () => ({
       state, user, profile, profileError, error, locale, setLocale,
-      signInWithPassword, signUp, signInWithGoogle, signInWithApple, resetPassword, signOut,
+      signInWithPassword, signUp, signInWithGoogle,
+      needsPhoneCompletion: requiresGooglePhoneCompletion(user, profile?.phone),
+      completeGooglePhone,
+      resetPassword, signOut,
       refreshProfile,
     }),
     [state, user, profile, profileError, error, locale, setLocale,
-     signInWithPassword, signUp, signInWithGoogle, signInWithApple, resetPassword, signOut, refreshProfile],
+     signInWithPassword, signUp, signInWithGoogle, completeGooglePhone, resetPassword, signOut, refreshProfile],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
